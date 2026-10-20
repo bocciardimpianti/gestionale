@@ -142,6 +142,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
             <div className="scheda-piede">
               <span className={stato.startsWith("Errore") || stato.startsWith("Compilare") ? "errore" : ""}>{stato}</span>
+              <span className="utente-scheda" title="Utente collegato: le modifiche vengono registrate a suo nome">
+                {profilo?.ruolo === "admin" ? "Amministrazione" : profilo?.nome || profilo?.email}
+              </span>
               <span className="comandi-piede">
                 {modificabile && <button type="submit" className="link blu">Salva</button>}
                 {!nuovo && (
