@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Filter } from "lucide-react";
+import { Camera, Filter } from "lucide-react";
 import { dataIt } from "../supabase";
 
 export interface Colonna {
   chiave: string;
   titolo: string;
   larghezza: number;
-  tipo?: "data" | "booleano" | "euro";
+  tipo?: "data" | "booleano" | "euro" | "immagine";
 }
 
 type Riga = Record<string, unknown> & { id: number };
@@ -20,6 +20,8 @@ interface Props {
   // Riceve le righe visibili (filtrate e ordinate), per esportazione e stampa
   onVisibili?: (righe: Riga[]) => void;
   ordineIniziale?: { chiave: string; su: boolean };
+  // Ricerca libera su tutte le colonne
+  ricerca?: string;
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -29,7 +31,7 @@ const mostra = (c: Colonna, r: Riga) =>
   c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave]) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale }: Props) {
+export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "" }: Props) {
   const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
   // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record
@@ -50,7 +52,9 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
 
   const visibili = useMemo(() => {
     const attivi = Object.entries(filtri).filter(([, f]) => f.trim());
+    const parole = ricerca.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const filtrate = righe.filter((r) =>
+      parole.every((p) => colonne.some((c) => c.tipo !== "booleano" && c.tipo !== "immagine" && mostra(c, r).toLowerCase().includes(p))) &&
       attivi.every(([k, f]) => {
         const c = colonne.find((c) => c.chiave === k);
         if (c?.tipo === "booleano") return f === "sì" ? !!r[k] : !r[k];
@@ -64,7 +68,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
         ? segno * (Number(a[ordine.chiave] ?? 0) - Number(b[ordine.chiave] ?? 0))
         : segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
-  }, [righe, filtri, ordine, colonne]);
+  }, [righe, filtri, ordine, colonne, ricerca]);
 
   useEffect(() => {
     onVisibili?.(visibili);
@@ -125,7 +129,9 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
               >
                 <td className="indicatore-riga">{r.id === selezionata ? "▸" : ""}</td>
                 {colonne.map((c) => (
-                  c.tipo === "booleano" ? (
+                  c.tipo === "immagine" ? (
+                    <td key={c.chiave} className="centrata">{r[c.chiave] ? <Camera size={13} color="#8a6d3b" /> : null}</td>
+                  ) : c.tipo === "booleano" ? (
                     <td key={c.chiave} className="centrata"><input type="checkbox" checked={!!r[c.chiave]} readOnly tabIndex={-1} /></td>
                   ) : (
                     <td key={c.chiave} title={mostra(c, r)} className={c.tipo === "euro" ? "destra" : ""}>{mostra(c, r)}</td>

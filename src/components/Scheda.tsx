@@ -6,6 +6,7 @@ import { useAuth } from "../auth";
 import type { Archivio, Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
+import CampoImmagine, { ARCHIVIO_FILE } from "./CampoImmagine";
 
 interface Props {
   cfg: Archivio;
@@ -26,7 +27,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [gestione, setGestione] = useState<Campo | null>(null);
   const [versioneOpzioni, setVersioneOpzioni] = useState(0);
   const [dati, setDati] = useState<Record<string, unknown>>(valori);
-  const [opzioni, setOpzioni] = useState<Record<string, { valore: string; etichetta: string }[]>>({});
+  const [opzioni, setOpzioni] = useState<Record<string, { valore: string; etichetta: string; riga?: Record<string, unknown> }[]>>({});
   const [linguetta, setLinguetta] = useState("Principale");
   const [stato, setStato] = useState("Pronto");
   const [ingrandita, setIngrandita] = useState(false);
@@ -112,8 +113,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       setOpzioni((o) => ({ ...o, [c.chiave]: c.opzioniFisse!.map((v) => ({ valore: v, etichetta: v })) }));
     }
     for (const c of cfg.campi.filter((c) => c.opzioniDa)) {
-      supabase.from(c.opzioniDa!).select("nome").order("ordine").then(({ data }) =>
-        setOpzioni((o) => ({ ...o, [c.chiave]: (data ?? []).map((r) => ({ valore: r.nome, etichetta: r.nome })) })),
+      supabase.from(c.opzioniDa!).select("*").order("ordine").then(({ data }) =>
+        setOpzioni((o) => ({ ...o, [c.chiave]: (data ?? []).map((r) => ({ valore: r.nome, etichetta: r.nome, riga: r })) })),
       );
     }
     for (const c of cfg.campi.filter((c) => c.opzioniRpc)) {
@@ -130,6 +131,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     for (const c of tuttiCampi.filter((c) => c.tipo !== "titolo" && !(c.solaLettura && c.chiave in totali))) {
       const v = dati[c.chiave];
       if (c.solaLettura && nuovo && vuoto(v)) continue;
+      if ((c.tipo === "foto" || c.tipo === "firma") && v instanceof Blob) continue;
       record[c.chiave] =
         c.tipo === "booleano" ? !!v
         : c.tipo === "numero" || c.tipo === "euro" ? (vuoto(v) ? null : Number(v))
@@ -164,12 +166,41 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         if (ins.error) return setStato("Errore: " + ins.error.message);
       }
     }
+    // Foto e firma: caricamento dei nuovi file e rimozione di quelli sostituiti o eliminati
+    const id = risposta.data.id;
+    const immagini = tuttiCampi.filter((c) => c.tipo === "foto" || c.tipo === "firma");
+    const daAggiornare: Record<string, string> = {};
+    for (const c of immagini) {
+      const v = dati[c.chiave];
+      if (!(v instanceof Blob)) continue;
+      setStato(`Caricamento ${c.etichetta.toLowerCase()}…`);
+      const percorso = `${id}/${c.chiave}-${Date.now()}.${v.type === "image/png" ? "png" : "jpg"}`;
+      const up = await supabase.storage.from(ARCHIVIO_FILE).upload(percorso, v, { contentType: v.type || "image/jpeg" });
+      if (up.error) return setStato("Errore nel caricamento: " + up.error.message);
+      daAggiornare[c.chiave] = percorso;
+    }
+    if (Object.keys(daAggiornare).length) {
+      const agg = await supabase.from(cfg.tabella).update(daAggiornare).eq("id", id);
+      if (agg.error) return setStato("Errore: " + agg.error.message);
+    }
+    const vecchi = immagini
+      .map((c) => valori[c.chiave])
+      .filter((p): p is string => typeof p === "string" && !!p && !immagini.some((c) => dati[c.chiave] === p));
+    if (vecchi.length) await supabase.storage.from(ARCHIVIO_FILE).remove(vecchi);
+
     await registra(`${cfg.sezione}_${nuovo ? "creato" : "modificato"}`, { id: risposta.data.id, nome: dati[cfg.colonne[0].chiave] ?? testoRif[cfg.campi.find((c) => c.tipo === "riferimento")?.chiave ?? ""] ?? null });
     onSalvato(risposta.data.id);
   };
 
   const campo = (c: Campo, aCapo: boolean) => {
     if (c.tipo === "titolo") return <div key={c.chiave} className={`sezione-scheda ${c.stile ?? "grigio"}`}>{c.etichetta}</div>;
+    if (c.tipo === "foto" || c.tipo === "firma")
+      return (
+        <div key={c.chiave} style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
+          <CampoImmagine etichetta={c.etichetta} valore={dati[c.chiave]} firma={c.tipo === "firma"} modificabile={modificabile}
+            onCambia={(v) => cambia(c.chiave, v)} />
+        </div>
+      );
     const valore = String((c.chiave in totali ? totali[c.chiave] : dati[c.chiave]) ?? "");
     const props = {
       id: `campo-${c.chiave}`,
@@ -230,7 +261,16 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     else if (c.tipo === "scelta")
       controllo = (
         <span className="scelta">
-          <select {...props} disabled={!modificabile}>
+          <select {...props} disabled={!modificabile} onChange={(e) => {
+            const scelta = (opzioni[c.chiave] ?? []).find((o) => o.valore === e.target.value);
+            if (c.copiaDaOpzione && scelta?.riga) {
+              setDati((d) => {
+                const n: Record<string, unknown> = { ...d, [c.chiave]: e.target.value };
+                for (const k of c.copiaDaOpzione!) n[k] = scelta.riga![k] ?? null;
+                return n;
+              });
+            } else cambia(c.chiave, e.target.value);
+          }}>
             <option value="" />
             {(opzioni[c.chiave] ?? []).map((o) => <option key={o.valore} value={o.valore}>{o.etichetta}</option>)}
           </select>
@@ -349,6 +389,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       const { data } = await supabase.from(col.riferimento!.tabella).select("*").eq("id", id).single();
       for (const [k, v] of Object.entries(data ?? {})) collegati[`${col.chiave}_${k}`] = v;
     }
+    const firma = dati.firma;
+    if (firma instanceof Blob) collegati._firma_url = URL.createObjectURL(firma);
+    else if (typeof firma === "string" && firma) {
+      const { data } = await supabase.storage.from(ARCHIVIO_FILE).createSignedUrl(firma, 600);
+      collegati._firma_url = data?.signedUrl;
+    }
     finestra.document.write(cfg.stampa!({ ...dati, ...totali, ...testoRifNomi(), ...collegati }, righe));
     finestra.document.close();
   };
@@ -444,6 +490,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           <GestioneElenco
           titolo={gestione.titoloOpzioni!}
           tabella={gestione.opzioniDa!}
+          colonne={gestione.colonneOpzioni}
             onChiudi={() => { setGestione(null); setVersioneOpzioni((v) => v + 1); }}
           />
         </div>

@@ -5,7 +5,11 @@ import { stampaRapporto } from "./stampe";
 export interface Campo {
   chiave: string;
   etichetta: string;
-  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano";
+  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma";
+  // Campi a scelta: scegliendo un'opzione copia questi valori dalla sua riga (es. importi della tariffa)
+  copiaDaOpzione?: string[];
+  // Campi numerici aggiuntivi nella finestra di gestione delle opzioni
+  colonneOpzioni?: { chiave: string; etichetta: string }[];
   // Linguetta in cui mostrare il campo (default: Principale)
   linguetta?: string;
   // Campo non modificabile (es. numero automatico, totali calcolati)
@@ -114,11 +118,19 @@ function oreRapporto(dati: Record<string, unknown>, chiave: string) {
 // Imponibile = materiali + diritto di chiamata + tariffa fissa + ore × tariffa oraria + km × tariffa km
 function totaliRapporto(dati: Record<string, unknown>, righe: Record<string, unknown>[]) {
   const materiali = righe.reduce((t, r) => t + n(r.totale), 0);
-  const tariffe = n(dati.diritto_chiamata) + n(dati.tariffa_fissa) + n(dati.totale_ore) * n(dati.tariffa_oraria) + n(dati.km_percorsi) * n(dati.tariffa_km);
+  const prezzoOre = Math.round(n(dati.totale_ore) * n(dati.tariffa_oraria) * 100) / 100;
+  const prezzoKm = Math.round(n(dati.km_percorsi) * n(dati.tariffa_km) * 100) / 100;
+  const tariffe = n(dati.diritto_chiamata) + n(dati.tariffa_fissa) + prezzoOre + prezzoKm;
   // I rapporti importati non hanno righe né tariffe: si conserva l'imponibile originale
   const calcolato = righe.length || tariffe ? Math.round((materiali + tariffe) * 100) / 100 : n(dati.imponibile);
   const imponibile = dati.azzera_imponibile ? 0 : calcolato;
-  return { imponibile, _totale: dati.considera_totale_preventivo ? n(dati.totale_preventivo) : imponibile };
+  return {
+    imponibile,
+    _totale: dati.considera_totale_preventivo ? n(dati.totale_preventivo) : imponibile,
+    _prezzo_ore: prezzoOre,
+    _prezzo_km: prezzoKm,
+    _totale_servizi: Math.round(tariffe * 100) / 100,
+  };
 }
 
 const oraAttuale = () => new Date().toTimeString().slice(0, 5);
@@ -330,6 +342,10 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "rif_preventivo", titolo: "Rif. Preventivo", excel: "Rif. Preventivo", larghezza: 149 },
       { chiave: "totale_preventivo", titolo: "Totale Preventivo", excel: "Totale Preventivo", larghezza: 66, tipo: "euro" },
       { chiave: "note", titolo: "Note", excel: "Note", larghezza: 48 },
+      { chiave: "foto1", titolo: "Foto", excel: "Foto", larghezza: 22, tipo: "immagine" },
+      { chiave: "foto2", titolo: "Foto 2", excel: "Foto 2", larghezza: 22, tipo: "immagine" },
+      { chiave: "foto3", titolo: "Foto 3", excel: "Foto 3", larghezza: 22, tipo: "immagine" },
+      { chiave: "foto4", titolo: "Foto 4", excel: "Foto 4", larghezza: 22, tipo: "immagine" },
       { chiave: "gimpianto", titolo: "gimpianto", excel: "gimpianto", larghezza: 136 },
     ],
     campi: [
@@ -362,12 +378,29 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "data_pagamento", etichetta: "Data Pagamento", tipo: "data", larghezza: 1, finisciRiga: true },
       { chiave: "attivita", etichetta: "Attività svolte", tipo: "area", larghezza: 4 },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
-      { chiave: "km_percorsi", etichetta: "KM percorsi", tipo: "numero", larghezza: 1, linguetta: "Tariffe" },
-      { chiave: "diritto_chiamata", etichetta: "Diritto di chiamata", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "firma", etichetta: "Firma", tipo: "firma", larghezza: 2, linguetta: "Dettaglio" },
+      { chiave: "foto1", etichetta: "Foto", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
+      { chiave: "foto2", etichetta: "Foto 2", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
+      { chiave: "foto3", etichetta: "Foto 3", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
+      { chiave: "foto4", etichetta: "Foto 4", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
+      {
+        chiave: "tariffa", etichetta: "Tariffa", tipo: "scelta", opzioniDa: "tariffe", titoloOpzioni: "Tariffe", larghezza: 1, linguetta: "Tariffe",
+        copiaDaOpzione: ["diritto_chiamata", "tariffa_fissa", "tariffa_oraria", "tariffa_km"],
+        colonneOpzioni: [
+          { chiave: "diritto_chiamata", etichetta: "Diritto chiamata" },
+          { chiave: "tariffa_fissa", etichetta: "Tariffa fissa" },
+          { chiave: "tariffa_oraria", etichetta: "Tariffa oraria" },
+          { chiave: "tariffa_km", etichetta: "Tariffa KM" },
+        ],
+      },
+      { chiave: "diritto_chiamata", etichetta: "Diritto chiamata", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
       { chiave: "tariffa_fissa", etichetta: "Tariffa fissa", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
       { chiave: "tariffa_oraria", etichetta: "Tariffa oraria", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
       { chiave: "tariffa_km", etichetta: "Tariffa KM", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
-      { chiave: "iva", etichetta: "Iva %", tipo: "numero", larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "_prezzo_km", etichetta: "Totale prezzo KM", tipo: "euro", solaLettura: true, larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "_prezzo_ore", etichetta: "Totale prezzo oraria", tipo: "euro", solaLettura: true, larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "_totale_servizi", etichetta: "Totale servizi", tipo: "euro", solaLettura: true, larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "km_percorsi", etichetta: "KM percorsi", tipo: "numero", larghezza: 1, linguetta: "Tariffe" },
     ],
     righe: {
       tabella: "righe_rapporto",

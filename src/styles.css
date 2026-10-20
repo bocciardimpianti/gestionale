@@ -341,3 +341,28 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
   .piede-totali { grid-template-columns: 1fr; gap: 6px; }
   .voce-piede:nth-child(n) { grid-column: 1; grid-row: auto; }
 }
+
+/* Logo nella pagina di accesso */
+.logo-azienda { width: 150px; align-self: center; }
+
+/* Ricerca libera in testata */
+.testata { gap: 16px; }
+.testata h1 { flex: 0 0 auto; }
+.ricerca {
+  flex: 1; max-width: 420px; margin-left: auto; display: flex; flex-direction: row; align-items: center; gap: 6px;
+  background: #fff; border: 1px solid #cfd4da; height: 32px; padding: 0 8px; color: #6f7680;
+}
+.ricerca input { flex: 1; border: none; outline: none; padding: 0; height: 100%; background: transparent; }
+@media (max-width: 760px) { .ricerca { order: 3; max-width: none; flex-basis: 100%; } }
+
+/* Foto e firma (linguetta Dettaglio) */
+.cornice-immagine { height: 90px; }
+.contenuto-immagine { flex: 1; display: flex; align-items: center; gap: 10px; min-height: 0; padding-bottom: 4px; }
+.contenuto-immagine img { max-height: 64px; max-width: 220px; object-fit: contain; display: block; }
+.comandi-immagine { display: flex; gap: 6px; }
+.comandi-immagine button {
+  width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #b8bcc2; background: #fff; color: #8a8f96;
+  display: grid; place-items: center; padding: 0;
+}
+.comandi-immagine button:hover { color: #3a7dc0; border-color: #3a7dc0; background: #fff; }
+.pad-firma { width: 100%; height: auto; aspect-ratio: 3 / 1; border: 1px dashed #9aa3ad; background: #fff; touch-action: none; display: block; }

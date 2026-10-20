@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
 import {
   ChevronRight, Columns3, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, RefreshCw,
-  RotateCcw, Sheet, Trash2, Undo2,
+  RotateCcw, Search, Sheet, Trash2, Undo2,
 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -45,6 +45,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [sceltaColonne, setSceltaColonne] = useState(false);
   const [nascoste, setNascoste] = useState<string[]>(() => leggiNascoste(cfg.sezione));
   const [messaggio, setMessaggio] = useState("");
+  const [ricerca, setRicerca] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const carica = useCallback(async () => {
@@ -74,10 +75,15 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   };
 
   const nelCestino = vista.tipo === "cestino";
-  const righeVista = righe.filter((r) =>
-    nelCestino ? !!r.eliminato_il : !r.eliminato_il && (vista.tipo === "tutti" || r.archivio_id === vista.id),
+  // Memorizzati: la griglia ricalcola filtri e ordinamento solo quando cambiano davvero
+  const idArchivio = vista.tipo === "archivio" ? vista.id : null;
+  const righeVista = useMemo(
+    () => righe.filter((r) =>
+      nelCestino ? !!r.eliminato_il : !r.eliminato_il && (idArchivio === null || r.archivio_id === idArchivio),
+    ),
+    [righe, nelCestino, idArchivio],
   );
-  const colonne = cfg.colonne.filter((c) => !nascoste.includes(c.chiave));
+  const colonne = useMemo(() => cfg.colonne.filter((c) => !nascoste.includes(c.chiave)), [cfg.colonne, nascoste]);
   const rigaSel = righeVista.find((r) => r.id === selezionata);
   const nomeDi = (r: Riga) => String(r[cfg.colonne[0].chiave] ?? "");
 
@@ -167,6 +173,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       if (indiceIntestazione < 0) throw new Error("Il file non contiene le colonne attese");
       const intestazione = celle[indiceIntestazione].map(normalizza);
       const mappa = cfg.colonne
+        .filter((c) => c.tipo !== "immagine")
         .map((c) => ({ chiave: c.chiave, i: intestazione.indexOf(normalizza(c.excel)) }))
         .filter((m) => m.i >= 0);
 
@@ -284,6 +291,15 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     <div className="pagina-archivio" onClick={() => menu && setMenu("")}>
       <div className="testata">
         <h1>{titoloVista}</h1>
+        <label className="ricerca">
+          <Search size={16} />
+          <input
+            type="search"
+            placeholder="Cerca in tutte le colonne…"
+            value={ricerca}
+            onChange={(e) => setRicerca(e.target.value)}
+          />
+        </label>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>
           {puo(cfg.sezione, "creare") && !nelCestino && (
             <button className="btn blu" onClick={apriNuovo}>Nuovo</button>
@@ -341,6 +357,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         onApri={(r) => setScheda(r)}
         onVisibili={setVisibili}
         ordineIniziale={cfg.ordineIniziale}
+        ricerca={ricerca}
       />
 
       {scheda && (

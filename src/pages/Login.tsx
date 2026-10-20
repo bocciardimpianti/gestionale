@@ -20,6 +20,7 @@ export default function Login() {
   return (
     <div className="schermo-accesso">
       <form className="riquadro" onSubmit={invia}>
+        <img src="logo.png" alt="Bocciardi Impianti" className="logo-azienda" />
         <div className="logo-accesso"><Logo /></div>
         <p className="sottotitolo">Bocciardi Impianti · Accesso riservato</p>
         <label>

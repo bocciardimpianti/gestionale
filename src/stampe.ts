@@ -9,6 +9,9 @@ export const AZIENDA = {
   email: "info@bocciardimpianti.it",
 };
 
+// Indirizzo completo del logo (la stampa si apre in una finestra nuova)
+const logo = () => new URL("logo.png", location.href).href;
+
 const esc = (v: unknown) =>
   String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const euro = (v: unknown) =>
@@ -33,7 +36,7 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   * { box-sizing: border-box; }
   body { font: 11px Calibri, Arial, sans-serif; color: #222; margin: 0; }
   .alto { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-  .azienda h1 { color: #1e88e5; font-size: 17px; margin: 40px 0 4px; }
+  .azienda h1 { color: #1e88e5; font-size: 17px; margin: 12px 0 4px; }
   .azienda div { font-size: 11.5px; line-height: 1.35; }
   .box { border: 1.5px solid #1e88e5; }
   .celle { display: grid; }
@@ -68,6 +71,7 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
 </style></head><body>
 <div class="alto">
   <div class="azienda">
+    <img src="${logo()}" alt="" style="height: 95px; margin-top: 6px">
     <h1>${esc(AZIENDA.nome)}</h1>
     <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)}<br>Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div>
   </div>
@@ -125,7 +129,7 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   <div class="documento"><div class="etichetta">Totale Documento</div><div class="valore">${euro(totale) || "0,00 €"}</div></div>
 </div>
 <div class="annotazioni"><div class="etichetta">Annotazioni</div>${esc(d.note).replace(/\n/g, "<br>")}</div>
-<div class="firma"><div class="etichetta">Firma Cliente</div></div>
+<div class="firma"><div class="etichetta">Firma Cliente</div>${d._firma_url ? `<img src="${esc(d._firma_url)}" alt="" style="max-height: 70px; max-width: 100%">` : ""}</div>
 <div class="pagina">Pagina: 1 / 1</div>
 <script>window.onload = () => window.print()</script>
 </body></html>`;
