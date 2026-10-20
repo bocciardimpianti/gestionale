@@ -1,9 +1,12 @@
 import type { Colonna } from "./components/Griglia";
+import { dataIso } from "./supabase";
 
 export interface Campo {
   chiave: string;
   etichetta: string;
-  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo";
+  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento";
+  // Per i campi "riferimento": tabella collegata (si sceglie per nome, si salva l'id)
+  riferimentoA?: string;
   // Colonne occupate su 4 (come nella scheda originale); 0.5 = mezza colonna
   larghezza?: 0.5 | 1 | 2 | 4;
   // Per i titoli di sezione: fascia grigia (default) o blu
@@ -27,10 +30,35 @@ export interface Archivio {
   // Linguette aggiuntive della scheda, dopo "Principale"
   linguette?: string[];
   tabella: string;
-  colonne: (Colonna & { excel: string })[];
+  colonne: (Colonna & {
+    excel: string;
+    // Colonna che mostra il nome di un record collegato: in importazione il nome diventa l'id
+    riferimento?: { campo: string; tabella: string };
+  })[];
   campi: Campo[];
-  // Campo usato per riconoscere i doppioni in importazione
-  chiaveImport: string;
+  // Campo (o campi) usati per riconoscere i doppioni in importazione
+  chiaveImport: string | string[];
+  // Colonne da leggere, con eventuali tabelle collegate (default "*")
+  select?: string;
+  // Ricalcola altri campi quando uno cambia (es. data prossimo intervento)
+  quandoCambia?: (dati: Record<string, unknown>, chiave: string) => Record<string, unknown> | null;
+  // Linguette della scheda che mostrano i record collegati (es. gli impianti di un cliente)
+  figli?: { linguetta: string; tabella: string; campo: string; colonne: Colonna[] }[];
+}
+
+// Mesi di ogni periodicità, per proporre la data del prossimo intervento
+const MESI_PERIODO: Record<string, number> = {
+  Mensile: 1, Trimestrale: 3, Quadrimestrale: 4, Semestrale: 6, Annuale: 12, Biennale: 24, Triennale: 36,
+};
+
+function prossimoIntervento(dati: Record<string, unknown>, chiave: string) {
+  if (chiave !== "periodo" && chiave !== "data_ultimo") return null;
+  const mesi = MESI_PERIODO[String(dati.periodo ?? "")];
+  const ultimo = dataIso(dati.data_ultimo);
+  if (!mesi || !ultimo) return null;
+  const [a, m, g] = ultimo.split("-").map(Number);
+  const d = new Date(a, m - 1 + mesi, g);
+  return { data_prossimo: dataIso(d) };
 }
 
 // Configurazione delle sezioni a griglia, colonne nello stesso ordine e con gli stessi titoli dell'originale
@@ -41,6 +69,19 @@ export const ARCHIVI: Record<string, Archivio> = {
     titoloNuovo: "Nuovo cliente",
     linguette: ["Impianti", "Storico", "Log Cloud"],
     tabella: "clienti",
+    figli: [{
+      linguetta: "Impianti",
+      tabella: "impianti",
+      campo: "cliente_id",
+      colonne: [
+        { chiave: "impianto", titolo: "Impianto", larghezza: 200 },
+        { chiave: "tipo_impianto", titolo: "Tipo impianto", larghezza: 150 },
+        { chiave: "marca", titolo: "Marca", larghezza: 130 },
+        { chiave: "modello", titolo: "Modello", larghezza: 130 },
+        { chiave: "periodo", titolo: "Periodo", larghezza: 100 },
+        { chiave: "data_prossimo", titolo: "Data prossimo intervento", larghezza: 160, tipo: "data" },
+      ],
+    }],
     chiaveImport: "nome",
     colonne: [
       { chiave: "nome", titolo: "Nome Cliente", excel: "Nome Cliente", larghezza: 345 },
@@ -127,6 +168,44 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "nome", etichetta: "tecnici", obbligatorio: true, larghezza: 2 },
       { chiave: "utente_id", etichetta: "Tecnico (utente del gestionale)", tipo: "scelta", opzioniRpc: "elenco_utenti", larghezza: 2 },
       { chiave: "id_tecnico", etichetta: "ID Tecnico", larghezza: 2 },
+    ],
+  },
+  impianti: {
+    sezione: "impianti",
+    titolo: "Impianti",
+    titoloNuovo: "Nuovo impianto",
+    linguette: ["Materiali", "Storico", "Log Cloud"],
+    tabella: "impianti",
+    select: "*, cliente:clienti(nome)",
+    chiaveImport: ["cliente", "impianto", "tipo_impianto", "marca", "modello", "matricola"],
+    quandoCambia: prossimoIntervento,
+    colonne: [
+      { chiave: "cliente", titolo: "Cliente", excel: "Cliente", larghezza: 290, riferimento: { campo: "cliente_id", tabella: "clienti" } },
+      { chiave: "periodo", titolo: "Periodo", excel: "Periodo", larghezza: 129 },
+      { chiave: "tipo_impianto", titolo: "Tipo impianto", excel: "Tipo impianto", larghezza: 132 },
+      { chiave: "impianto", titolo: "Impianto", excel: "Impianto", larghezza: 108 },
+      { chiave: "marca", titolo: "Marca", excel: "Marca", larghezza: 126 },
+      { chiave: "modello", titolo: "Modello", excel: "Modello", larghezza: 107 },
+      { chiave: "matricola", titolo: "Matricola", excel: "Matricola", larghezza: 108 },
+      { chiave: "anno", titolo: "Anno", excel: "Anno", larghezza: 97 },
+      { chiave: "note", titolo: "Note", excel: "Note", larghezza: 97 },
+      { chiave: "materiali", titolo: "materiali", excel: "materiali", larghezza: 117 },
+      { chiave: "data_prossimo", titolo: "Data prossimo intervento", excel: "Data prossimo intervento", larghezza: 159, tipo: "data" },
+      { chiave: "data_ultimo", titolo: "Data Ultimo Intervento", excel: "Data Ultimo Intervento", larghezza: 152, tipo: "data" },
+    ],
+    campi: [
+      { chiave: "periodo", etichetta: "Periodo", tipo: "scelta", opzioniDa: "periodi", titoloOpzioni: "Periodi", larghezza: 1 },
+      { chiave: "data_prossimo", etichetta: "Data prossimo intervento", tipo: "data", larghezza: 1 },
+      { chiave: "tipo_impianto", etichetta: "Tipo impianto", larghezza: 2 },
+      { chiave: "impianto", etichetta: "Impianto", larghezza: 2 },
+      { chiave: "marca", etichetta: "Marca", larghezza: 2 },
+      { chiave: "modello", etichetta: "Modello", larghezza: 2 },
+      { chiave: "matricola", etichetta: "Matricola", larghezza: 1 },
+      { chiave: "anno", etichetta: "Anno", larghezza: 1 },
+      { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
+      { chiave: "materiali", etichetta: "materiali", larghezza: 2 },
+      { chiave: "data_ultimo", etichetta: "Data Ultimo Intervento", tipo: "data", larghezza: 1, finisciRiga: true },
+      { chiave: "cliente_id", etichetta: "Cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2, finisciRiga: true },
     ],
   },
 };

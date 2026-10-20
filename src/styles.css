@@ -292,3 +292,5 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
   font-size: 11px; color: #3b5a8a; padding: 2px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 @media (max-width: 760px) { .utente-scheda { display: none; } }
+.cornice input.non-trovato { color: #b42318; }
+.cornice input[type="date"] { font-size: 13px; }

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
-import { registra, supabase, vuoto } from "../supabase";
+import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import type { Archivio, Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
@@ -31,6 +31,33 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [ingrandita, setIngrandita] = useState(false);
   const [ridotta, setRidotta] = useState(false);
   const [menuAzioni, setMenuAzioni] = useState(false);
+  // Campi collegati (es. Cliente): testo digitato ed elenco dei nomi disponibili
+  const [testoRif, setTestoRif] = useState<Record<string, string>>(() => {
+    const t: Record<string, string> = {};
+    for (const col of cfg.colonne) if (col.riferimento) t[col.riferimento.campo] = String(valori[col.chiave] ?? "");
+    return t;
+  });
+  const [elenchiRif, setElenchiRif] = useState<Record<string, { id: number; nome: string }[]>>({});
+
+  useEffect(() => {
+    for (const c of cfg.campi.filter((c) => c.tipo === "riferimento")) {
+      leggiTutto(c.riferimentoA!, "id, nome").then((r) =>
+        setElenchiRif((e) => ({ ...e, [c.chiave]: r as unknown as { id: number; nome: string }[] })),
+      );
+    }
+  }, [cfg.campi]);
+
+  const cambia = (chiave: string, valore: unknown) =>
+    setDati((d) => {
+      const nuovi = { ...d, [chiave]: valore };
+      return { ...nuovi, ...(cfg.quandoCambia?.(nuovi, chiave) ?? {}) };
+    });
+
+  const cambiaRiferimento = (c: Campo, testo: string) => {
+    setTestoRif((t) => ({ ...t, [c.chiave]: testo }));
+    const trovato = (elenchiRif[c.chiave] ?? []).find((r) => r.nome.trim().toLowerCase() === testo.trim().toLowerCase());
+    cambia(c.chiave, trovato?.id ?? null);
+  };
 
   useEffect(() => {
     for (const c of cfg.campi.filter((c) => c.opzioniDa)) {
@@ -53,6 +80,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       record[c.chiave] = vuoto(dati[c.chiave]) ? null : String(dati[c.chiave]).trim();
     }
     if (nuovo && valori.archivio_id) record.archivio_id = valori.archivio_id;
+    const rifNonValido = cfg.campi.find((c) => c.tipo === "riferimento" && !vuoto(testoRif[c.chiave]) && vuoto(dati[c.chiave]));
+    if (rifNonValido) return setStato(`"${testoRif[rifNonValido.chiave]}" non è presente in ${rifNonValido.riferimentoA}: sceglilo dall'elenco`);
     const obbligatorio = cfg.campi.find((c) => c.obbligatorio && vuoto(record[c.chiave]));
     if (obbligatorio) return setStato(`Compilare il campo "${obbligatorio.etichetta}"`);
     setStato("Salvataggio…");
@@ -60,7 +89,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       ? await supabase.from(cfg.tabella).insert(record).select("id").single()
       : await supabase.from(cfg.tabella).update(record).eq("id", valori.id).select("id").single();
     if (risposta.error) return setStato("Errore: " + risposta.error.message);
-    await registra(`${cfg.sezione}_${nuovo ? "creato" : "modificato"}`, { id: risposta.data.id, nome: record[cfg.colonne[0].chiave] });
+    await registra(`${cfg.sezione}_${nuovo ? "creato" : "modificato"}`, { id: risposta.data.id, nome: dati[cfg.colonne[0].chiave] ?? testoRif[cfg.campi.find((c) => c.tipo === "riferimento")?.chiave ?? ""] ?? null });
     onSalvato(risposta.data.id);
   };
 
@@ -71,10 +100,27 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       id: `campo-${c.chiave}`,
       value: valore,
       readOnly: !modificabile,
-      onChange: (e: { target: { value: string } }) => setDati({ ...dati, [c.chiave]: e.target.value }),
+      onChange: (e: { target: { value: string } }) => cambia(c.chiave, e.target.value),
     };
     let controllo;
     if (c.tipo === "area") controllo = <textarea rows={2} {...props} />;
+    else if (c.tipo === "data") controllo = <input type="date" {...props} value={dataIso(valore) ?? ""} />;
+    else if (c.tipo === "riferimento")
+      controllo = (
+        <>
+          <input
+            {...props}
+            list={`elenco-${c.chiave}`}
+            value={testoRif[c.chiave] ?? ""}
+            className={!vuoto(testoRif[c.chiave]) && vuoto(dati[c.chiave]) ? "non-trovato" : ""}
+            placeholder={modificabile ? "Scrivi per cercare…" : ""}
+            onChange={(e) => cambiaRiferimento(c, e.target.value)}
+          />
+          <datalist id={`elenco-${c.chiave}`}>
+            {(elenchiRif[c.chiave] ?? []).map((r) => <option key={r.id} value={r.nome} />)}
+          </datalist>
+        </>
+      );
     else if (c.tipo === "scelta")
       controllo = (
         <span className="scelta">
@@ -132,6 +178,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
               <div className="pannello-linguetta">
                 {linguetta === "Principale" ? (
                   <div className="griglia-campi">{cfg.campi.map((c, i) => campo(c, !!cfg.campi[i - 1]?.finisciRiga))}</div>
+                ) : cfg.figli?.some((f) => f.linguetta === linguetta) ? (
+                  <RecordCollegati figlio={cfg.figli.find((f) => f.linguetta === linguetta)!} id={valori.id as number | undefined} />
                 ) : linguetta === "Log Cloud" ? (
                   <LogRecord sezione={cfg.sezione} id={valori.id as number | undefined} />
                 ) : (
@@ -211,6 +259,39 @@ function LogRecord({ sezione, id }: { sezione: string; id?: number }) {
             <td>{new Date(v.il).toLocaleString("it-IT")}</td>
             <td>{v.profili?.email ?? "—"}</td>
             <td>{v.azione.replace(`${sezione}_`, "")}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// Record collegati mostrati in una linguetta (es. gli impianti del cliente)
+function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]>[number]; id?: number }) {
+  const [righe, setRighe] = useState<Record<string, unknown>[] | null>(null);
+
+  useEffect(() => {
+    if (id === undefined) return setRighe([]);
+    supabase
+      .from(figlio.tabella)
+      .select("*")
+      .eq(figlio.campo, id)
+      .is("eliminato_il", null)
+      .order("id")
+      .then(({ data }) => setRighe(data ?? []));
+  }, [figlio, id]);
+
+  if (!righe) return <p className="vuoto-linguetta">Caricamento…</p>;
+  if (!righe.length) return <p className="vuoto-linguetta">Nessun elemento collegato.</p>;
+  return (
+    <table className="griglia">
+      <thead><tr>{figlio.colonne.map((c) => <th key={c.chiave}>{c.titolo}</th>)}</tr></thead>
+      <tbody>
+        {righe.map((r, i) => (
+          <tr key={i}>
+            {figlio.colonne.map((c) => (
+              <td key={c.chiave}>{c.tipo === "data" ? dataIt(r[c.chiave]) : String(r[c.chiave] ?? "")}</td>
+            ))}
           </tr>
         ))}
       </tbody>

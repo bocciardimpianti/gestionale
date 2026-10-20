@@ -42,3 +42,36 @@ export async function registra(azione: string, dettagli: unknown) {
   const { data: { user } } = await supabase.auth.getUser();
   await supabase.from("registro").insert({ utente_id: user?.id, azione, dettagli });
 }
+
+// Legge tutte le righe superando il limite di 1000 per richiesta.
+// Le tabelle collegate (es. "cliente:clienti(nome)") vengono appiattite al solo nome.
+export async function leggiTutto(tabella: string, select = "*") {
+  const tutte: (Record<string, unknown> & { id: number })[] = [];
+  for (let da = 0; ; da += 1000) {
+    const { data, error } = await supabase.from(tabella).select(select).order("id").range(da, da + 999);
+    if (error) throw error;
+    for (const r of (data ?? []) as unknown as Record<string, unknown>[]) {
+      for (const [k, v] of Object.entries(r)) {
+        if (v && typeof v === "object" && "nome" in v) r[k] = (v as { nome: unknown }).nome;
+      }
+      tutte.push(r as Record<string, unknown> & { id: number });
+    }
+    if (!data || data.length < 1000) return tutte;
+  }
+}
+
+// Date: nel database "aaaa-mm-gg", a schermo "gg/mm/aaaa"
+export function dataIso(v: unknown): string | null {
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`;
+  }
+  const t = String(v ?? "").trim();
+  const it = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (it) return `${it[3]}-${it[2].padStart(2, "0")}-${it[1].padStart(2, "0")}`;
+  return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : null;
+}
+
+export function dataIt(v: unknown) {
+  const iso = dataIso(v);
+  return iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "";
+}

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Filter } from "lucide-react";
+import { dataIt } from "../supabase";
 
 export interface Colonna {
   chiave: string;
   titolo: string;
   larghezza: number;
+  tipo?: "data";
 }
 
 type Riga = Record<string, unknown> & { id: number };
@@ -20,6 +22,7 @@ interface Props {
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+const mostra = (c: Colonna, r: Riga) => (c.tipo === "data" ? dataIt(r[c.chiave]) : testo(r[c.chiave]));
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
 export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili }: Props) {
@@ -29,13 +32,16 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
   const visibili = useMemo(() => {
     const attivi = Object.entries(filtri).filter(([, f]) => f.trim());
     const filtrate = righe.filter((r) =>
-      attivi.every(([k, f]) => testo(r[k]).toLowerCase().includes(f.trim().toLowerCase())),
+      attivi.every(([k, f]) => {
+        const c = colonne.find((c) => c.chiave === k);
+        return (c ? mostra(c, r) : testo(r[k])).toLowerCase().includes(f.trim().toLowerCase());
+      }),
     );
     const segno = ordine.su ? 1 : -1;
     return filtrate.sort((a, b) =>
       segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
-  }, [righe, filtri, ordine]);
+  }, [righe, filtri, ordine, colonne]);
 
   useEffect(() => {
     onVisibili?.(visibili);
@@ -85,7 +91,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
               >
                 <td className="indicatore-riga">{r.id === selezionata ? "▸" : ""}</td>
                 {colonne.map((c) => (
-                  <td key={c.chiave} title={testo(r[c.chiave])}>{testo(r[c.chiave])}</td>
+                  <td key={c.chiave} title={mostra(c, r)}>{mostra(c, r)}</td>
                 ))}
               </tr>
             ))}

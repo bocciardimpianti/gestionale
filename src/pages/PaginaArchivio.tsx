@@ -5,7 +5,7 @@ import {
   ChevronRight, Columns3, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, RefreshCw,
   RotateCcw, Sheet, Trash2, Undo2,
 } from "lucide-react";
-import { registra, supabase, vuoto } from "../supabase";
+import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import Griglia from "../components/Griglia";
 import Scheda from "../components/Scheda";
@@ -17,17 +17,6 @@ export interface Cartella { id: number; nome: string }
 
 const normalizza = (s: unknown) => String(s ?? "").trim().toLowerCase();
 const testo = (v: unknown) => (vuoto(v) ? "" : String(v));
-
-// Legge tutte le righe superando il limite di 1000 per richiesta
-async function leggiTutto(tabella: string) {
-  const tutte: Riga[] = [];
-  for (let da = 0; ; da += 1000) {
-    const { data, error } = await supabase.from(tabella).select("*").order("id").range(da, da + 999);
-    if (error) throw error;
-    tutte.push(...(data as Riga[]));
-    if (!data || data.length < 1000) return tutte;
-  }
-}
 
 // Colonne nascoste, ricordate per utente su questo dispositivo
 const chiaveLayout = (sezione: string) => `colonne-nascoste:${sezione}`;
@@ -56,7 +45,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const carica = useCallback(async () => {
     try {
       const [tutte, { data: arch }] = await Promise.all([
-        leggiTutto(cfg.tabella),
+        leggiTutto(cfg.tabella, cfg.select) as Promise<Riga[]>,
         supabase.from("archivi").select("id, nome").eq("sezione", cfg.sezione).order("nome"),
       ]);
       setRighe(tutte);
@@ -183,24 +172,45 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         ammessi[c.chiave] = new Set((data ?? []).map((o) => o.nome));
       }
 
+      const chiavi = Array.isArray(cfg.chiaveImport) ? cfg.chiaveImport : [cfg.chiaveImport];
+      const chiaveDi = (o: Record<string, unknown>) => chiavi.map((k) => normalizza(o[k])).join("|");
+      const colonnaDi = (k: string) => cfg.colonne.find((c) => c.chiave === k);
+
       const record = celle
         .slice(indiceIntestazione + 1)
         .map((r) => {
           const o: Record<string, string | null> = {};
           for (const m of mappa) {
             const v = r[m.i];
-            o[m.chiave] = vuoto(v) ? null : String(v).trim();
+            o[m.chiave] = colonnaDi(m.chiave)?.tipo === "data" ? dataIso(v) : vuoto(v) ? null : String(v).trim();
             if (ammessi[m.chiave] && o[m.chiave] && !ammessi[m.chiave].has(o[m.chiave]!)) o[m.chiave] = null;
           }
           return o;
         })
-        .filter((o) => !vuoto(o[cfg.chiaveImport]));
+        .filter((o) => chiavi.some((k) => !vuoto(o[k])));
 
-      const esistenti = new Map(righe.map((r) => [normalizza(r[cfg.chiaveImport]), r]));
-      const nuovi = record.filter((o) => !esistenti.has(normalizza(o[cfg.chiaveImport])));
-      const daAggiornare = record.filter((o) => esistenti.has(normalizza(o[cfg.chiaveImport])));
+      const esistenti = new Map(righe.map((r) => [chiaveDi(r), r]));
+      const idEsistente = new Map(record.map((o) => [o, esistenti.get(chiaveDi(o))?.id]));
 
-      if (!confirm(`Trovate ${record.length} righe nel file:\n• ${nuovi.length} nuove da aggiungere\n• ${daAggiornare.length} già presenti da aggiornare\n\nProcedere?`)) {
+      // Colonne collegate (es. Cliente): il nome viene trasformato nell'id del record collegato
+      let nonTrovati = 0;
+      for (const c of cfg.colonne.filter((c) => c.riferimento && mappa.some((m) => m.chiave === c.chiave))) {
+        const collegati = await leggiTutto(c.riferimento!.tabella, "id, nome");
+        const perNome = new Map(collegati.map((r) => [normalizza(r.nome), r.id]));
+        for (const o of record) {
+          const nome = o[c.chiave];
+          const id = nome ? perNome.get(normalizza(nome)) : undefined;
+          if (nome && id === undefined) nonTrovati++;
+          (o as Record<string, unknown>)[c.riferimento!.campo] = id ?? null;
+          delete o[c.chiave];
+        }
+      }
+
+      const nuovi = record.filter((o) => idEsistente.get(o) === undefined);
+      const daAggiornare = record.filter((o) => idEsistente.get(o) !== undefined);
+      const avviso = nonTrovati ? `\n\nAttenzione: ${nonTrovati} righe fanno riferimento a nomi non presenti in anagrafica e resteranno senza collegamento.` : "";
+
+      if (!confirm(`Trovate ${record.length} righe nel file:\n• ${nuovi.length} nuove da aggiungere\n• ${daAggiornare.length} già presenti da aggiornare${avviso}\n\nProcedere?`)) {
         setMessaggio("");
         return;
       }
@@ -212,7 +222,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       }
       for (const [n, o] of daAggiornare.entries()) {
         if (n % 50 === 0) setMessaggio(`Aggiornamento… ${n} / ${daAggiornare.length}`);
-        const { error } = await supabase.from(cfg.tabella).update(o).eq("id", esistenti.get(normalizza(o[cfg.chiaveImport]))!.id);
+        const { error } = await supabase.from(cfg.tabella).update(o).eq("id", idEsistente.get(o)!);
         if (error) throw error;
       }
       await registra(`${cfg.sezione}_importato`, { file: file.name, nuovi: nuovi.length, aggiornati: daAggiornare.length });
