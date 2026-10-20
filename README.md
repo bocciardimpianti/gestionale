@@ -29,3 +29,21 @@ cp .env.example .env   # inserisci URL e chiave anon
 npm install
 npm run dev
 ```
+
+## Script del database (da eseguire in ordine nel SQL Editor di Supabase)
+| Script | Contenuto |
+|---|---|
+| 0001_accessi | Utenti, ruoli, permessi, 2FA, registro |
+| 0002_menu_reportone | Menu come ReportOne, note dashboard |
+| 0003_clienti | Clienti, tipologie di pagamento |
+| 0004_archivi_cestino | Archivi e cestino |
+| 0005_fornitori | Fornitori, province, nazioni, modalità pagamento, banche |
+| 0006_tecnici | Tecnici collegati agli utenti |
+| 0007_impianti | Impianti, periodi |
+| 0008_rapporti | Rapporti di intervento e righe |
+| 0009_foto_tariffe | Firma e foto dei rapporti, tariffe |
+| 0010_materiali | Materiali, unità di misura, scarico giacenza |
+
+## Stato dei lavori
+Fatte: Dashboard, Clienti, Fornitori, Tecnici, Impianti, Rapporti di intervento, Materiali, pannello utenti e permessi.
+Da fare: Start Tecnici, Agenda, Preventivi, Richieste di Intervento, DDT di Acquisto, Scadenziario, Conti Clienti, valori dei riquadri della dashboard.
