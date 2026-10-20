@@ -10,6 +10,8 @@ export interface Campo {
   finisciRiga?: boolean;
   // Per i campi a scelta: tabella da cui leggere le opzioni (colonna "nome")
   opzioniDa?: string;
+  // Titolo della finestra di gestione delle opzioni (solo admin)
+  titoloOpzioni?: string;
   obbligatorio?: boolean;
 }
 
@@ -25,8 +27,6 @@ export interface Archivio {
   campi: Campo[];
   // Campo usato per riconoscere i doppioni in importazione
   chiaveImport: string;
-  // Archivi collegati (menu "Archivi")
-  archivi?: { titolo: string; tabella: string }[];
 }
 
 // Configurazione delle sezioni a griglia, colonne nello stesso ordine e con gli stessi titoli dell'originale
@@ -61,8 +61,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "piva", etichetta: "P.IVA", larghezza: 2, finisciRiga: true },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
       { chiave: "codice_fiscale", etichetta: "CODICE FISCALE", larghezza: 2 },
-      { chiave: "tipologia_pagamento", etichetta: "Tipologia Pagamento", tipo: "scelta", opzioniDa: "tipologie_pagamento", larghezza: 2 },
+      { chiave: "tipologia_pagamento", etichetta: "Tipologia Pagamento", tipo: "scelta", opzioniDa: "tipologie_pagamento", titoloOpzioni: "Tipologie Pagamento", larghezza: 2 },
     ],
-    archivi: [{ titolo: "Tipologie Pagamento", tabella: "tipologie_pagamento" }],
   },
 };

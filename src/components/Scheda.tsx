@@ -3,6 +3,8 @@ import { CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react"
 import { registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import type { Archivio, Campo } from "../archivi";
+import type { Cartella } from "../pages/PaginaArchivio";
+import GestioneElenco from "./GestioneElenco";
 
 interface Props {
   cfg: Archivio;
@@ -10,13 +12,18 @@ interface Props {
   onChiudi: () => void;
   onSalvato: (id: number) => void;
   onElimina: () => void;
+  cartelle: Cartella[];
+  nelCestino: boolean;
+  onSposta: (archivio: Cartella | null) => void;
 }
 
 // Finestra di dettaglio come nel programma originale: linguette, campi incorniciati, piede con Salva/Azioni/Chiudi
-export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina }: Props) {
-  const { puo } = useAuth();
+export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta }: Props) {
+  const { puo, profilo } = useAuth();
   const nuovo = valori.id === undefined;
-  const modificabile = nuovo ? puo(cfg.sezione, "creare") : puo(cfg.sezione, "modificare");
+  const modificabile = !nelCestino && (nuovo ? puo(cfg.sezione, "creare") : puo(cfg.sezione, "modificare"));
+  const [gestione, setGestione] = useState<Campo | null>(null);
+  const [versioneOpzioni, setVersioneOpzioni] = useState(0);
   const [dati, setDati] = useState<Record<string, unknown>>(valori);
   const [opzioni, setOpzioni] = useState<Record<string, string[]>>({});
   const [linguetta, setLinguetta] = useState("Principale");
@@ -31,7 +38,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina }: 
         setOpzioni((o) => ({ ...o, [c.chiave]: (data ?? []).map((r) => r.nome) })),
       );
     }
-  }, [cfg.campi]);
+  }, [cfg.campi, versioneOpzioni]);
 
   const salva = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -40,6 +47,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina }: 
     for (const c of cfg.campi.filter((c) => c.tipo !== "titolo")) {
       record[c.chiave] = vuoto(dati[c.chiave]) ? null : String(dati[c.chiave]).trim();
     }
+    if (nuovo && valori.archivio_id) record.archivio_id = valori.archivio_id;
     const obbligatorio = cfg.campi.find((c) => c.obbligatorio && vuoto(record[c.chiave]));
     if (obbligatorio) return setStato(`Compilare il campo "${obbligatorio.etichetta}"`);
     setStato("Salvataggio…");
@@ -64,10 +72,15 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina }: 
     if (c.tipo === "area") controllo = <textarea rows={2} {...props} />;
     else if (c.tipo === "scelta")
       controllo = (
-        <select {...props} disabled={!modificabile}>
-          <option value="" />
-          {(opzioni[c.chiave] ?? []).map((o) => <option key={o}>{o}</option>)}
-        </select>
+        <span className="scelta">
+          <select {...props} disabled={!modificabile}>
+            <option value="" />
+            {(opzioni[c.chiave] ?? []).map((o) => <option key={o}>{o}</option>)}
+          </select>
+          {profilo?.ruolo === "admin" && c.titoloOpzioni && (
+            <button type="button" title={`Gestisci ${c.titoloOpzioni}`} onClick={() => setGestione(c)}>…</button>
+          )}
+        </span>
       );
     else controllo = <input {...props} />;
 
@@ -130,7 +143,15 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina }: 
                     <button type="button" className="link verde" onMouseDown={(e) => e.stopPropagation()} onClick={() => setMenuAzioni(!menuAzioni)}>Azioni</button>
                     {menuAzioni && (
                       <div className="voci" onMouseDown={(e) => e.stopPropagation()}>
-                        {puo(cfg.sezione, "eliminare") && <button type="button" onClick={onElimina}>Elimina</button>}
+                        {!nelCestino && puo(cfg.sezione, "modificare") && (
+                          <>
+                            {cartelle.filter((a) => a.id !== valori.archivio_id).map((a) => (
+                              <button type="button" key={a.id} onClick={() => onSposta(a)}>Sposta in "{a.nome}"</button>
+                            ))}
+                            {!!valori.archivio_id && <button type="button" onClick={() => onSposta(null)}>Togli dall'archivio</button>}
+                          </>
+                        )}
+                        {!nelCestino && puo(cfg.sezione, "eliminare") && <button type="button" onClick={onElimina}>Elimina</button>}
                         {dati.email ? <a href={`mailto:${dati.email}`}>Invia e-mail</a> : null}
                       </div>
                     )}
@@ -142,6 +163,15 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina }: 
           </>
         )}
       </form>
+      {gestione && (
+        <div onMouseDown={(e) => e.stopPropagation()}>
+          <GestioneElenco
+          titolo={gestione.titoloOpzioni!}
+          tabella={gestione.opzioniDa!}
+            onChiudi={() => { setGestione(null); setVersioneOpzioni((v) => v + 1); }}
+          />
+        </div>
+      )}
     </div>
   );
 }

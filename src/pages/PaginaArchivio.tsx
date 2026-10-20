@@ -1,15 +1,22 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
+import {
+  ChevronRight, Columns3, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, RefreshCw,
+  RotateCcw, Sheet, Trash2, Undo2,
+} from "lucide-react";
 import { registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import Griglia from "../components/Griglia";
 import Scheda from "../components/Scheda";
 import type { Archivio } from "../archivi";
 
-type Riga = Record<string, unknown> & { id: number };
+type Riga = Record<string, unknown> & { id: number; archivio_id?: number | null; eliminato_il?: string | null };
+type Vista = { tipo: "tutti" } | { tipo: "archivio"; id: number; nome: string } | { tipo: "cestino" };
+export interface Cartella { id: number; nome: string }
 
 const normalizza = (s: unknown) => String(s ?? "").trim().toLowerCase();
+const testo = (v: unknown) => (vuoto(v) ? "" : String(v));
 
 // Legge tutte le righe superando il limite di 1000 per richiesta
 async function leggiTutto(tabella: string) {
@@ -22,45 +29,139 @@ async function leggiTutto(tabella: string) {
   }
 }
 
+// Colonne nascoste, ricordate per utente su questo dispositivo
+const chiaveLayout = (sezione: string) => `colonne-nascoste:${sezione}`;
+function leggiNascoste(sezione: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(chiaveLayout(sezione)) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
 export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
-  const { puo, profilo } = useAuth();
+  const { puo } = useAuth();
   const [righe, setRighe] = useState<Riga[]>([]);
+  const [visibili, setVisibili] = useState<Riga[]>([]);
+  const [cartelle, setCartelle] = useState<Cartella[]>([]);
+  const [vista, setVista] = useState<Vista>({ tipo: "tutti" });
   const [selezionata, setSelezionata] = useState<number | null>(null);
   const [scheda, setScheda] = useState<Record<string, unknown> | null>(null);
-  const [menu, setMenu] = useState<"" | "azioni" | "archivi">("");
-  const [archivio, setArchivio] = useState<{ titolo: string; tabella: string } | null>(null);
+  const [menu, setMenu] = useState<"" | "azioni" | "tabella" | "archivi">("");
+  const [sceltaColonne, setSceltaColonne] = useState(false);
+  const [nascoste, setNascoste] = useState<string[]>(() => leggiNascoste(cfg.sezione));
   const [messaggio, setMessaggio] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const carica = useCallback(async () => {
     try {
-      setRighe(await leggiTutto(cfg.tabella));
+      const [tutte, { data: arch }] = await Promise.all([
+        leggiTutto(cfg.tabella),
+        supabase.from("archivi").select("id, nome").eq("sezione", cfg.sezione).order("nome"),
+      ]);
+      setRighe(tutte);
+      setCartelle(arch ?? []);
     } catch (e) {
       setMessaggio("Errore: " + (e as Error).message);
     }
-  }, [cfg.tabella]);
+  }, [cfg.tabella, cfg.sezione]);
 
   useEffect(() => {
     carica();
   }, [carica]);
 
-  const rigaSel = righe.find((r) => r.id === selezionata);
+  const salvaNascoste = (n: string[]) => {
+    setNascoste(n);
+    try {
+      localStorage.setItem(chiaveLayout(cfg.sezione), JSON.stringify(n));
+    } catch {
+      /* archiviazione locale non disponibile */
+    }
+  };
 
-  const elimina = async () => {
-    if (!rigaSel || !confirm(`Eliminare "${rigaSel[cfg.colonne[0].chiave]}"?`)) return;
-    const { error } = await supabase.from(cfg.tabella).delete().eq("id", rigaSel.id);
+  const nelCestino = vista.tipo === "cestino";
+  const righeVista = righe.filter((r) =>
+    nelCestino ? !!r.eliminato_il : !r.eliminato_il && (vista.tipo === "tutti" || r.archivio_id === vista.id),
+  );
+  const colonne = cfg.colonne.filter((c) => !nascoste.includes(c.chiave));
+  const rigaSel = righeVista.find((r) => r.id === selezionata);
+  const nomeDi = (r: Riga) => String(r[cfg.colonne[0].chiave] ?? "");
+
+  const aggiorna = async (id: number, campi: Record<string, unknown>, azione: string, nome: string) => {
+    const { error } = await supabase.from(cfg.tabella).update(campi).eq("id", id);
+    if (error) {
+      setMessaggio("Errore: " + error.message);
+      return false;
+    }
+    await registra(`${cfg.sezione}_${azione}`, { id, nome });
+    await carica();
+    return true;
+  };
+
+  const spostaNelCestino = async (r: Riga) => {
+    if (!confirm(`Spostare "${nomeDi(r)}" nel cestino?`)) return;
+    if (await aggiorna(r.id, { eliminato_il: new Date().toISOString() }, "eliminato", nomeDi(r))) {
+      setSelezionata(null);
+      setScheda(null);
+    }
+  };
+
+  const ripristina = async (r: Riga) => {
+    if (await aggiorna(r.id, { eliminato_il: null }, "ripristinato", nomeDi(r))) setSelezionata(null);
+  };
+
+  const eliminaDefinitivo = async (r: Riga) => {
+    if (!confirm(`Eliminare definitivamente "${nomeDi(r)}"? L'operazione non si può annullare.`)) return;
+    const { error } = await supabase.from(cfg.tabella).delete().eq("id", r.id);
     if (error) return setMessaggio("Errore: " + error.message);
-    await registra(`${cfg.sezione}_eliminato`, { id: rigaSel.id, nome: rigaSel[cfg.colonne[0].chiave] });
+    await registra(`${cfg.sezione}_eliminato_definitivamente`, { id: r.id, nome: nomeDi(r) });
     setSelezionata(null);
-    setScheda(null);
+    carica();
+  };
+
+  const spostaInArchivio = async (r: Riga, archivio: Cartella | null) => {
+    if (await aggiorna(r.id, { archivio_id: archivio?.id ?? null }, "spostato", nomeDi(r))) {
+      setScheda(null);
+      setMessaggio(archivio ? `"${nomeDi(r)}" spostato in ${archivio.nome}` : `"${nomeDi(r)}" tolto dall'archivio`);
+    }
+  };
+
+  const nuovoArchivio = async () => {
+    const nome = prompt("Nome del nuovo archivio:")?.trim();
+    if (!nome) return;
+    const { data, error } = await supabase.from("archivi").insert({ sezione: cfg.sezione, nome }).select("id, nome").single();
+    if (error) return setMessaggio("Errore: " + error.message);
+    await carica();
+    setVista({ tipo: "archivio", ...data });
+  };
+
+  const eliminaArchivio = async (a: Cartella) => {
+    if (!confirm(`Eliminare l'archivio "${a.nome}"? I record contenuti restano nell'elenco completo.`)) return;
+    const { error } = await supabase.from("archivi").delete().eq("id", a.id);
+    if (error) return setMessaggio("Errore: " + error.message);
+    setVista({ tipo: "tutti" });
     carica();
   };
 
   const esporta = async () => {
-    const intestazione = cfg.colonne.map((c) => ({ value: c.excel, fontWeight: "bold" as const }));
-    const dati = righe.map((r) => cfg.colonne.map((c) => ({ type: String, value: vuoto(r[c.chiave]) ? "" : String(r[c.chiave]) })));
+    const intestazione = colonne.map((c) => ({ value: c.excel, fontWeight: "bold" as const }));
+    const dati = visibili.map((r) => colonne.map((c) => ({ type: String, value: testo(r[c.chiave]) })));
     await writeXlsxFile([intestazione, ...dati], { fileName: `${cfg.titolo}.xlsx` });
-    await registra(`${cfg.sezione}_esportato`, { righe: righe.length });
+    await registra(`${cfg.sezione}_esportato`, { righe: visibili.length });
+  };
+
+  const stampa = () => {
+    const finestra = window.open("", "_blank");
+    if (!finestra) return setMessaggio("Errore: il browser ha bloccato la finestra di stampa");
+    const esc = (v: unknown) => testo(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+    finestra.document.write(`<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(cfg.titolo)}</title>
+      <style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 8px}
+      table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:3px 5px;text-align:left;vertical-align:top}
+      th{background:#eee}@page{size:landscape;margin:10mm}</style></head><body>
+      <h1>${esc(titoloVista)}</h1><table><thead><tr>${colonne.map((c) => `<th>${esc(c.titolo)}</th>`).join("")}</tr></thead>
+      <tbody>${visibili.map((r) => `<tr>${colonne.map((c) => `<td>${esc(r[c.chiave])}</td>`).join("")}</tr>`).join("")}</tbody></table>
+      <script>window.onload=()=>{window.print()}</script></body></html>`);
+    finestra.document.close();
   };
 
   // Importazione dall'export Excel del programma originale: aggiorna i record esistenti (stesso nome), aggiunge i nuovi
@@ -122,39 +223,72 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     }
   };
 
-  const voceMenu = (etichetta: string, azione: () => void, abilitata = true) =>
+  const voce = (Icona: typeof RefreshCw, colore: string, etichetta: string, azione: () => void, abilitata = true, freccia = false) =>
     abilitata && (
-      <button onClick={() => { setMenu(""); azione(); }}>{etichetta}</button>
+      <button
+        key={etichetta}
+        onMouseEnter={() => !freccia && menu === "tabella" && setMenu("azioni")}
+        onClick={(e) => {
+          if (freccia) {
+            e.stopPropagation();
+            setMenu("tabella");
+            return;
+          }
+          setMenu("");
+          azione();
+        }}
+      >
+        <Icona size={22} strokeWidth={1.6} color={colore} />
+        <span>{etichetta}</span>
+        {freccia && <ChevronRight size={14} className="freccia-sotto" />}
+      </button>
     );
+
+  const titoloVista =
+    vista.tipo === "cestino" ? `${cfg.titolo} - Cestino` : vista.tipo === "archivio" ? `${cfg.titolo} - ${vista.nome}` : cfg.titolo;
 
   return (
     <div className="pagina-archivio" onClick={() => menu && setMenu("")}>
       <div className="testata">
-        <h1>{cfg.titolo}</h1>
+        <h1>{titoloVista}</h1>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>
-          {puo(cfg.sezione, "creare") && <button className="btn blu" onClick={() => setScheda({})}>Nuovo</button>}
+          {puo(cfg.sezione, "creare") && !nelCestino && (
+            <button className="btn blu" onClick={() => setScheda(vista.tipo === "archivio" ? { archivio_id: vista.id } : {})}>Nuovo</button>
+          )}
           <div className="tendina">
-            <button className="btn verde" onClick={() => setMenu(menu === "azioni" ? "" : "azioni")}>Azioni <span className="punta">⌵</span></button>
-            {menu === "azioni" && (
-              <div className="voci">
-                {voceMenu("Apri", () => rigaSel && setScheda(rigaSel), !!rigaSel)}
-                {voceMenu("Elimina", elimina, !!rigaSel && puo(cfg.sezione, "eliminare"))}
-                {voceMenu("Esporta in Excel", esporta, puo(cfg.sezione, "esportare"))}
-                {voceMenu("Importa da Excel", () => fileRef.current?.click(), puo(cfg.sezione, "creare") && puo(cfg.sezione, "modificare"))}
-                {voceMenu("Aggiorna", carica)}
+            <button className="btn verde" onClick={() => setMenu(menu ? "" : "azioni")}>Azioni <span className="punta">⌵</span></button>
+            {(menu === "azioni" || menu === "tabella") && (
+              <div className="voci con-icone">
+                {voce(RefreshCw, "#b59b1b", "Aggiorna", carica)}
+                {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
+                {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
+                {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}
+                {nelCestino && rigaSel && voce(Undo2, "#3a7dc0", "Ripristina", () => ripristina(rigaSel), puo(cfg.sezione, "eliminare"))}
+                {nelCestino && rigaSel && voce(Trash2, "#d9342b", "Elimina definitivamente", () => eliminaDefinitivo(rigaSel), puo(cfg.sezione, "eliminare"))}
+                {menu === "tabella" && (
+                  <div className="voci con-icone sottomenu" onClick={(e) => e.stopPropagation()}>
+                    {voce(Columns3, "#3a7dc0", "Scegli colonne", () => setSceltaColonne(true))}
+                    {voce(RotateCcw, "#666", "Ripristina colonne", () => salvaNascoste([]))}
+                    {voce(FileUp, "#3a8a3a", "Importa da Excel", () => fileRef.current?.click(),
+                      !nelCestino && puo(cfg.sezione, "creare") && puo(cfg.sezione, "modificare"))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-          {cfg.archivi && profilo?.ruolo === "admin" && (
-            <div className="tendina">
-              <button className="btn verde" onClick={() => setMenu(menu === "archivi" ? "" : "archivi")}>Archivi <span className="punta">⌵</span></button>
-              {menu === "archivi" && (
-                <div className="voci">
-                  {cfg.archivi.map((a) => voceMenu(a.titolo, () => setArchivio(a)))}
-                </div>
-              )}
-            </div>
-          )}
+          <div className="tendina">
+            <button className="btn verde" onClick={() => setMenu(menu === "archivi" ? "" : "archivi")}>Archivi <span className="punta">⌵</span></button>
+            {menu === "archivi" && (
+              <div className="voci con-icone">
+                {voce(Folder, "#f5a623", "Elenco completo", () => setVista({ tipo: "tutti" }))}
+                {cartelle.map((a) => voce(FolderOpen, "#f5a623", a.nome, () => setVista({ tipo: "archivio", ...a })))}
+                {voce(FolderPlus, "#3a7dc0", "Nuovo Archivio", nuovoArchivio, puo(cfg.sezione, "modificare"))}
+                {vista.tipo === "archivio" &&
+                  voce(Trash2, "#d9342b", `Elimina archivio "${vista.nome}"`, () => eliminaArchivio(vista), puo(cfg.sezione, "eliminare"))}
+                {voce(Trash2, "#666", "Cestino", () => setVista({ tipo: "cestino" }), puo(cfg.sezione, "eliminare"))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -166,80 +300,47 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       {messaggio && <p className={messaggio.startsWith("Errore") ? "errore" : "ok"}>{messaggio}</p>}
 
       <Griglia
-        colonne={cfg.colonne}
-        righe={righe}
+        key={vista.tipo + (vista.tipo === "archivio" ? vista.id : "")}
+        colonne={colonne}
+        righe={righeVista}
         selezionata={selezionata}
         onSeleziona={setSelezionata}
         onApri={(r) => setScheda(r)}
+        onVisibili={setVisibili}
       />
 
       {scheda && (
         <Scheda
           cfg={cfg}
           valori={scheda}
+          cartelle={cartelle}
+          nelCestino={nelCestino}
           onChiudi={() => setScheda(null)}
           onSalvato={(id) => { setScheda(null); setSelezionata(id); carica(); }}
-          onElimina={elimina}
+          onElimina={() => spostaNelCestino(scheda as Riga)}
+          onSposta={(a) => spostaInArchivio(scheda as Riga, a)}
         />
       )}
-      {archivio && <GestioneArchivio {...archivio} onChiudi={() => setArchivio(null)} />}
-    </div>
-  );
-}
 
-// Gestione di un archivio semplice (es. tipologie di pagamento), solo admin
-function GestioneArchivio({ titolo, tabella, onChiudi }: { titolo: string; tabella: string; onChiudi: () => void }) {
-  const [voci, setVoci] = useState<{ nome: string; ordine: number }[]>([]);
-  const [nuova, setNuova] = useState("");
-  const [errore, setErrore] = useState("");
-
-  const carica = useCallback(async () => {
-    const { data } = await supabase.from(tabella).select("*").order("ordine");
-    setVoci(data ?? []);
-  }, [tabella]);
-
-  useEffect(() => {
-    carica();
-  }, [carica]);
-
-  const aggiungi = async (e: FormEvent) => {
-    e.preventDefault();
-    const ordine = Math.max(0, ...voci.map((v) => v.ordine)) + 10;
-    const { error } = await supabase.from(tabella).insert({ nome: nuova.trim(), ordine });
-    if (error) return setErrore(error.message);
-    setNuova("");
-    carica();
-  };
-
-  const elimina = async (nome: string) => {
-    if (!confirm(`Eliminare "${nome}"?`)) return;
-    const { error } = await supabase.from(tabella).delete().eq("nome", nome);
-    if (error) return setErrore(error.message);
-    carica();
-  };
-
-  return (
-    <div className="velo" onMouseDown={onChiudi}>
-      <form className="finestra stretta" onSubmit={aggiungi} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="finestra-titolo">{titolo}<button type="button" className="chiudi" onClick={onChiudi}>×</button></div>
-        <div className="finestra-corpo">
-          <table className="griglia">
-            <tbody>
-              {voci.map((v) => (
-                <tr key={v.nome}>
-                  <td>{v.nome}</td>
-                  <td style={{ width: 1 }}><button type="button" className="pericolo" onClick={() => elimina(v.nome)}>Elimina</button></td>
-                </tr>
+      {sceltaColonne && (
+        <div className="velo" onMouseDown={() => setSceltaColonne(false)}>
+          <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo">Colonne visibili<button className="chiudi" onClick={() => setSceltaColonne(false)}>×</button></div>
+            <div className="finestra-corpo elenco-colonne">
+              {cfg.colonne.map((c) => (
+                <label key={c.chiave} className="interruttore">
+                  <input
+                    type="checkbox"
+                    checked={!nascoste.includes(c.chiave)}
+                    onChange={(e) => salvaNascoste(e.target.checked ? nascoste.filter((n) => n !== c.chiave) : [...nascoste, c.chiave])}
+                  />
+                  {c.titolo}
+                </label>
               ))}
-            </tbody>
-          </table>
-          <div className="riga-aggiungi">
-            <input value={nuova} onChange={(e) => setNuova(e.target.value)} placeholder="Nuova voce" required />
-            <button className="btn blu">Aggiungi</button>
+            </div>
           </div>
-          {errore && <p className="errore">{errore}</p>}
         </div>
-      </form>
+      )}
     </div>
   );
 }

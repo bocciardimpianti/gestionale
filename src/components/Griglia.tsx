@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Filter } from "lucide-react";
 
 export interface Colonna {
@@ -15,13 +15,15 @@ interface Props {
   selezionata: number | null;
   onSeleziona: (id: number) => void;
   onApri: (riga: Riga) => void;
+  // Riceve le righe visibili (filtrate e ordinate), per esportazione e stampa
+  onVisibili?: (righe: Riga[]) => void;
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri }: Props) {
-  const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>({ chiave: colonne[0].chiave, su: true });
+export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili }: Props) {
+  const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>({ chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
 
   const visibili = useMemo(() => {
@@ -34,6 +36,10 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
       segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
   }, [righe, filtri, ordine]);
+
+  useEffect(() => {
+    onVisibili?.(visibili);
+  }, [visibili, onVisibili]);
 
   const ordina = (chiave: string) =>
     setOrdine((o) => ({ chiave, su: o.chiave === chiave ? !o.su : true }));

@@ -280,3 +280,13 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
   .scheda-piede { padding: 0 12px; }
   .comandi-piede { gap: 16px; }
 }
+
+/* Menu con icone (Azioni / Archivi) */
+.voci.con-icone { min-width: 230px; padding: 2px 0; }
+.voci.con-icone button { display: flex; align-items: center; gap: 16px; padding: 7px 14px; font-size: 14px; }
+.voci.con-icone .freccia-sotto { margin-left: auto; }
+.voci.sottomenu { position: absolute; right: 100%; top: 38px; }
+.elenco-colonne { display: flex; flex-direction: column; gap: 8px; }
+.cornice .scelta { flex: 1; display: flex; }
+.cornice .scelta select { flex: 1; }
+.cornice .scelta button { border: none; background: none; padding: 0 4px; font-weight: 700; }
