@@ -152,3 +152,63 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
   .gruppo-icone { gap: 22px; }
   .centro { padding: 16px; }
 }
+
+/* Pagine a griglia (Clienti, Fornitori, …) */
+.centro:has(.pagina-archivio) { padding: 12px 18px 0 16px; }
+.pagina-archivio { display: flex; flex-direction: column; height: 100%; }
+.testata { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 14px; }
+.testata h1 { font-size: 26px; font-weight: 300; color: #6f7680; margin: 6px 0 0; }
+.pulsanti { display: flex; gap: 5px; }
+.btn { border: none; border-radius: 0; color: #fff; height: 32px; padding: 0 30px; font-size: 14px; }
+.btn.blu { background: #3a7dc0; }
+.btn.blu:hover { background: #336fab; }
+.btn.verde { background: #3fae4b; padding: 0 0 0 30px; display: flex; align-items: center; gap: 20px; }
+.btn.verde:hover { background: #379a42; }
+.btn.verde .punta { border-left: 1px solid rgba(255,255,255,.4); padding: 0 6px; height: 100%; display: grid; place-items: center; }
+.btn.rosso { background: #d9342b; }
+.btn.grigio { background: #8a929c; }
+.tendina { position: relative; }
+.tendina .voci {
+  position: absolute; right: 0; top: 34px; z-index: 20; min-width: 190px; background: #fff;
+  border: 1px solid #cfd4da; box-shadow: 0 4px 12px rgba(0,0,0,.15); display: flex; flex-direction: column;
+}
+.tendina .voci button { border: none; border-radius: 0; text-align: left; padding: 8px 14px; background: #fff; }
+.tendina .voci button:hover { background: #eef1f5; }
+
+.griglia-dati { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid #d4d7dc; }
+.griglia-scorri { flex: 1; overflow: auto; }
+.griglia-dati table { border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+.griglia-dati th, .griglia-dati td {
+  border-right: 1px solid #e3e5e8; border-bottom: 1px solid #e3e5e8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+}
+.griglia-dati thead th { position: sticky; background: #fff; z-index: 2; }
+.griglia-dati .intestazioni th { top: 0; height: 40px; padding: 0 4px; font-weight: 600; cursor: pointer; user-select: none; }
+.griglia-dati .intestazioni th .ordine { float: right; font-size: 9px; color: #777; }
+.griglia-dati .filtri th { top: 40px; height: 22px; padding: 0; background: #ecf9ec; }
+.griglia-dati .filtri input { width: 100%; height: 21px; border: none; border-radius: 0; background: transparent; font-size: 12px; padding: 0 4px; }
+.griglia-dati .filtri input:focus { outline: 1px solid #3fae4b; background: #fff; }
+.griglia-dati .filtri th:first-child { text-align: center; color: #888; }
+.griglia-dati td { height: 21px; padding: 0 4px; }
+.griglia-dati tbody tr { cursor: default; }
+.griglia-dati tbody tr:hover td { background: #f3f6fa; }
+.griglia-dati tbody tr.attiva td { background: #fcd9a3; }
+.griglia-dati .indicatore-riga { color: #777; text-align: center; font-size: 10px; padding: 0; background: #fff; }
+.griglia-piede { font-size: 11px; color: #6f7680; padding: 3px 6px; border-top: 1px solid #e3e5e8; }
+
+/* Finestre */
+.velo { position: fixed; inset: 0; background: rgba(30,35,45,.45); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.finestra { background: #fff; width: min(820px, 100%); max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+.finestra.stretta { width: min(420px, 100%); }
+.finestra-titolo { background: var(--barra); color: #fff; padding: 10px 14px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+.finestra-titolo .chiudi { background: none; border: none; color: #fff; font-size: 22px; line-height: 1; padding: 0 4px; }
+.finestra-corpo { padding: 16px; overflow: auto; }
+.finestra .errore { padding: 0 16px; }
+.campi-scheda { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.campi-scheda label { font-size: 12px; color: #555; }
+.campi-scheda .largo { grid-column: 1 / -1; }
+.campi-scheda textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--bordo); border-radius: 4px; resize: vertical; }
+.finestra-piede { display: flex; gap: 6px; padding: 12px 16px; border-top: 1px solid #e3e5e8; }
+.riga-aggiungi { display: flex; gap: 6px; margin-top: 12px; }
+.riga-aggiungi input { flex: 1; }
+@media (max-width: 600px) { .campi-scheda { grid-template-columns: 1fr; } .testata { flex-wrap: wrap; gap: 8px; } .btn { padding: 0 16px; } }
