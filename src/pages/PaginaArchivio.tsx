@@ -227,11 +227,10 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     abilitata && (
       <button
         key={etichetta}
-        onMouseEnter={() => !freccia && menu === "tabella" && setMenu("azioni")}
         onClick={(e) => {
           if (freccia) {
             e.stopPropagation();
-            setMenu("tabella");
+            setMenu(menu === "tabella" ? "azioni" : "tabella");
             return;
           }
           setMenu("");
