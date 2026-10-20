@@ -47,6 +47,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [nascoste, setNascoste] = useState<string[]>(() => leggiNascoste(cfg.sezione));
   const [messaggio, setMessaggio] = useState("");
   const [ricerca, setRicerca] = useState("");
+  // Colonna in cui cercare ("" = tutte)
+  const [colonnaRicerca, setColonnaRicerca] = useState("");
   const [galleria, setGalleria] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -298,15 +300,23 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     <div className="pagina-archivio" onClick={() => menu && setMenu("")}>
       <div className="testata">
         <h1>{titoloVista}</h1>
-        <label className="ricerca">
-          <Search size={16} />
-          <input
-            type="search"
-            placeholder="Cerca in tutte le colonne…"
-            value={ricerca}
-            onChange={(e) => setRicerca(e.target.value)}
-          />
-        </label>
+        <div className="ricerca">
+          <select value={colonnaRicerca} onChange={(e) => setColonnaRicerca(e.target.value)} title="Colonna in cui cercare">
+            <option value="">Tutte le colonne</option>
+            {colonne.filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura" && c.tipo !== "booleano").map((c) => (
+              <option key={c.chiave} value={c.chiave}>{c.titolo}</option>
+            ))}
+          </select>
+          <label>
+            <Search size={16} />
+            <input
+              type="search"
+              placeholder={colonnaRicerca ? `Cerca in "${colonne.find((c) => c.chiave === colonnaRicerca)?.titolo ?? ""}"…` : "Cerca in tutte le colonne…"}
+              value={ricerca}
+              onChange={(e) => setRicerca(e.target.value)}
+            />
+          </label>
+        </div>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>
           {cfg.galleria && (
             <>
@@ -376,6 +386,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         onVisibili={setVisibili}
         ordineIniziale={rapida?.ordine ?? cfg.ordineIniziale}
         ricerca={ricerca}
+        colonnaRicerca={colonnaRicerca}
       />
       </div>
 

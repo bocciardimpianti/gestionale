@@ -23,8 +23,9 @@ interface Props {
   // Riceve le righe visibili (filtrate e ordinate), per esportazione e stampa
   onVisibili?: (righe: Riga[]) => void;
   ordineIniziale?: { chiave: string; su: boolean };
-  // Ricerca libera su tutte le colonne
+  // Ricerca libera su tutte le colonne, o solo su "colonnaRicerca"
   ricerca?: string;
+  colonnaRicerca?: string;
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -36,7 +37,7 @@ const mostra = (c: Colonna, r: Riga) =>
   : c.tipo === "numero" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : Number(r[c.chiave]).toLocaleString("it-IT")) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "" }: Props) {
+export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "" }: Props) {
   const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
   // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record
@@ -58,8 +59,10 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
   const visibili = useMemo(() => {
     const attivi = Object.entries(filtri).filter(([, f]) => f.trim());
     const parole = ricerca.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const dove = colonne.filter((c) =>
+      c.tipo !== "booleano" && c.tipo !== "immagine" && c.tipo !== "miniatura" && (!colonnaRicerca || c.chiave === colonnaRicerca));
     const filtrate = righe.filter((r) =>
-      parole.every((p) => colonne.some((c) => c.tipo !== "booleano" && c.tipo !== "immagine" && c.tipo !== "miniatura" && mostra(c, r).toLowerCase().includes(p))) &&
+      parole.every((p) => dove.some((c) => mostra(c, r).toLowerCase().includes(p))) &&
       attivi.every(([k, f]) => {
         const c = colonne.find((c) => c.chiave === k);
         if (c?.tipo === "booleano") return f === "sì" ? !!r[k] : !r[k];
@@ -73,7 +76,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
         ? segno * (Number(a[ordine.chiave] ?? 0) - Number(b[ordine.chiave] ?? 0))
         : segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
-  }, [righe, filtri, ordine, colonne, ricerca]);
+  }, [righe, filtri, ordine, colonne, ricerca, colonnaRicerca]);
 
   useEffect(() => {
     onVisibili?.(visibili);
