@@ -448,3 +448,6 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
   .pulsanti .btn.verde { padding-left: 14px; gap: 10px; }
   .testata h1 { font-size: 22px; }
 }
+.finestra-backup { width: min(560px, 100%); }
+.finestra-backup .finestra-piede { flex-wrap: wrap; }
+.finestra-backup .btn { padding: 0 16px; white-space: nowrap; }

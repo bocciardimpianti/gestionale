@@ -6,6 +6,7 @@ import {
   Settings, Smartphone, Star, User, UserRound, Users, Wrench, X, type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "./auth";
+import UscitaBackup from "./components/UscitaBackup";
 
 // Icone delle voci di menu, come nel programma originale
 export const ICONE: Record<string, LucideIcon> = {
@@ -40,6 +41,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [chiusi, setChiusi] = useState<Record<string, boolean>>({});
   // Sul cellulare il menu laterale si apre e chiude con il pulsante ☰
   const [menuAperto, setMenuAperto] = useState(false);
+  // All'uscita l'admin che usa un PC (mouse) può salvare il backup completo
+  const [finestraBackup, setFinestraBackup] = useState<"" | "uscita" | "backup">("");
+  const daPc = typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches;
+  const richiediUscita = () => (admin && daPc ? setFinestraBackup("uscita") : esci());
 
   // Raggruppa le sezioni visibili mantenendo l'ordine
   const gruppi: { nome: string; voci: typeof sezioni }[] = [];
@@ -74,7 +79,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </button>
         <Logo />
         <div className="icone-alte">
-          <button className="utente-alto" title="Esci per cambiare utente" onClick={esci}>
+          <button className="utente-alto" title="Esci per cambiare utente" onClick={richiediUscita}>
             <span>{profilo?.nome || profilo?.email}</span>
             <LogOut size={20} strokeWidth={1.5} />
             <span>Esci</span>
@@ -118,7 +123,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="utente">
           <div>{profilo?.nome || profilo?.email}</div>
           <div className="ruolo">{admin ? "Amministratore" : "Utente standard"}</div>
-          <button className="esci" onClick={esci}><LogOut size={15} /> Esci / Cambia utente</button>
+          {admin && <button className="esci" onClick={() => setFinestraBackup("backup")}><Database size={15} /> Backup completo</button>}
+          <button className="esci" onClick={richiediUscita}><LogOut size={15} /> Esci / Cambia utente</button>
         </div>
       </aside>
 
@@ -130,7 +136,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <span title="Statistiche"><PieChart size={20} strokeWidth={1.5} /></span>
           <span title="Novità"><Rocket size={20} strokeWidth={1.5} /></span>
           <span title="Moduli"><Puzzle size={20} strokeWidth={1.5} /></span>
-          <button title="Esci" onClick={esci}><LogOut size={20} strokeWidth={1.5} /></button>
+          <button title="Esci" onClick={richiediUscita}><LogOut size={20} strokeWidth={1.5} /></button>
         </div>
         <div className="gruppo-icone">
           {scorciatoia("clienti", User, "Clienti")}
@@ -139,6 +145,13 @@ export default function Layout({ children }: { children: ReactNode }) {
           {scorciatoia("materiali", Wrench, "Materiali")}
         </div>
       </footer>
+      {finestraBackup && (
+        <UscitaBackup
+          soloBackup={finestraBackup === "backup"}
+          onEsci={() => { setFinestraBackup(""); esci(); }}
+          onAnnulla={() => setFinestraBackup("")}
+        />
+      )}
     </div>
   );
 }
