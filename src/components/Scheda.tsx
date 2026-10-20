@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Barcode, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import type { Archivio, Campo } from "../archivi";
@@ -38,6 +39,53 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     return t;
   });
   const [elenchiRif, setElenchiRif] = useState<Record<string, { id: number; nome: string }[]>>({});
+  const [righe, setRighe] = useState<Record<string, unknown>[]>([]);
+  const [rigaSel, setRigaSel] = useState<number | null>(null);
+  const [codice, setCodice] = useState("");
+  const [suggerimenti, setSuggerimenti] = useState<Record<string, Record<string, unknown>[]>>({});
+  const tuttiCampi = [...cfg.campi, ...(cfg.piede ?? [])];
+
+  useEffect(() => {
+    if (!cfg.righe || nuovo) return;
+    supabase.from(cfg.righe.tabella).select("*").eq(cfg.righe.campo, valori.id).order("ordine")
+      .then(({ data }) => setRighe(data ?? []));
+  }, [cfg.righe, nuovo, valori.id]);
+
+  // Suggerimenti da record collegati (es. impianti del cliente scelto)
+  const filtriSuggerimenti = cfg.campi.filter((c) => c.suggerisciDa).map((c) => dati[c.suggerisciDa!.filtro.campo]).join("|");
+  useEffect(() => {
+    for (const c of cfg.campi.filter((c) => c.suggerisciDa)) {
+      const { tabella, filtro } = c.suggerisciDa!;
+      const valoreFiltro = dati[filtro.campo];
+      if (vuoto(valoreFiltro)) {
+        setSuggerimenti((s) => ({ ...s, [c.chiave]: [] }));
+        continue;
+      }
+      supabase.from(tabella).select("*").eq(filtro.colonna, valoreFiltro).is("eliminato_il", null)
+        .then(({ data }) => setSuggerimenti((s) => ({ ...s, [c.chiave]: data ?? [] })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg.campi, filtriSuggerimenti]);
+
+  const totali = cfg.calcolaTotali?.(dati, righe) ?? {};
+
+  const cambiaRiga = (i: number, chiave: string, valore: unknown) =>
+    setRighe((rr) => rr.map((r, j) => (j === i ? cfg.righe!.ricalcola({ ...r, [chiave]: valore }) : r)));
+  const aggiungiRiga = (extra: Record<string, unknown> = {}) => {
+    setRighe((rr) => [...rr, cfg.righe!.ricalcola({ quantita: 1, ...extra })]);
+    setRigaSel(righe.length);
+  };
+  const spostaRiga = (verso: number) => {
+    if (rigaSel === null) return;
+    const j = rigaSel + verso;
+    if (j < 0 || j >= righe.length) return;
+    setRighe((rr) => {
+      const n = [...rr];
+      [n[rigaSel], n[j]] = [n[j], n[rigaSel]];
+      return n;
+    });
+    setRigaSel(j);
+  };
 
   useEffect(() => {
     for (const c of cfg.campi.filter((c) => c.tipo === "riferimento")) {
@@ -60,6 +108,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   };
 
   useEffect(() => {
+    for (const c of tuttiCampi.filter((c) => c.opzioniFisse)) {
+      setOpzioni((o) => ({ ...o, [c.chiave]: c.opzioniFisse!.map((v) => ({ valore: v, etichetta: v })) }));
+    }
     for (const c of cfg.campi.filter((c) => c.opzioniDa)) {
       supabase.from(c.opzioniDa!).select("nome").order("ordine").then(({ data }) =>
         setOpzioni((o) => ({ ...o, [c.chiave]: (data ?? []).map((r) => ({ valore: r.nome, etichetta: r.nome })) })),
@@ -76,9 +127,17 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     e?.preventDefault();
     if (!modificabile) return;
     const record: Record<string, unknown> = {};
-    for (const c of cfg.campi.filter((c) => c.tipo !== "titolo")) {
-      record[c.chiave] = vuoto(dati[c.chiave]) ? null : String(dati[c.chiave]).trim();
+    for (const c of tuttiCampi.filter((c) => c.tipo !== "titolo" && !(c.solaLettura && c.chiave in totali))) {
+      const v = dati[c.chiave];
+      if (c.solaLettura && nuovo && vuoto(v)) continue;
+      record[c.chiave] =
+        c.tipo === "booleano" ? !!v
+        : c.tipo === "numero" || c.tipo === "euro" ? (vuoto(v) ? null : Number(v))
+        : c.tipo === "data" ? dataIso(v)
+        : vuoto(v) ? null : String(v).trim();
     }
+    for (const c of cfg.campi.filter((c) => c.suggerisciDa)) record[c.suggerisciDa!.salvaId] = dati[c.suggerisciDa!.salvaId] ?? null;
+    for (const [k, v] of Object.entries(totali)) if (!k.startsWith("_")) record[k] = v;
     if (nuovo && valori.archivio_id) record.archivio_id = valori.archivio_id;
     const rifNonValido = cfg.campi.find((c) => c.tipo === "riferimento" && !vuoto(testoRif[c.chiave]) && vuoto(dati[c.chiave]));
     if (rifNonValido) return setStato(`"${testoRif[rifNonValido.chiave]}" non è presente in ${rifNonValido.riferimentoA}: sceglilo dall'elenco`);
@@ -89,22 +148,69 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       ? await supabase.from(cfg.tabella).insert(record).select("id").single()
       : await supabase.from(cfg.tabella).update(record).eq("id", valori.id).select("id").single();
     if (risposta.error) return setStato("Errore: " + risposta.error.message);
+    if (cfg.righe) {
+      const { tabella, campo, colonne } = cfg.righe;
+      const del = await supabase.from(tabella).delete().eq(campo, risposta.data.id);
+      if (del.error) return setStato("Errore: " + del.error.message);
+      const daSalvare = righe
+        .filter((r) => colonne.some((c) => !vuoto(r[c.chiave])))
+        .map((r, i) => {
+          const o: Record<string, unknown> = { [campo]: risposta.data.id, ordine: i };
+          for (const k of Object.keys(r)) if (!["id", campo, "ordine"].includes(k)) o[k] = vuoto(r[k]) ? null : r[k];
+          return o;
+        });
+      if (daSalvare.length) {
+        const ins = await supabase.from(tabella).insert(daSalvare);
+        if (ins.error) return setStato("Errore: " + ins.error.message);
+      }
+    }
     await registra(`${cfg.sezione}_${nuovo ? "creato" : "modificato"}`, { id: risposta.data.id, nome: dati[cfg.colonne[0].chiave] ?? testoRif[cfg.campi.find((c) => c.tipo === "riferimento")?.chiave ?? ""] ?? null });
     onSalvato(risposta.data.id);
   };
 
   const campo = (c: Campo, aCapo: boolean) => {
     if (c.tipo === "titolo") return <div key={c.chiave} className={`sezione-scheda ${c.stile ?? "grigio"}`}>{c.etichetta}</div>;
-    const valore = String(dati[c.chiave] ?? "");
+    const valore = String((c.chiave in totali ? totali[c.chiave] : dati[c.chiave]) ?? "");
     const props = {
       id: `campo-${c.chiave}`,
       value: valore,
-      readOnly: !modificabile,
+      readOnly: !modificabile || c.solaLettura,
+      placeholder: c.segnaposto,
       onChange: (e: { target: { value: string } }) => cambia(c.chiave, e.target.value),
     };
     let controllo;
     if (c.tipo === "area") controllo = <textarea rows={2} {...props} />;
     else if (c.tipo === "data") controllo = <input type="date" {...props} value={dataIso(valore) ?? ""} />;
+    else if (c.tipo === "ora") controllo = <input type="time" {...props} value={valore.slice(0, 5)} />;
+    else if (c.tipo === "numero" || c.tipo === "euro")
+      controllo = c.solaLettura
+        ? <input {...props} className="destra" value={c.tipo === "euro" ? euro(valore) : vuoto(valore) ? "" : Number(valore).toLocaleString("it-IT", { minimumFractionDigits: 2 })} />
+        : <input type="number" step="0.01" {...props} className="destra" />;
+    else if (c.tipo === "booleano")
+      controllo = (
+        <input type="checkbox" id={props.id} className="casella" checked={!!dati[c.chiave]} disabled={!modificabile}
+          onChange={(e) => cambia(c.chiave, e.target.checked)} />
+      );
+    else if (c.suggerisciDa)
+      controllo = (
+        <span className="scelta">
+          <input {...props} />
+          {modificabile && (
+            <select value="" title="Scegli tra gli impianti del cliente" className="solo-freccia" onChange={(e) => {
+              const r = (suggerimenti[c.chiave] ?? [])[Number(e.target.value)];
+              if (!r) return;
+              setDati((d) => {
+                const n = { ...d, [c.suggerisciDa!.salvaId]: r.id };
+                for (const k of c.suggerisciDa!.copia) n[k] = r[k] ?? null;
+                return n;
+              });
+            }}>
+              <option value="" />
+              {(suggerimenti[c.chiave] ?? []).map((r, i) => <option key={i} value={i}>{c.suggerisciDa!.etichetta(r)}</option>)}
+            </select>
+          )}
+        </span>
+      );
     else if (c.tipo === "riferimento")
       controllo = (
         <>
@@ -149,6 +255,111 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     );
   };
 
+  const principali = cfg.campi.filter((c) => !c.linguetta);
+
+  const righeMateriali = () => {
+    const rc = cfg.righe!;
+    return (
+      <div className="area-righe">
+        {modificabile && (
+          <div className="barra-righe">
+            <button type="button" title="Aggiungi riga" onClick={() => aggiungiRiga()}><CirclePlus size={30} strokeWidth={1.4} /></button>
+            <button type="button" title="Elimina riga" disabled={rigaSel === null} onClick={() => {
+              setRighe((rr) => rr.filter((_, j) => j !== rigaSel));
+              setRigaSel(null);
+            }}><CircleMinus size={30} strokeWidth={1.4} /></button>
+            <button type="button" title="Sposta giù" onClick={() => spostaRiga(1)}><ArrowDown size={22} strokeWidth={2} className="cerchiata" /></button>
+            <button type="button" title="Sposta su" onClick={() => spostaRiga(-1)}><ArrowUp size={22} strokeWidth={2} className="cerchiata" /></button>
+          </div>
+        )}
+        <div className="tabella-righe">
+          <table>
+            <thead>
+              <tr><th style={{ width: 16 }} />{rc.colonne.map((c) => <th key={c.chiave} style={{ width: c.larghezza }}>{c.titolo}</th>)}</tr>
+            </thead>
+            <tbody>
+              {righe.map((r, i) => (
+                <tr key={i} className={i === rigaSel ? "attiva" : ""} onClick={() => setRigaSel(i)}>
+                  <td className="indicatore-riga">{i === rigaSel ? "▸" : ""}</td>
+                  {rc.colonne.map((c) => (
+                    <td key={c.chiave} className={c.tipo && c.tipo !== "testo" ? "destra" : ""}>
+                      {c.solaLettura || !modificabile ? (
+                        c.tipo === "euro" ? euro(r[c.chiave]) : String(r[c.chiave] ?? "")
+                      ) : (
+                        <input
+                          type={c.tipo && c.tipo !== "testo" ? "number" : "text"}
+                          step="0.01"
+                          value={String(r[c.chiave] ?? "")}
+                          onChange={(e) => cambiaRiga(i, c.chiave, c.tipo && c.tipo !== "testo" ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value)}
+                        />
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {modificabile && (
+          <div className="riga-codice">
+            <input
+              value={codice}
+              placeholder="Codice a barre"
+              onChange={(e) => setCodice(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (codice.trim()) aggiungiRiga({ codice_barre: codice.trim() });
+                  setCodice("");
+                }
+              }}
+            />
+            <Barcode size={22} />
+          </div>
+        )}
+        {cfg.piede && (
+          <div className="piede-totali">
+            {cfg.piede.map((c) => (
+              <label key={c.chiave} className={`voce-piede${c.tipo === "booleano" ? "" : " valore"}`}>
+                <span>{c.etichetta}</span>
+                {c.tipo === "booleano" ? (
+                  <input type="checkbox" checked={!!dati[c.chiave]} disabled={!modificabile} onChange={(e) => cambia(c.chiave, e.target.checked)} />
+                ) : c.solaLettura ? (
+                  <b>{euro(c.chiave in totali ? totali[c.chiave] : dati[c.chiave] ?? 0)}</b>
+                ) : (
+                  <input type="number" step="0.01" className="destra" value={String(dati[c.chiave] ?? "")} readOnly={!modificabile}
+                    onChange={(e) => cambia(c.chiave, e.target.value)} />
+                )}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const stampa = async () => {
+    const finestra = window.open("", "_blank");
+    if (!finestra) return setStato("Errore: il browser ha bloccato la finestra di stampa");
+    // Dati dei record collegati (es. P.IVA ed e-mail del cliente) come "cliente_piva", "cliente_email"
+    const collegati: Record<string, unknown> = {};
+    for (const col of cfg.colonne.filter((c) => c.riferimento)) {
+      const id = dati[col.riferimento!.campo];
+      if (vuoto(id)) continue;
+      const { data } = await supabase.from(col.riferimento!.tabella).select("*").eq("id", id).single();
+      for (const [k, v] of Object.entries(data ?? {})) collegati[`${col.chiave}_${k}`] = v;
+    }
+    finestra.document.write(cfg.stampa!({ ...dati, ...totali, ...testoRifNomi(), ...collegati }, righe));
+    finestra.document.close();
+  };
+
+  // Nomi dei record collegati (es. cliente, tecnico) per la stampa
+  const testoRifNomi = () => {
+    const o: Record<string, string> = {};
+    for (const col of cfg.colonne) if (col.riferimento) o[col.chiave] = testoRif[col.riferimento.campo] ?? "";
+    return o;
+  };
+
   return (
     <div className="velo" onMouseDown={onChiudi}>
       <form
@@ -157,7 +368,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         onMouseDown={(e) => { e.stopPropagation(); setMenuAzioni(false); }}
       >
         <div className="scheda-titolo">
-          <span><CreditCard size={14} /> {nuovo ? cfg.titoloNuovo : String(valori[cfg.colonne[0].chiave] ?? "")}</span>
+          <span><CreditCard size={14} /> {nuovo ? cfg.titoloNuovo : cfg.titoloScheda?.(valori) ?? String(valori[cfg.colonne[0].chiave] ?? "")}</span>
           <span className="comandi">
             <button type="button" title="Riduci" onClick={() => setRidotta(!ridotta)}><Minus size={16} strokeWidth={3} /></button>
             <button type="button" title="Ingrandisci" onClick={() => setIngrandita(!ingrandita)}>
@@ -177,7 +388,14 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
               </div>
               <div className="pannello-linguetta">
                 {linguetta === "Principale" ? (
-                  <div className="griglia-campi">{cfg.campi.map((c, i) => campo(c, !!cfg.campi[i - 1]?.finisciRiga))}</div>
+                  <>
+                    <div className="griglia-campi">{principali.map((c, i) => campo(c, !!principali[i - 1]?.finisciRiga))}</div>
+                    {cfg.righe && righeMateriali()}
+                  </>
+                ) : cfg.campi.some((c) => c.linguetta === linguetta) ? (
+                  <div className="griglia-campi">
+                    {cfg.campi.filter((c) => c.linguetta === linguetta).map((c, i, a) => campo(c, !!a[i - 1]?.finisciRiga))}
+                  </div>
                 ) : cfg.figli?.some((f) => f.linguetta === linguetta) ? (
                   <RecordCollegati figlio={cfg.figli.find((f) => f.linguetta === linguetta)!} id={valori.id as number | undefined} />
                 ) : linguetta === "Log Cloud" ? (
@@ -209,6 +427,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                           </>
                         )}
                         {!nelCestino && puo(cfg.sezione, "eliminare") && <button type="button" onClick={onElimina}>Elimina</button>}
+                        {cfg.stampa && <button type="button" onClick={stampa}>Stampa</button>}
                         {dati.email ? <a href={`mailto:${dati.email}`}>Invia e-mail</a> : null}
                       </div>
                     )}
@@ -277,7 +496,7 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
       .select("*")
       .eq(figlio.campo, id)
       .is("eliminato_il", null)
-      .order("id")
+      .order(figlio.ordine ?? "id", { ascending: !figlio.ordine })
       .then(({ data }) => setRighe(data ?? []));
   }, [figlio, id]);
 
@@ -290,7 +509,7 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
         {righe.map((r, i) => (
           <tr key={i}>
             {figlio.colonne.map((c) => (
-              <td key={c.chiave}>{c.tipo === "data" ? dataIt(r[c.chiave]) : String(r[c.chiave] ?? "")}</td>
+              <td key={c.chiave}>{c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave]) : String(r[c.chiave] ?? "")}</td>
             ))}
           </tr>
         ))}

@@ -29,7 +29,12 @@ function leggiNascoste(sezione: string): string[] {
 }
 
 export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
-  const { puo } = useAuth();
+  const { puo, profilo } = useAuth();
+  const apriNuovo = async () => {
+    const base = vista.tipo === "archivio" ? { archivio_id: vista.id } : {};
+    const proposti = (await cfg.valoriNuovo?.({ utenteId: profilo?.id ?? "", admin: profilo?.ruolo === "admin" })) ?? {};
+    setScheda({ ...proposti, ...base });
+  };
   const [righe, setRighe] = useState<Riga[]>([]);
   const [visibili, setVisibili] = useState<Riga[]>([]);
   const [cartelle, setCartelle] = useState<Cartella[]>([]);
@@ -182,7 +187,12 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           const o: Record<string, string | null> = {};
           for (const m of mappa) {
             const v = r[m.i];
-            o[m.chiave] = colonnaDi(m.chiave)?.tipo === "data" ? dataIso(v) : vuoto(v) ? null : String(v).trim();
+            const tipo = colonnaDi(m.chiave)?.tipo;
+            (o as Record<string, unknown>)[m.chiave] =
+              tipo === "data" ? dataIso(v)
+              : tipo === "booleano" ? v === 1 || v === true || ["1", "si", "sì", "true", "vero"].includes(normalizza(v))
+              : tipo === "euro" ? (vuoto(v) || isNaN(Number(v)) ? 0 : Math.round(Number(v) * 100) / 100)
+              : vuoto(v) ? null : String(v).trim();
             if (ammessi[m.chiave] && o[m.chiave] && !ammessi[m.chiave].has(o[m.chiave]!)) o[m.chiave] = null;
           }
           return o;
@@ -197,6 +207,20 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       for (const c of cfg.colonne.filter((c) => c.riferimento && mappa.some((m) => m.chiave === c.chiave))) {
         const collegati = await leggiTutto(c.riferimento!.tabella, "id, nome");
         const perNome = new Map(collegati.map((r) => [normalizza(r.nome), r.id]));
+        // Nomi non presenti: si propone di crearli, per non perdere il collegamento
+        const mancanti = [...new Map(record
+          .map((o) => o[c.chiave])
+          .filter((nome): nome is string => !!nome && !perNome.has(normalizza(nome)))
+          .map((nome) => [normalizza(nome), nome.trim()])).values()];
+        if (mancanti.length && confirm(
+          `${mancanti.length} nomi della colonna "${c.titolo}" non sono presenti in ${c.riferimento!.tabella}:\n` +
+          mancanti.slice(0, 15).join("\n") + (mancanti.length > 15 ? "\n…" : "") +
+          `\n\nVuoi crearli automaticamente?`,
+        )) {
+          const { data, error } = await supabase.from(c.riferimento!.tabella).insert(mancanti.map((nome) => ({ nome }))).select("id, nome");
+          if (error) throw error;
+          for (const r of data ?? []) perNome.set(normalizza(r.nome), r.id);
+        }
         for (const o of record) {
           const nome = o[c.chiave];
           const id = nome ? perNome.get(normalizza(nome)) : undefined;
@@ -262,7 +286,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         <h1>{titoloVista}</h1>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>
           {puo(cfg.sezione, "creare") && !nelCestino && (
-            <button className="btn blu" onClick={() => setScheda(vista.tipo === "archivio" ? { archivio_id: vista.id } : {})}>Nuovo</button>
+            <button className="btn blu" onClick={apriNuovo}>Nuovo</button>
           )}
           <div className="tendina">
             <button className="btn verde" onClick={() => setMenu(menu ? "" : "azioni")}>Azioni <span className="punta">⌵</span></button>
@@ -316,6 +340,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         onSeleziona={setSelezionata}
         onApri={(r) => setScheda(r)}
         onVisibili={setVisibili}
+        ordineIniziale={cfg.ordineIniziale}
       />
 
       {scheda && (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Filter } from "lucide-react";
 import { dataIt } from "../supabase";
 
@@ -6,7 +6,7 @@ export interface Colonna {
   chiave: string;
   titolo: string;
   larghezza: number;
-  tipo?: "data";
+  tipo?: "data" | "booleano" | "euro";
 }
 
 type Riga = Record<string, unknown> & { id: number };
@@ -19,33 +19,60 @@ interface Props {
   onApri: (riga: Riga) => void;
   // Riceve le righe visibili (filtrate e ordinate), per esportazione e stampa
   onVisibili?: (righe: Riga[]) => void;
+  ordineIniziale?: { chiave: string; su: boolean };
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
-const mostra = (c: Colonna, r: Riga) => (c.tipo === "data" ? dataIt(r[c.chiave]) : testo(r[c.chiave]));
+export const euro = (v: unknown) =>
+  v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+const mostra = (c: Colonna, r: Riga) =>
+  c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave]) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili }: Props) {
-  const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>({ chiave: colonne[0]?.chiave ?? "id", su: true });
+export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale }: Props) {
+  const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
+  // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record
+  const scorri = useRef<HTMLDivElement>(null);
+  const [finestra, setFinestra] = useState({ alto: 0, altezza: 900 });
+  useEffect(() => {
+    const el = scorri.current;
+    if (!el) return;
+    const aggiorna = () => setFinestra({ alto: el.scrollTop, altezza: el.clientHeight });
+    aggiorna();
+    el.addEventListener("scroll", aggiorna, { passive: true });
+    window.addEventListener("resize", aggiorna);
+    return () => {
+      el.removeEventListener("scroll", aggiorna);
+      window.removeEventListener("resize", aggiorna);
+    };
+  }, []);
 
   const visibili = useMemo(() => {
     const attivi = Object.entries(filtri).filter(([, f]) => f.trim());
     const filtrate = righe.filter((r) =>
       attivi.every(([k, f]) => {
         const c = colonne.find((c) => c.chiave === k);
+        if (c?.tipo === "booleano") return f === "sì" ? !!r[k] : !r[k];
         return (c ? mostra(c, r) : testo(r[k])).toLowerCase().includes(f.trim().toLowerCase());
       }),
     );
     const segno = ordine.su ? 1 : -1;
+    const tipo = colonne.find((c) => c.chiave === ordine.chiave)?.tipo;
     return filtrate.sort((a, b) =>
-      segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
+      tipo === "euro" || tipo === "booleano"
+        ? segno * (Number(a[ordine.chiave] ?? 0) - Number(b[ordine.chiave] ?? 0))
+        : segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
   }, [righe, filtri, ordine, colonne]);
 
   useEffect(() => {
     onVisibili?.(visibili);
   }, [visibili, onVisibili]);
+
+  const ALTEZZA_RIGA = 21;
+  const primo = Math.max(0, Math.floor(finestra.alto / ALTEZZA_RIGA) - 20);
+  const ultimo = Math.min(visibili.length, primo + Math.ceil(finestra.altezza / ALTEZZA_RIGA) + 40);
 
   const ordina = (chiave: string) =>
     setOrdine((o) => ({ chiave, su: o.chiave === chiave ? !o.su : true }));
@@ -59,7 +86,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
 
   return (
     <div className="griglia-dati">
-      <div className="griglia-scorri">
+      <div className="griglia-scorri" ref={scorri}>
         <table style={{ width: 18 + colonne.reduce((t, c) => t + c.larghezza, 0) }}>
           {larghezze}
           <thead>
@@ -76,13 +103,20 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
               <th><Filter size={9} /></th>
               {colonne.map((c) => (
                 <th key={c.chiave}>
-                  <input value={filtri[c.chiave] ?? ""} onChange={(e) => setFiltri({ ...filtri, [c.chiave]: e.target.value })} />
+                  {c.tipo === "booleano" ? (
+                    <select value={filtri[c.chiave] ?? ""} onChange={(e) => setFiltri({ ...filtri, [c.chiave]: e.target.value })}>
+                      <option value="" /><option value="sì">sì</option><option value="no">no</option>
+                    </select>
+                  ) : (
+                    <input value={filtri[c.chiave] ?? ""} onChange={(e) => setFiltri({ ...filtri, [c.chiave]: e.target.value })} />
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {visibili.map((r) => (
+            {primo > 0 && <tr style={{ height: primo * ALTEZZA_RIGA }} />}
+            {visibili.slice(primo, ultimo).map((r) => (
               <tr
                 key={r.id}
                 className={r.id === selezionata ? "attiva" : ""}
@@ -91,10 +125,15 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
               >
                 <td className="indicatore-riga">{r.id === selezionata ? "▸" : ""}</td>
                 {colonne.map((c) => (
-                  <td key={c.chiave} title={mostra(c, r)}>{mostra(c, r)}</td>
+                  c.tipo === "booleano" ? (
+                    <td key={c.chiave} className="centrata"><input type="checkbox" checked={!!r[c.chiave]} readOnly tabIndex={-1} /></td>
+                  ) : (
+                    <td key={c.chiave} title={mostra(c, r)} className={c.tipo === "euro" ? "destra" : ""}>{mostra(c, r)}</td>
+                  )
                 ))}
               </tr>
             ))}
+            {ultimo < visibili.length && <tr style={{ height: (visibili.length - ultimo) * ALTEZZA_RIGA }} />}
           </tbody>
         </table>
       </div>

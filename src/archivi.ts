@@ -1,10 +1,26 @@
 import type { Colonna } from "./components/Griglia";
-import { dataIso } from "./supabase";
+import { dataIso, supabase } from "./supabase";
+import { stampaRapporto } from "./stampe";
 
 export interface Campo {
   chiave: string;
   etichetta: string;
-  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento";
+  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano";
+  // Linguetta in cui mostrare il campo (default: Principale)
+  linguetta?: string;
+  // Campo non modificabile (es. numero automatico, totali calcolati)
+  solaLettura?: boolean;
+  segnaposto?: string;
+  // Opzioni fisse per i campi a scelta (es. Si / No)
+  opzioniFisse?: string[];
+  // Suggerimenti presi da record collegati: scegliendone uno vengono copiati alcuni campi
+  suggerisciDa?: {
+    tabella: string;
+    filtro: { colonna: string; campo: string };
+    etichetta: (r: Record<string, unknown>) => string;
+    copia: string[];
+    salvaId: string;
+  };
   // Per i campi "riferimento": tabella collegata (si sceglie per nome, si salva l'id)
   riferimentoA?: string;
   // Colonne occupate su 4 (come nella scheda originale); 0.5 = mezza colonna
@@ -43,13 +59,69 @@ export interface Archivio {
   // Ricalcola altri campi quando uno cambia (es. data prossimo intervento)
   quandoCambia?: (dati: Record<string, unknown>, chiave: string) => Record<string, unknown> | null;
   // Linguette della scheda che mostrano i record collegati (es. gli impianti di un cliente)
-  figli?: { linguetta: string; tabella: string; campo: string; colonne: Colonna[] }[];
+  figli?: { linguetta: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string }[];
+  // Ordinamento iniziale della griglia
+  ordineIniziale?: { chiave: string; su: boolean };
+  // Valori proposti per un nuovo record
+  valoriNuovo?: (ctx: { utenteId: string; admin: boolean }) => Promise<Record<string, unknown>>;
+  // Titolo della scheda di un record esistente
+  titoloScheda?: (valori: Record<string, unknown>) => string;
+  // Righe di dettaglio modificabili (es. materiali del rapporto)
+  righe?: {
+    tabella: string;
+    campo: string;
+    colonne: { chiave: string; titolo: string; larghezza: number; tipo?: "testo" | "numero" | "euro"; solaLettura?: boolean }[];
+    ricalcola: (riga: Record<string, unknown>) => Record<string, unknown>;
+  };
+  // Campi sotto le righe (caselle e totali)
+  piede?: Campo[];
+  // Campi calcolati al salvataggio e mostrati nel piede (es. imponibile e totale)
+  calcolaTotali?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => Record<string, number>;
+  // Documento da stampare dalla scheda (HTML)
+  stampa?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => string;
 }
 
 // Mesi di ogni periodicità, per proporre la data del prossimo intervento
 const MESI_PERIODO: Record<string, number> = {
   Mensile: 1, Trimestrale: 3, Quadrimestrale: 4, Semestrale: 6, Annuale: 12, Biennale: 24, Triennale: 36,
 };
+
+// Colonne della linguetta Storico (rapporti di intervento collegati)
+const COLONNE_STORICO: Colonna[] = [
+  { chiave: "data", titolo: "Data", larghezza: 90, tipo: "data" },
+  { chiave: "numero", titolo: "Numero", larghezza: 70 },
+  { chiave: "attivita", titolo: "Attività svolte", larghezza: 300 },
+  { chiave: "stato", titolo: "Stato", larghezza: 90 },
+  { chiave: "imponibile", titolo: "Imponibile", larghezza: 90, tipo: "euro" },
+];
+
+const n = (v: unknown) => (v === null || v === undefined || v === "" || isNaN(Number(v)) ? 0 : Number(v));
+
+// Totale ore = ora fine - ora inizio - pausa
+function oreRapporto(dati: Record<string, unknown>, chiave: string) {
+  if (!["ora_inizio", "ora_fine", "ore_pausa"].includes(chiave)) return null;
+  const minuti = (t: unknown) => {
+    const m = String(t ?? "").match(/^(\d{1,2}):(\d{2})/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const inizio = minuti(dati.ora_inizio);
+  const fine = minuti(dati.ora_fine);
+  if (inizio === null || fine === null) return null;
+  const ore = Math.max(0, (fine - inizio) / 60 - n(dati.ore_pausa));
+  return { totale_ore: Math.round(ore * 100) / 100 };
+}
+
+// Imponibile = materiali + diritto di chiamata + tariffa fissa + ore × tariffa oraria + km × tariffa km
+function totaliRapporto(dati: Record<string, unknown>, righe: Record<string, unknown>[]) {
+  const materiali = righe.reduce((t, r) => t + n(r.totale), 0);
+  const tariffe = n(dati.diritto_chiamata) + n(dati.tariffa_fissa) + n(dati.totale_ore) * n(dati.tariffa_oraria) + n(dati.km_percorsi) * n(dati.tariffa_km);
+  // I rapporti importati non hanno righe né tariffe: si conserva l'imponibile originale
+  const calcolato = righe.length || tariffe ? Math.round((materiali + tariffe) * 100) / 100 : n(dati.imponibile);
+  const imponibile = dati.azzera_imponibile ? 0 : calcolato;
+  return { imponibile, _totale: dati.considera_totale_preventivo ? n(dati.totale_preventivo) : imponibile };
+}
+
+const oraAttuale = () => new Date().toTimeString().slice(0, 5);
 
 function prossimoIntervento(dati: Record<string, unknown>, chiave: string) {
   if (chiave !== "periodo" && chiave !== "data_ultimo") return null;
@@ -70,6 +142,12 @@ export const ARCHIVI: Record<string, Archivio> = {
     linguette: ["Impianti", "Storico", "Log Cloud"],
     tabella: "clienti",
     figli: [{
+      linguetta: "Storico",
+      tabella: "rapporti",
+      campo: "cliente_id",
+      ordine: "data",
+      colonne: COLONNE_STORICO,
+    }, {
       linguetta: "Impianti",
       tabella: "impianti",
       campo: "cliente_id",
@@ -176,6 +254,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     titoloNuovo: "Nuovo impianto",
     linguette: ["Materiali", "Storico", "Log Cloud"],
     tabella: "impianti",
+    figli: [{ linguetta: "Storico", tabella: "rapporti", campo: "impianto_id", ordine: "data", colonne: COLONNE_STORICO }],
     select: "*, cliente:clienti(nome)",
     chiaveImport: ["cliente", "impianto", "tipo_impianto", "marca", "modello", "matricola"],
     quandoCambia: prossimoIntervento,
@@ -206,6 +285,116 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "materiali", etichetta: "materiali", larghezza: 2 },
       { chiave: "data_ultimo", etichetta: "Data Ultimo Intervento", tipo: "data", larghezza: 1, finisciRiga: true },
       { chiave: "cliente_id", etichetta: "Cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2, finisciRiga: true },
+    ],
+  },
+  rapporti: {
+    sezione: "rapporti",
+    titolo: "Rapporti di intervento",
+    titoloNuovo: "Nuovo intervento tecnico",
+    titoloScheda: (v) => `Intervento tecnico N. ${v.numero ?? ""} - ${v.cliente ?? ""}`,
+    linguette: ["Dettaglio", "Tariffe", "Storico", "Log Cloud"],
+    tabella: "rapporti",
+    select: "*, cliente:clienti(nome), tecnico:tecnici(nome)",
+    chiaveImport: "numero",
+    ordineIniziale: { chiave: "data", su: false },
+    quandoCambia: oreRapporto,
+    calcolaTotali: totaliRapporto,
+    stampa: stampaRapporto,
+    valoriNuovo: async ({ utenteId, admin }) => {
+      // Tecnico proposto: quello collegato all'utente, oppure "Amministrazione" per l'admin
+      let { data: tecnico } = await supabase.from("tecnici").select("id, nome").eq("utente_id", utenteId).is("eliminato_il", null).limit(1).maybeSingle();
+      if (!tecnico && admin) {
+        ({ data: tecnico } = await supabase.from("tecnici").select("id, nome").ilike("nome", "amministrazione").limit(1).maybeSingle());
+      }
+      const ora = oraAttuale();
+      return {
+        data: dataIso(new Date()), ora_inizio: ora, ora_fine: ora, ore_pausa: 0, totale_ore: 0,
+        tecnico_id: tecnico?.id ?? null, tecnico: tecnico?.nome ?? "",
+      };
+    },
+    colonne: [
+      { chiave: "data", titolo: "Data", excel: "Data", larghezza: 82, tipo: "data" },
+      { chiave: "pagamento_contanti", titolo: "Pagamento in contanti", excel: "Pagamento in contanti", larghezza: 60, tipo: "booleano" },
+      { chiave: "considera_totale_preventivo", titolo: "Considera totale preventivo", excel: "Considera totale preventivo", larghezza: 40, tipo: "booleano" },
+      { chiave: "numero", titolo: "Numero", excel: "Numero", larghezza: 44 },
+      { chiave: "cliente", titolo: "Nome cliente", excel: "Nome cliente", larghezza: 177, riferimento: { campo: "cliente_id", tabella: "clienti" } },
+      { chiave: "stato", titolo: "Stato documento", excel: "Stato documento", larghezza: 41 },
+      { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 131, riferimento: { campo: "tecnico_id", tabella: "tecnici" } },
+      { chiave: "tecnico_vecchio", titolo: "Tecnico Vecchio", excel: "Tecnico Vecchio", larghezza: 70 },
+      { chiave: "attivita", titolo: "Attività svolte", excel: "Attività svolte", larghezza: 202 },
+      { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 74, tipo: "euro" },
+      { chiave: "azzera_imponibile", titolo: "Azzera Imponibile", excel: "Azzera Imponibile", larghezza: 45, tipo: "booleano" },
+      { chiave: "fatto_conto", titolo: "Fatto conto", excel: "Fatto conto", larghezza: 45 },
+      { chiave: "pagata", titolo: "Pagata", excel: "Pagata", larghezza: 49, tipo: "booleano" },
+      { chiave: "data_pagamento", titolo: "Data Pagamento", excel: "Data Pagamento", larghezza: 77, tipo: "data" },
+      { chiave: "rif_preventivo", titolo: "Rif. Preventivo", excel: "Rif. Preventivo", larghezza: 149 },
+      { chiave: "totale_preventivo", titolo: "Totale Preventivo", excel: "Totale Preventivo", larghezza: 66, tipo: "euro" },
+      { chiave: "note", titolo: "Note", excel: "Note", larghezza: 48 },
+      { chiave: "gimpianto", titolo: "gimpianto", excel: "gimpianto", larghezza: 136 },
+    ],
+    campi: [
+      { chiave: "numero", etichetta: "Numero", larghezza: 1, solaLettura: true, segnaposto: "Auto compilato" },
+      { chiave: "data", etichetta: "Data", tipo: "data", larghezza: 1, obbligatorio: true },
+      { chiave: "tecnico_id", etichetta: "Tecnico", tipo: "riferimento", riferimentoA: "tecnici", larghezza: 2 },
+      { chiave: "ora_inizio", etichetta: "Ora inizio", tipo: "ora", larghezza: 1 },
+      { chiave: "ora_fine", etichetta: "Ora fine", tipo: "ora", larghezza: 1 },
+      { chiave: "ore_pausa", etichetta: "Ore Pausa", tipo: "numero", larghezza: 1 },
+      { chiave: "totale_ore", etichetta: "Totale ore", tipo: "numero", larghezza: 1, solaLettura: true },
+      { chiave: "cliente_id", etichetta: "Nome cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2 },
+      {
+        chiave: "tipo_impianto", etichetta: "Tipo impianto", larghezza: 2,
+        suggerisciDa: {
+          tabella: "impianti",
+          filtro: { colonna: "cliente_id", campo: "cliente_id" },
+          etichetta: (r) => [r.tipo_impianto, r.impianto, r.marca, r.modello].filter(Boolean).join(" - ") || "Impianto senza nome",
+          copia: ["tipo_impianto", "impianto", "marca", "modello", "matricola"],
+          salvaId: "impianto_id",
+        },
+      },
+      { chiave: "impianto", etichetta: "Impianto", larghezza: 2 },
+      { chiave: "marca", etichetta: "Marca", larghezza: 2 },
+      { chiave: "modello", etichetta: "Modello", larghezza: 1 },
+      { chiave: "matricola", etichetta: "Matricola", larghezza: 1 },
+      { chiave: "rif_preventivo", etichetta: "Rif. Preventivo", larghezza: 2 },
+      { chiave: "fatto_conto", etichetta: "Fatto conto", tipo: "scelta", opzioniFisse: ["Si", "No"], larghezza: 1 },
+      { chiave: "stato", etichetta: "Stato", tipo: "scelta", opzioniDa: "stati_documento", titoloOpzioni: "Stati documento", larghezza: 1 },
+      { chiave: "pagata", etichetta: "Pagata", tipo: "booleano", larghezza: 0.5 },
+      { chiave: "data_pagamento", etichetta: "Data Pagamento", tipo: "data", larghezza: 1, finisciRiga: true },
+      { chiave: "attivita", etichetta: "Attività svolte", tipo: "area", larghezza: 4 },
+      { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
+      { chiave: "km_percorsi", etichetta: "KM percorsi", tipo: "numero", larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "diritto_chiamata", etichetta: "Diritto di chiamata", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "tariffa_fissa", etichetta: "Tariffa fissa", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "tariffa_oraria", etichetta: "Tariffa oraria", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "tariffa_km", etichetta: "Tariffa KM", tipo: "euro", larghezza: 1, linguetta: "Tariffe" },
+      { chiave: "iva", etichetta: "Iva %", tipo: "numero", larghezza: 1, linguetta: "Tariffe" },
+    ],
+    righe: {
+      tabella: "righe_rapporto",
+      campo: "rapporto_id",
+      colonne: [
+        { chiave: "codice_barre", titolo: "Codice a barre", larghezza: 70 },
+        { chiave: "descrizione", titolo: "Descrizione", larghezza: 330 },
+        { chiave: "codice_articolo", titolo: "Cod. Art", larghezza: 60 },
+        { chiave: "unita_misura", titolo: "U.m.", larghezza: 40 },
+        { chiave: "quantita", titolo: "Quantità", larghezza: 60, tipo: "numero" },
+        { chiave: "prezzo", titolo: "Prezzo", larghezza: 65, tipo: "numero" },
+        { chiave: "ricarico", titolo: "Ricarico %", larghezza: 55, tipo: "numero" },
+        { chiave: "prezzo_finale", titolo: "(Prezzo)", larghezza: 65, tipo: "euro", solaLettura: true },
+        { chiave: "totale", titolo: "Totale", larghezza: 70, tipo: "euro", solaLettura: true },
+        { chiave: "nome_articolo", titolo: "Nome Articolo", larghezza: 110 },
+      ],
+      ricalcola: (r) => {
+        const prezzoFinale = Math.round(n(r.prezzo) * (1 + n(r.ricarico) / 100) * 10000) / 10000;
+        return { ...r, prezzo_finale: prezzoFinale, totale: Math.round(n(r.quantita) * prezzoFinale * 100) / 100 };
+      },
+    },
+    piede: [
+      { chiave: "pagamento_contanti", etichetta: "Pagamento in contanti", tipo: "booleano" },
+      { chiave: "azzera_imponibile", etichetta: "Azzera Imponibile", tipo: "booleano" },
+      { chiave: "considera_totale_preventivo", etichetta: "Considera totale preventivo", tipo: "booleano" },
+      { chiave: "totale_preventivo", etichetta: "Totale Preventivo", tipo: "euro" },
+      { chiave: "_totale", etichetta: "Totale", tipo: "euro", solaLettura: true },
     ],
   },
 };

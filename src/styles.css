@@ -189,7 +189,7 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .griglia-dati .filtri input { width: 100%; height: 21px; border: none; border-radius: 0; background: transparent; font-size: 12px; padding: 0 4px; }
 .griglia-dati .filtri input:focus { outline: 1px solid #3fae4b; background: #fff; }
 .griglia-dati .filtri th:first-child { text-align: center; color: #888; }
-.griglia-dati td { height: 21px; padding: 0 4px; }
+.griglia-dati td { height: 21px; padding: 0 4px; box-sizing: border-box; line-height: 20px; }
 .griglia-dati tbody tr { cursor: default; }
 .griglia-dati tbody tr:hover td { background: #f3f6fa; }
 .griglia-dati tbody tr.attiva td { background: #fcd9a3; }
@@ -294,3 +294,50 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 @media (max-width: 760px) { .utente-scheda { display: none; } }
 .cornice input.non-trovato { color: #b42318; }
 .cornice input[type="date"] { font-size: 13px; }
+
+/* Griglia: importi e caselle, intestazioni su due righe */
+.griglia-dati td.destra, .destra { text-align: right; }
+.griglia-dati td.centrata { text-align: center; }
+.griglia-dati td input[type="checkbox"] { margin: 0; pointer-events: none; width: 12px; height: 12px; }
+.griglia-dati .intestazioni th { white-space: normal; line-height: 1.15; }
+.griglia-dati .intestazioni th span:first-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.griglia-dati .filtri select { width: 100%; height: 21px; border: none; background: transparent; font-size: 11px; padding: 0; }
+
+/* Scheda: caselle, ora, scelta da elenco collegato */
+.cornice .casella { width: 14px; height: 14px; margin: 6px auto 0; flex: 0 0 auto; }
+.cornice input.destra { text-align: right; }
+.cornice .scelta select.solo-freccia { flex: 0 0 22px; width: 22px; border: none; background: transparent; color: transparent; cursor: pointer; }
+.cornice .scelta select.solo-freccia option { color: #222; }
+
+/* Righe materiali */
+.area-righe { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.barra-righe { display: flex; gap: 8px; align-items: center; }
+.barra-righe button { background: none; border: none; padding: 0; color: #222; display: grid; place-items: center; }
+.barra-righe button:hover { background: none; color: #3a7dc0; }
+.barra-righe button:disabled { opacity: .35; }
+.barra-righe .cerchiata { border: 1.6px solid currentColor; border-radius: 50%; padding: 2px; width: 30px; height: 30px; }
+.tabella-righe { background: #fff; border: 1px solid #a9adb3; min-height: 220px; max-height: 320px; overflow: auto; }
+.tabella-righe table { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 900px; font-size: 12px; }
+.tabella-righe th { position: sticky; top: 0; background: #fff; font-weight: 600; text-align: left; padding: 6px 4px; border-bottom: 1px solid #d4d7dc; border-right: 1px solid #e3e5e8; }
+.tabella-righe td { border-bottom: 1px solid #e3e5e8; border-right: 1px solid #e3e5e8; padding: 0 3px; height: 23px; }
+.tabella-righe td input { width: 100%; border: none; background: transparent; font: inherit; padding: 2px 0; outline: none; }
+.tabella-righe td.destra input { text-align: right; }
+.tabella-righe tr.attiva td { background: #fcd9a3; }
+.tabella-righe .indicatore-riga { color: #777; text-align: center; font-size: 10px; }
+.riga-codice { align-self: flex-end; display: flex; align-items: center; gap: 4px; background: #c4f5c0; border: 1px solid #a9adb3; width: 246px; height: 30px; padding-right: 4px; }
+.riga-codice input { flex: 1; border: none; background: transparent; height: 100%; padding: 0 6px; outline: none; }
+
+.piede-totali { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 18px; margin-top: 10px; align-items: start; }
+.voce-piede { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d4d7dc; background: #fff; font-size: 13px; }
+.voce-piede > span { background: #eef0f3; padding: 4px 16px; }
+.voce-piede input[type="checkbox"] { justify-self: center; align-self: center; }
+.voce-piede.valore input, .voce-piede.valore b { border: none; padding: 4px 6px; text-align: right; font-weight: 400; font: inherit; }
+.voce-piede:nth-child(n+3) { grid-column: 3; }
+.voce-piede:nth-child(3) { grid-row: 1; }
+.voce-piede:nth-child(1), .voce-piede:nth-child(2) { grid-row: 1; }
+.voce-piede:nth-child(4) { grid-row: 2; border-top: none; }
+.voce-piede:nth-child(5) { grid-row: 3; border-top: none; }
+@media (max-width: 760px) {
+  .piede-totali { grid-template-columns: 1fr; gap: 6px; }
+  .voce-piede:nth-child(n) { grid-column: 1; grid-row: auto; }
+}
