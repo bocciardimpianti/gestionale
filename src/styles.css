@@ -146,12 +146,21 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .campi { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 8px; }
 
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: 39px auto 1fr 41px; grid-template-areas: "alto" "lato" "centro" "basso"; height: auto; min-height: 100vh; }
-  .laterale { max-height: 45vh; }
+  /* Cellulare/tablet: il menu laterale diventa un pannello a scomparsa (pulsante ☰ Menu) */
+  .app { grid-template-columns: 1fr; grid-template-rows: 44px 1fr 41px; grid-template-areas: "alto" "centro" "basso"; height: 100dvh; }
+  .laterale {
+    position: fixed; top: 44px; bottom: 0; left: 0; width: min(300px, 85vw); z-index: 40;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 2px 0 12px rgba(0,0,0,.3);
+  }
+  .laterale.aperto { transform: none; }
+  .velo-menu { position: fixed; inset: 44px 0 0 0; background: rgba(0,0,0,.35); z-index: 39; }
+  .laterale .voce { height: 44px; font-size: 15px; }
   .dashboard { grid-template-columns: 1fr; }
   .gruppo-icone { gap: 22px; }
   .centro { padding: 16px; }
+  .logo { font-size: 19px; }
 }
+
 
 /* Pagine a griglia (Clienti, Fornitori, …) */
 .centro:has(.pagina-archivio) { padding: 12px 18px 0 16px; }
@@ -420,3 +429,22 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 }
 .icone-alte .utente-alto:hover { background: #d9534f !important; border-color: #d9534f !important; opacity: 1 !important; }
 @media (max-width: 760px) { .icone-alte .utente-alto span:first-child { display: none; } }
+
+/* Pulsante Menu: visibile solo su cellulare/tablet */
+.apri-menu { display: none; }
+@media (max-width: 900px) {
+  .barra-alta { gap: 10px; justify-content: flex-start; }
+  .barra-alta .icone-alte { margin-left: auto; gap: 12px; }
+  .apri-menu {
+    display: flex; align-items: center; gap: 6px; background: var(--arancio); border: none; color: #fff;
+    padding: 4px 10px; border-radius: 3px; font-size: 14px; font-weight: 600;
+  }
+  .apri-menu:hover { background: var(--arancio); opacity: .9; }
+  .icone-alte > button:not(.utente-alto) { display: none !important; }
+}
+@media (max-width: 760px) {
+  .pulsanti { flex-wrap: wrap; width: 100%; }
+  .pulsanti .btn { padding: 0 14px; }
+  .pulsanti .btn.verde { padding-left: 14px; gap: 10px; }
+  .testata h1 { font-size: 22px; }
+}

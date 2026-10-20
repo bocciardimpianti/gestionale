@@ -2,8 +2,8 @@ import { useState, type ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
-  LogOut, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
-  Settings, Smartphone, Star, User, UserRound, Users, Wrench, type LucideIcon,
+  LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
+  Settings, Smartphone, Star, User, UserRound, Users, Wrench, X, type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "./auth";
 
@@ -38,6 +38,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const naviga = useNavigate();
   const admin = profilo?.ruolo === "admin";
   const [chiusi, setChiusi] = useState<Record<string, boolean>>({});
+  // Sul cellulare il menu laterale si apre e chiude con il pulsante ☰
+  const [menuAperto, setMenuAperto] = useState(false);
 
   // Raggruppa le sezioni visibili mantenendo l'ordine
   const gruppi: { nome: string; voci: typeof sezioni }[] = [];
@@ -66,6 +68,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="app">
       <header className="barra-alta">
+        <button className="apri-menu" title="Menu" onClick={() => setMenuAperto(!menuAperto)}>
+          {menuAperto ? <X size={24} /> : <Menu size={24} />}
+          <span>Menu</span>
+        </button>
         <Logo />
         <div className="icone-alte">
           <button className="utente-alto" title="Esci per cambiare utente" onClick={esci}>
@@ -80,7 +86,11 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <aside className="laterale">
+      {menuAperto && <div className="velo-menu" onClick={() => setMenuAperto(false)} />}
+      <aside className={`laterale${menuAperto ? " aperto" : ""}`} onClick={(e) => {
+        // Scelta una voce, il menu del cellulare si chiude
+        if ((e.target as HTMLElement).closest("a")) setMenuAperto(false);
+      }}>
         <div className="azienda">
           <span>Bocciardi Impianti</span>
           <Database size={22} strokeWidth={1.5} />
