@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
 import {
-  ChevronRight, Columns3, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, RefreshCw,
+  ChevronRight, Columns3, Filter, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, RefreshCw,
   RotateCcw, Search, Sheet, Trash2, Undo2,
 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
@@ -13,7 +13,7 @@ import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
 
 type Riga = Record<string, unknown> & { id: number; archivio_id?: number | null; eliminato_il?: string | null };
-type Vista = { tipo: "tutti" } | { tipo: "archivio"; id: number; nome: string } | { tipo: "cestino" };
+type Vista = { tipo: "tutti" } | { tipo: "archivio"; id: number; nome: string } | { tipo: "cestino" } | { tipo: "rapida"; indice: number };
 export interface Cartella { id: number; nome: string }
 
 const normalizza = (s: unknown) => String(s ?? "").trim().toLowerCase();
@@ -79,11 +79,13 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const nelCestino = vista.tipo === "cestino";
   // Memorizzati: la griglia ricalcola filtri e ordinamento solo quando cambiano davvero
   const idArchivio = vista.tipo === "archivio" ? vista.id : null;
+  const rapida = vista.tipo === "rapida" ? cfg.visteRapide?.[vista.indice] : undefined;
   const righeVista = useMemo(
     () => righe.filter((r) =>
-      nelCestino ? !!r.eliminato_il : !r.eliminato_il && (idArchivio === null || r.archivio_id === idArchivio),
+      nelCestino ? !!r.eliminato_il
+        : !r.eliminato_il && (idArchivio === null || r.archivio_id === idArchivio) && (!rapida || rapida.filtro(r)),
     ),
-    [righe, nelCestino, idArchivio],
+    [righe, nelCestino, idArchivio, rapida],
   );
   const colonne = useMemo(() => cfg.colonne.filter((c) => !nascoste.includes(c.chiave)), [cfg.colonne, nascoste]);
   const rigaSel = righeVista.find((r) => r.id === selezionata);
@@ -288,7 +290,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     );
 
   const titoloVista =
-    vista.tipo === "cestino" ? `${cfg.titolo} - Cestino` : vista.tipo === "archivio" ? `${cfg.titolo} - ${vista.nome}` : cfg.titolo;
+    vista.tipo === "cestino" ? `${cfg.titolo} - Cestino`
+    : vista.tipo === "archivio" ? `${cfg.titolo} - ${vista.nome}`
+    : rapida ? `${cfg.titolo} - ${rapida.nome}` : cfg.titolo;
 
   return (
     <div className="pagina-archivio" onClick={() => menu && setMenu("")}>
@@ -340,6 +344,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
               <div className="voci con-icone">
                 {voce(Folder, "#f5a623", "Elenco completo", () => setVista({ tipo: "tutti" }))}
                 {cartelle.map((a) => voce(FolderOpen, "#f5a623", a.nome, () => setVista({ tipo: "archivio", ...a })))}
+                {cfg.visteRapide?.map((v, i) => voce(Filter, "#3a7dc0", v.nome, () => setVista({ tipo: "rapida", indice: i })))}
                 {voce(FolderPlus, "#3a7dc0", "Nuovo Archivio", nuovoArchivio, puo(cfg.sezione, "modificare"))}
                 {vista.tipo === "archivio" &&
                   voce(Trash2, "#d9342b", `Elimina archivio "${vista.nome}"`, () => eliminaArchivio(vista), puo(cfg.sezione, "eliminare"))}
@@ -362,14 +367,14 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       )}
       <div style={{ display: galleria ? "none" : "contents" }}>
       <Griglia
-        key={vista.tipo + (vista.tipo === "archivio" ? vista.id : "")}
+        key={vista.tipo + (vista.tipo === "archivio" ? vista.id : vista.tipo === "rapida" ? vista.indice : "")}
         colonne={colonne}
         righe={righeVista}
         selezionata={selezionata}
         onSeleziona={setSelezionata}
         onApri={(r) => setScheda(r)}
         onVisibili={setVisibili}
-        ordineIniziale={cfg.ordineIniziale}
+        ordineIniziale={rapida?.ordine ?? cfg.ordineIniziale}
         ricerca={ricerca}
       />
       </div>
@@ -381,7 +386,14 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           cartelle={cartelle}
           nelCestino={nelCestino}
           onChiudi={() => setScheda(null)}
-          onSalvato={(id) => { setScheda(null); setSelezionata(id); carica(); }}
+          onSalvato={(id) => {
+            // Nelle viste rapide (es. materiali senza foto) si passa subito all'articolo successivo
+            const i = visibili.findIndex((r) => r.id === id);
+            const successivo = rapida && i >= 0 ? visibili[i + 1] : undefined;
+            setScheda(successivo ?? null);
+            setSelezionata(successivo?.id ?? id);
+            carica();
+          }}
           onElimina={() => spostaNelCestino(scheda as Riga)}
           onSposta={(a) => spostaInArchivio(scheda as Riga, a)}
         />

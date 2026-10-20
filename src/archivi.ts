@@ -11,6 +11,8 @@ export interface Campo {
   copiaDaOpzione?: string[];
   // Campi numerici aggiuntivi nella finestra di gestione delle opzioni
   colonneOpzioni?: { chiave: string; etichetta: string }[];
+  // Foto: testo per "Cerca foto" su Google Immagini
+  cercaFoto?: (dati: Record<string, unknown>) => string;
   // Linguetta in cui mostrare il campo (default: Principale)
   linguetta?: string;
   // Campo non modificabile (es. numero automatico, totali calcolati)
@@ -84,6 +86,8 @@ export interface Archivio {
   piede?: Campo[];
   // Campi calcolati al salvataggio e mostrati nel piede (es. imponibile e totale)
   calcolaTotali?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => Record<string, number>;
+  // Viste rapide nel menu Archivi (es. materiali senza foto)
+  visteRapide?: { nome: string; filtro: (r: Record<string, unknown>) => boolean; ordine?: { chiave: string; su: boolean } }[];
   // Vista Galleria (schede con foto) oltre alla Tabella
   galleria?: { foto: string; titolo: string; dettagli: (r: Record<string, unknown>) => string };
   // Documento da stampare dalla scheda (HTML)
@@ -446,12 +450,18 @@ export const ARCHIVI: Record<string, Archivio> = {
     titolo: "Materiali",
     titoloNuovo: "Nuovo Articolo",
     titoloScheda: (v) => String(v.descrizione ?? ""),
-    linguette: ["materiali", "Storico", "Log Cloud"],
+    linguette: ["Storico", "Log Cloud"],
     tabella: "materiali",
     chiaveImport: ["codice_interno", "descrizione"],
     ordineIniziale: { chiave: "codice_interno", su: true },
     quandoCambia: prezzoRicaricato,
     valoriNuovo: async () => ({ ricarico: 35, prezzo_base: 0, prezzo_ricaricato: 0, giacenza: 0, giacenza_minima: 0 }),
+    visteRapide: [{
+      // Le giacenze più negative sono gli articoli più usati in ReportOne
+      nome: "Senza foto (più usati prima)",
+      filtro: (r) => !r.foto && !/^(ore |foro |manutenzione|imprevist|perdit|material[ei] vari|ferramenta)/i.test(String(r.descrizione ?? "")),
+      ordine: { chiave: "giacenza", su: true },
+    }],
     galleria: {
       foto: "foto",
       titolo: "descrizione",
@@ -489,7 +499,12 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "dettaglio", titolo: "Dettaglio", excel: "Dettaglio", larghezza: 40 },
     ],
     campi: [
-      { chiave: "foto", etichetta: "Fotografia", tipo: "foto", larghezza: 4 },
+      {
+        chiave: "foto", etichetta: "Fotografia", tipo: "foto", larghezza: 4,
+        // Codice del fornitore + descrizione: trova più spesso il prodotto esatto
+        cercaFoto: (d) => [d.codice_fornitore1, d.codice_fornitore2, d.descrizione]
+          .map((v) => String(v ?? "").trim()).filter((v) => v && v !== "/").slice(0, 2).join(" ") || String(d.descrizione ?? ""),
+      },
       { chiave: "codice_interno", etichetta: "Codice Interno", larghezza: 2, finisciRiga: true },
       { chiave: "_info", etichetta: "Info Fornitura", tipo: "titolo", stile: "blu-scuro" },
       { chiave: "descrizione", etichetta: "Descrizione", larghezza: 2, obbligatorio: true },

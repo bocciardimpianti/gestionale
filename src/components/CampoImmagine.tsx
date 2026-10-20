@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FolderOpen, Pencil, Trash2 } from "lucide-react";
+import { FolderOpen, Pencil, Search, Trash2 } from "lucide-react";
 import { supabase } from "../supabase";
 
 // Miniatura per la griglia
@@ -44,8 +44,10 @@ export function useUrlImmagine(valore: unknown, archivio: string) {
 }
 
 // Riquadro immagine come nella linguetta Dettaglio: Foto (apri/elimina) o Firma (disegna)
-export default function CampoImmagine({ etichetta, valore, firma, modificabile, onCambia, archivio }: {
+export default function CampoImmagine({ etichetta, valore, firma, modificabile, onCambia, archivio, cerca }: {
   etichetta: string;
+  // Testo per la ricerca dell'immagine su Google Immagini (es. codice fornitore + descrizione)
+  cerca?: string;
   archivio: string;
   valore: unknown;
   firma?: boolean;
@@ -55,9 +57,50 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
   const url = useUrlImmagine(valore, archivio);
   const fileRef = useRef<HTMLInputElement>(null);
   const [disegna, setDisegna] = useState(false);
+  const [sopra, setSopra] = useState(false);
+  const [avviso, setAvviso] = useState("");
+
+  // Immagine incollata (Ctrl+V) o trascinata nel riquadro
+  const daTrasferimento = async (dt: DataTransfer | null) => {
+    if (!dt || !modificabile || firma) return;
+    const file = [...dt.files].find((f) => f.type.startsWith("image/"))
+      ?? [...dt.items].find((i) => i.kind === "file" && i.type.startsWith("image/"))?.getAsFile();
+    if (file) {
+      setAvviso("");
+      onCambia(await riduci(file));
+      return;
+    }
+    // Dal browser a volte arriva solo l'indirizzo dell'immagine: proviamo a scaricarla
+    const indirizzo = dt.getData("text/uri-list") || dt.getData("text/plain");
+    if (/^(https?:|data:image)/.test(indirizzo)) {
+      try {
+        const r = await fetch(indirizzo);
+        const b = await r.blob();
+        if (!b.type.startsWith("image/")) throw new Error();
+        setAvviso("");
+        onCambia(await riduci(new File([b], "foto", { type: b.type })));
+        return;
+      } catch {
+        /* il sito non permette di scaricare l'immagine */
+      }
+    }
+    setAvviso("Immagine non leggibile: sull'immagine fai clic destro → \"Copia immagine\", poi clicca qui e premi Ctrl+V");
+  };
 
   return (
-    <div className="cornice cornice-immagine">
+    <div
+      className={`cornice cornice-immagine${sopra ? " trascina" : ""}`}
+      tabIndex={modificabile && !firma ? 0 : undefined}
+      onPaste={(e) => {
+        if ([...e.clipboardData.items].some((i) => i.type.startsWith("image/")) || e.clipboardData.getData("text/plain").startsWith("http")) {
+          e.preventDefault();
+          daTrasferimento(e.clipboardData);
+        }
+      }}
+      onDragOver={(e) => { if (modificabile && !firma) { e.preventDefault(); setSopra(true); } }}
+      onDragLeave={() => setSopra(false)}
+      onDrop={(e) => { e.preventDefault(); setSopra(false); daTrasferimento(e.dataTransfer); }}
+    >
       <label>{etichetta}</label>
       <div className="contenuto-immagine">
         {url ? (
@@ -72,6 +115,16 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
             {firma && <button type="button" title="Firma" onClick={() => setDisegna(true)}><Pencil size={14} /></button>}
           </span>
         )}
+        {modificabile && !firma && cerca && (
+          <button type="button" className="cerca-foto" title="Apre Google Immagini in una nuova scheda"
+            onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(cerca)}`, "_blank", "noopener")}>
+            <Search size={13} /> Cerca foto
+          </button>
+        )}
+        {modificabile && !firma && !url && (
+          <span className="suggerimento-foto">{avviso || "Clicca qui e premi Ctrl+V per incollare un'immagine, oppure trascinala dentro"}</span>
+        )}
+        {avviso && url && <span className="suggerimento-foto errore">{avviso}</span>}
       </div>
       <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={async (e) => {
         const f = e.target.files?.[0];
@@ -91,7 +144,11 @@ async function riduci(file: File): Promise<Blob> {
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(img.width * scala);
     canvas.height = Math.round(img.height * scala);
-    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const ctx = canvas.getContext("2d")!;
+    // Sfondo bianco: le immagini trasparenti (PNG) in JPEG diventerebbero nere
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     return await new Promise((ok) => canvas.toBlob((b) => ok(b ?? file), "image/jpeg", 0.82));
   } catch {
     return file;

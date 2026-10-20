@@ -223,7 +223,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     if (c.tipo === "foto" || c.tipo === "firma")
       return (
         <div key={c.chiave} style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
-          <CampoImmagine archivio={cfg.sezione} etichetta={c.etichetta} valore={dati[c.chiave]} firma={c.tipo === "firma"} modificabile={modificabile}
+          <CampoImmagine archivio={cfg.sezione} cerca={c.cercaFoto?.(dati)} etichetta={c.etichetta} valore={dati[c.chiave]} firma={c.tipo === "firma"} modificabile={modificabile}
             onCambia={(v) => cambia(c.chiave, v)} />
         </div>
       );
