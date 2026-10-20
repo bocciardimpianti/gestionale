@@ -2,10 +2,28 @@ import { useEffect, useRef, useState } from "react";
 import { FolderOpen, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "../supabase";
 
-export const ARCHIVIO_FILE = "rapporti";
+// Miniatura per la griglia
+export function Miniatura({ percorso, archivio }: { percorso: string; archivio: string }) {
+  const url = useUrlImmagine(percorso, archivio);
+  return url ? <img src={url} alt="" className="miniatura" loading="lazy" /> : null;
+}
 
-// Restituisce l'indirizzo da mostrare: anteprima locale (file non ancora salvato) o link temporaneo firmato
-export function useUrlImmagine(valore: unknown) {
+// Link temporanei già ottenuti, per non richiederli di nuovo (es. miniature della griglia)
+const cache = new Map<string, { url: string; scade: number }>();
+
+export async function urlFirmato(archivio: string, percorso: string) {
+  const chiave = `${archivio}/${percorso}`;
+  const c = cache.get(chiave);
+  if (c && c.scade > Date.now()) return c.url;
+  const { data } = await supabase.storage.from(archivio).createSignedUrl(percorso, 3600);
+  const url = data?.signedUrl ?? "";
+  if (url) cache.set(chiave, { url, scade: Date.now() + 50 * 60 * 1000 });
+  return url;
+}
+
+// Restituisce l'indirizzo da mostrare: anteprima locale (file non ancora salvato) o link temporaneo firmato.
+// "archivio" è l'archivio file della sezione (es. "rapporti", "materiali").
+export function useUrlImmagine(valore: unknown, archivio: string) {
   const [url, setUrl] = useState("");
   useEffect(() => {
     if (valore instanceof Blob) {
@@ -14,21 +32,27 @@ export function useUrlImmagine(valore: unknown) {
       return () => URL.revokeObjectURL(u);
     }
     if (typeof valore === "string" && valore) {
-      supabase.storage.from(ARCHIVIO_FILE).createSignedUrl(valore, 3600).then(({ data }) => setUrl(data?.signedUrl ?? ""));
-    } else setUrl("");
-  }, [valore]);
+      let attivo = true;
+      urlFirmato(archivio, valore).then((u) => attivo && setUrl(u));
+      return () => {
+        attivo = false;
+      };
+    }
+    setUrl("");
+  }, [valore, archivio]);
   return url;
 }
 
 // Riquadro immagine come nella linguetta Dettaglio: Foto (apri/elimina) o Firma (disegna)
-export default function CampoImmagine({ etichetta, valore, firma, modificabile, onCambia }: {
+export default function CampoImmagine({ etichetta, valore, firma, modificabile, onCambia, archivio }: {
   etichetta: string;
+  archivio: string;
   valore: unknown;
   firma?: boolean;
   modificabile: boolean;
   onCambia: (v: Blob | null) => void;
 }) {
-  const url = useUrlImmagine(valore);
+  const url = useUrlImmagine(valore, archivio);
   const fileRef = useRef<HTMLInputElement>(null);
   const [disegna, setDisegna] = useState(false);
 

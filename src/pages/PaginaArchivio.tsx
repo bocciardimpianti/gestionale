@@ -9,6 +9,7 @@ import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import Griglia from "../components/Griglia";
 import Scheda from "../components/Scheda";
+import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
 
 type Riga = Record<string, unknown> & { id: number; archivio_id?: number | null; eliminato_il?: string | null };
@@ -46,6 +47,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [nascoste, setNascoste] = useState<string[]>(() => leggiNascoste(cfg.sezione));
   const [messaggio, setMessaggio] = useState("");
   const [ricerca, setRicerca] = useState("");
+  const [galleria, setGalleria] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const carica = useCallback(async () => {
@@ -173,7 +175,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       if (indiceIntestazione < 0) throw new Error("Il file non contiene le colonne attese");
       const intestazione = celle[indiceIntestazione].map(normalizza);
       const mappa = cfg.colonne
-        .filter((c) => c.tipo !== "immagine")
+        .filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura")
         .map((c) => ({ chiave: c.chiave, i: intestazione.indexOf(normalizza(c.excel)) }))
         .filter((m) => m.i >= 0);
 
@@ -198,7 +200,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
             (o as Record<string, unknown>)[m.chiave] =
               tipo === "data" ? dataIso(v)
               : tipo === "booleano" ? v === 1 || v === true || ["1", "si", "sì", "true", "vero"].includes(normalizza(v))
-              : tipo === "euro" ? (vuoto(v) || isNaN(Number(v)) ? 0 : Math.round(Number(v) * 100) / 100)
+              : tipo === "euro" ? (vuoto(v) || isNaN(Number(v)) ? 0 : Math.round(Number(v) * 10000) / 10000)
+              : tipo === "numero" || tipo === "percentuale" ? (vuoto(v) || isNaN(Number(v)) ? 0 : Number(v))
               : vuoto(v) ? null : String(v).trim();
             if (ammessi[m.chiave] && o[m.chiave] && !ammessi[m.chiave].has(o[m.chiave]!)) o[m.chiave] = null;
           }
@@ -301,6 +304,12 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           />
         </label>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>
+          {cfg.galleria && (
+            <>
+              <button className={`btn giallo${galleria ? " attivo" : ""}`} onClick={() => setGalleria(true)}>Galleria</button>
+              <button className={`btn giallo${galleria ? "" : " attivo"}`} onClick={() => setGalleria(false)}>Tabella</button>
+            </>
+          )}
           {puo(cfg.sezione, "creare") && !nelCestino && (
             <button className="btn blu" onClick={apriNuovo}>Nuovo</button>
           )}
@@ -348,6 +357,10 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       }} />
       {messaggio && <p className={messaggio.startsWith("Errore") ? "errore" : "ok"}>{messaggio}</p>}
 
+      {galleria && cfg.galleria && (
+        <Galleria cfg={cfg} righe={visibili} archivio={cfg.sezione} onApri={(r) => setScheda(r)} />
+      )}
+      <div style={{ display: galleria ? "none" : "contents" }}>
       <Griglia
         key={vista.tipo + (vista.tipo === "archivio" ? vista.id : "")}
         colonne={colonne}
@@ -359,6 +372,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         ordineIniziale={cfg.ordineIniziale}
         ricerca={ricerca}
       />
+      </div>
 
       {scheda && (
         <Scheda
@@ -392,6 +406,34 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Vista a schede con fotografia (es. Materiali → Galleria)
+function Galleria({ cfg, righe, archivio, onApri }: {
+  cfg: Archivio;
+  righe: Riga[];
+  archivio: string;
+  onApri: (r: Riga) => void;
+}) {
+  const g = cfg.galleria!;
+  const [quante, setQuante] = useState(120);
+  const mostrate = righe.slice(0, quante);
+  return (
+    <div className="galleria" onScroll={(e) => {
+      const el = e.currentTarget;
+      if (el.scrollTop + el.clientHeight > el.scrollHeight - 300 && quante < righe.length) setQuante((q) => q + 120);
+    }}>
+      {mostrate.map((r) => (
+        <button key={r.id} className="carta" onDoubleClick={() => onApri(r)} onClick={() => onApri(r)}>
+          <div className="carta-foto">
+            {typeof r[g.foto] === "string" && r[g.foto] ? <Miniatura percorso={r[g.foto] as string} archivio={archivio} /> : <span>Nessuna foto</span>}
+          </div>
+          <div className="carta-titolo">{String(r[g.titolo] ?? "")}</div>
+          <div className="carta-dettagli">{g.dettagli(r)}</div>
+        </button>
+      ))}
     </div>
   );
 }

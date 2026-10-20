@@ -1,6 +1,7 @@
 import type { Colonna } from "./components/Griglia";
 import { dataIso, supabase } from "./supabase";
 import { stampaRapporto } from "./stampe";
+import { euro } from "./components/Griglia";
 
 export interface Campo {
   chiave: string;
@@ -29,8 +30,10 @@ export interface Campo {
   riferimentoA?: string;
   // Colonne occupate su 4 (come nella scheda originale); 0.5 = mezza colonna
   larghezza?: 0.5 | 1 | 2 | 4;
-  // Per i titoli di sezione: fascia grigia (default) o blu
-  stile?: "grigio" | "blu";
+  // Per i titoli di sezione: fascia grigia (default), blu o blu scuro
+  stile?: "grigio" | "blu" | "blu-scuro";
+  // Campo di testo con suggerimenti presi dai nomi di un'altra tabella (es. fornitori)
+  suggerimentiDa?: string;
   // Lascia vuoto il resto della riga dopo questo campo
   finisciRiga?: boolean;
   // Per i campi a scelta: tabella da cui leggere le opzioni (colonna "nome")
@@ -63,7 +66,7 @@ export interface Archivio {
   // Ricalcola altri campi quando uno cambia (es. data prossimo intervento)
   quandoCambia?: (dati: Record<string, unknown>, chiave: string) => Record<string, unknown> | null;
   // Linguette della scheda che mostrano i record collegati (es. gli impianti di un cliente)
-  figli?: { linguetta: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string }[];
+  figli?: { linguetta: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string; select?: string }[];
   // Ordinamento iniziale della griglia
   ordineIniziale?: { chiave: string; su: boolean };
   // Valori proposti per un nuovo record
@@ -81,6 +84,8 @@ export interface Archivio {
   piede?: Campo[];
   // Campi calcolati al salvataggio e mostrati nel piede (es. imponibile e totale)
   calcolaTotali?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => Record<string, number>;
+  // Vista Galleria (schede con foto) oltre alla Tabella
+  galleria?: { foto: string; titolo: string; dettagli: (r: Record<string, unknown>) => string };
   // Documento da stampare dalla scheda (HTML)
   stampa?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => string;
 }
@@ -134,6 +139,12 @@ function totaliRapporto(dati: Record<string, unknown>, righe: Record<string, unk
 }
 
 const oraAttuale = () => new Date().toTimeString().slice(0, 5);
+
+// Prezzo ricaricato = prezzo base + ricarico %
+function prezzoRicaricato(dati: Record<string, unknown>, chiave: string) {
+  if (chiave !== "prezzo_base" && chiave !== "ricarico") return null;
+  return { prezzo_ricaricato: Math.round(n(dati.prezzo_base) * (1 + n(dati.ricarico) / 100) * 10000) / 10000 };
+}
 
 function prossimoIntervento(dati: Record<string, unknown>, chiave: string) {
   if (chiave !== "periodo" && chiave !== "data_ultimo") return null;
@@ -428,6 +439,74 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "considera_totale_preventivo", etichetta: "Considera totale preventivo", tipo: "booleano" },
       { chiave: "totale_preventivo", etichetta: "Totale Preventivo", tipo: "euro" },
       { chiave: "_totale", etichetta: "Totale", tipo: "euro", solaLettura: true },
+    ],
+  },
+  materiali: {
+    sezione: "materiali",
+    titolo: "Materiali",
+    titoloNuovo: "Nuovo Articolo",
+    titoloScheda: (v) => String(v.descrizione ?? ""),
+    linguette: ["materiali", "Storico", "Log Cloud"],
+    tabella: "materiali",
+    chiaveImport: ["codice_interno", "descrizione"],
+    ordineIniziale: { chiave: "codice_interno", su: true },
+    quandoCambia: prezzoRicaricato,
+    valoriNuovo: async () => ({ ricarico: 35, prezzo_base: 0, prezzo_ricaricato: 0, giacenza: 0, giacenza_minima: 0 }),
+    galleria: {
+      foto: "foto",
+      titolo: "descrizione",
+      dettagli: (r) => [r.codice_interno, euro(r.prezzo_ricaricato), `Giacenza ${Number(r.giacenza ?? 0).toLocaleString("it-IT")}`].filter(Boolean).join(" · "),
+    },
+    figli: [{
+      linguetta: "Storico",
+      tabella: "righe_rapporto",
+      campo: "materiale_id",
+      select: "*, rapporto:rapporti(numero, data, cliente:clienti(nome))",
+      colonne: [
+        { chiave: "rapporto.data", titolo: "Data", larghezza: 90, tipo: "data" },
+        { chiave: "rapporto.numero", titolo: "Rapporto N.", larghezza: 80 },
+        { chiave: "rapporto.cliente.nome", titolo: "Cliente", larghezza: 220 },
+        { chiave: "quantita", titolo: "Quantità", larghezza: 70 },
+        { chiave: "totale", titolo: "Totale", larghezza: 90, tipo: "euro" },
+      ],
+    }],
+    colonne: [
+      { chiave: "foto", titolo: "Fotografia", excel: "Fotografia", larghezza: 40, tipo: "miniatura", archivio: "materiali" },
+      { chiave: "codice_interno", titolo: "Codice Interno", excel: "Codice Interno", larghezza: 66 },
+      { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 550 },
+      { chiave: "nome_articolo", titolo: "Nome Articolo", excel: "Nome Articolo", larghezza: 69 },
+      { chiave: "fornitore1", titolo: "Fornitore 1", excel: "Fornitore 1", larghezza: 65 },
+      { chiave: "codice_fornitore1", titolo: "Codice Fornitore 1", excel: "Codice Fornitore 1", larghezza: 162 },
+      { chiave: "codice_fornitore2", titolo: "Codice Fornitore 2", excel: "Codice Fornitore 2", larghezza: 122 },
+      { chiave: "fornitore2", titolo: "Fornitore 2", excel: "Fornitore 2", larghezza: 162 },
+      { chiave: "unita_misura", titolo: "UM", excel: "UM", larghezza: 30 },
+      { chiave: "prezzo_base", titolo: "Prezzo base", excel: "Prezzo base", larghezza: 62, tipo: "euro" },
+      { chiave: "prezzo_ricaricato", titolo: "Prezzo Ricaricato", excel: "Prezzo Ricaricato", larghezza: 73, tipo: "euro" },
+      { chiave: "codice_barre", titolo: "Codice a barre", excel: "Codice a barre", larghezza: 58 },
+      { chiave: "giacenza", titolo: "Giacenza", excel: "Giacenza", larghezza: 49, tipo: "numero" },
+      { chiave: "ricarico", titolo: "Ricarico", excel: "Ricarico", larghezza: 46, tipo: "percentuale" },
+      { chiave: "giacenza_minima", titolo: "Giacenza Minima", excel: "Giacenza Minima", larghezza: 30, tipo: "numero" },
+      { chiave: "dettaglio", titolo: "Dettaglio", excel: "Dettaglio", larghezza: 40 },
+    ],
+    campi: [
+      { chiave: "foto", etichetta: "Fotografia", tipo: "foto", larghezza: 4 },
+      { chiave: "codice_interno", etichetta: "Codice Interno", larghezza: 2, finisciRiga: true },
+      { chiave: "_info", etichetta: "Info Fornitura", tipo: "titolo", stile: "blu-scuro" },
+      { chiave: "descrizione", etichetta: "Descrizione", larghezza: 2, obbligatorio: true },
+      { chiave: "fornitore1", etichetta: "Fornitore 1", larghezza: 2, suggerimentiDa: "fornitori" },
+      { chiave: "codice_fornitore1", etichetta: "Codice Fornitore 1", larghezza: 2 },
+      { chiave: "fornitore2", etichetta: "Fornitore 2", larghezza: 2, suggerimentiDa: "fornitori" },
+      { chiave: "codice_fornitore2", etichetta: "Codice Fornitore 2", larghezza: 2 },
+      { chiave: "unita_misura", etichetta: "UM", tipo: "scelta", opzioniDa: "unita_misura", titoloOpzioni: "Unità di misura", larghezza: 1, finisciRiga: true },
+      { chiave: "nome_articolo", etichetta: "Nome Articolo", larghezza: 2 },
+      { chiave: "codice_barre", etichetta: "Codice a barre", larghezza: 2 },
+      { chiave: "_prezzi", etichetta: "PREZZI MATERIALI", tipo: "titolo", stile: "blu" },
+      { chiave: "prezzo_base", etichetta: "Prezzo base", tipo: "euro", larghezza: 1 },
+      { chiave: "giacenza", etichetta: "Giacenza", tipo: "numero", larghezza: 1 },
+      { chiave: "prezzo_ricaricato", etichetta: "Prezzo Ricaricato", tipo: "euro", larghezza: 1, solaLettura: true },
+      { chiave: "ricarico", etichetta: "Ricarico %", tipo: "numero", larghezza: 1 },
+      { chiave: "giacenza_minima", etichetta: "Giacenza Minima", tipo: "numero", larghezza: 1 },
+      { chiave: "dettaglio", etichetta: "Dettaglio", larghezza: 2 },
     ],
   },
 };

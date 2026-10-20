@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Filter } from "lucide-react";
 import { dataIt } from "../supabase";
+import { Miniatura } from "./CampoImmagine";
 
 export interface Colonna {
   chiave: string;
   titolo: string;
   larghezza: number;
-  tipo?: "data" | "booleano" | "euro" | "immagine";
+  tipo?: "data" | "booleano" | "euro" | "immagine" | "miniatura" | "numero" | "percentuale";
+  // Per le miniature: archivio file in cui si trova l'immagine
+  archivio?: string;
 }
 
 type Riga = Record<string, unknown> & { id: number };
@@ -28,7 +31,9 @@ const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 export const euro = (v: unknown) =>
   v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 const mostra = (c: Colonna, r: Riga) =>
-  c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave]) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
+  c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave])
+  : c.tipo === "percentuale" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : `${Number(r[c.chiave]).toLocaleString("it-IT")}%`)
+  : c.tipo === "numero" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : Number(r[c.chiave]).toLocaleString("it-IT")) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
 export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "" }: Props) {
@@ -54,7 +59,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
     const attivi = Object.entries(filtri).filter(([, f]) => f.trim());
     const parole = ricerca.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const filtrate = righe.filter((r) =>
-      parole.every((p) => colonne.some((c) => c.tipo !== "booleano" && c.tipo !== "immagine" && mostra(c, r).toLowerCase().includes(p))) &&
+      parole.every((p) => colonne.some((c) => c.tipo !== "booleano" && c.tipo !== "immagine" && c.tipo !== "miniatura" && mostra(c, r).toLowerCase().includes(p))) &&
       attivi.every(([k, f]) => {
         const c = colonne.find((c) => c.chiave === k);
         if (c?.tipo === "booleano") return f === "sì" ? !!r[k] : !r[k];
@@ -64,7 +69,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
     const segno = ordine.su ? 1 : -1;
     const tipo = colonne.find((c) => c.chiave === ordine.chiave)?.tipo;
     return filtrate.sort((a, b) =>
-      tipo === "euro" || tipo === "booleano"
+      tipo === "euro" || tipo === "booleano" || tipo === "numero" || tipo === "percentuale"
         ? segno * (Number(a[ordine.chiave] ?? 0) - Number(b[ordine.chiave] ?? 0))
         : segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
@@ -129,12 +134,16 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
               >
                 <td className="indicatore-riga">{r.id === selezionata ? "▸" : ""}</td>
                 {colonne.map((c) => (
-                  c.tipo === "immagine" ? (
+                  c.tipo === "miniatura" ? (
+                    <td key={c.chiave} className="centrata cella-miniatura">
+                      {typeof r[c.chiave] === "string" && r[c.chiave] ? <Miniatura percorso={r[c.chiave] as string} archivio={c.archivio!} /> : null}
+                    </td>
+                  ) : c.tipo === "immagine" ? (
                     <td key={c.chiave} className="centrata">{r[c.chiave] ? <Camera size={13} color="#8a6d3b" /> : null}</td>
                   ) : c.tipo === "booleano" ? (
                     <td key={c.chiave} className="centrata"><input type="checkbox" checked={!!r[c.chiave]} readOnly tabIndex={-1} /></td>
                   ) : (
-                    <td key={c.chiave} title={mostra(c, r)} className={c.tipo === "euro" ? "destra" : ""}>{mostra(c, r)}</td>
+                    <td key={c.chiave} title={mostra(c, r)} className={c.tipo === "euro" || c.tipo === "numero" || c.tipo === "percentuale" ? "destra" : ""}>{mostra(c, r)}</td>
                   )
                 ))}
               </tr>

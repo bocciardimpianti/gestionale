@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, Barcode, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Barcode, PackageSearch, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import type { Archivio, Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
-import CampoImmagine, { ARCHIVIO_FILE } from "./CampoImmagine";
+import CampoImmagine, { urlFirmato } from "./CampoImmagine";
+import CercaMateriale from "./CercaMateriale";
 
 interface Props {
   cfg: Archivio;
@@ -43,6 +44,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [righe, setRighe] = useState<Record<string, unknown>[]>([]);
   const [rigaSel, setRigaSel] = useState<number | null>(null);
   const [codice, setCodice] = useState("");
+  const [cercaMateriale, setCercaMateriale] = useState(false);
   const [suggerimenti, setSuggerimenti] = useState<Record<string, Record<string, unknown>[]>>({});
   const tuttiCampi = [...cfg.campi, ...(cfg.piede ?? [])];
 
@@ -76,6 +78,30 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     setRighe((rr) => [...rr, cfg.righe!.ricalcola({ quantita: 1, ...extra })]);
     setRigaSel(righe.length);
   };
+  // Riga compilata da un materiale di magazzino
+  const rigaDaMateriale = (m: Record<string, unknown>) => ({
+    materiale_id: m.id,
+    codice_barre: m.codice_barre ?? null,
+    descrizione: m.descrizione ?? null,
+    codice_articolo: m.codice_interno ?? null,
+    unita_misura: m.unita_misura ?? null,
+    prezzo: m.prezzo_base ?? 0,
+    ricarico: m.ricarico ?? 0,
+    nome_articolo: m.nome_articolo ?? null,
+  });
+
+  const leggiCodice = async (c: string) => {
+    let { data } = await supabase.from("materiali").select("*").eq("codice_barre", c).is("eliminato_il", null).limit(1);
+    if (!data?.length) ({ data } = await supabase.from("materiali").select("*").eq("codice_interno", c).is("eliminato_il", null).limit(1));
+    if (data?.length) {
+      aggiungiRiga(rigaDaMateriale(data[0]));
+      setStato(`Aggiunto: ${data[0].descrizione}`);
+    } else {
+      aggiungiRiga({ codice_barre: c });
+      setStato(`Codice ${c} non trovato tra i materiali: compila la riga a mano`);
+    }
+  };
+
   const spostaRiga = (verso: number) => {
     if (rigaSel === null) return;
     const j = rigaSel + verso;
@@ -89,8 +115,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   };
 
   useEffect(() => {
-    for (const c of cfg.campi.filter((c) => c.tipo === "riferimento")) {
-      leggiTutto(c.riferimentoA!, "id, nome").then((r) =>
+    for (const c of cfg.campi.filter((c) => c.tipo === "riferimento" || c.suggerimentiDa)) {
+      leggiTutto(c.riferimentoA ?? c.suggerimentiDa!, "id, nome").then((r) =>
         setElenchiRif((e) => ({ ...e, [c.chiave]: r as unknown as { id: number; nome: string }[] })),
       );
     }
@@ -175,7 +201,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       if (!(v instanceof Blob)) continue;
       setStato(`Caricamento ${c.etichetta.toLowerCase()}…`);
       const percorso = `${id}/${c.chiave}-${Date.now()}.${v.type === "image/png" ? "png" : "jpg"}`;
-      const up = await supabase.storage.from(ARCHIVIO_FILE).upload(percorso, v, { contentType: v.type || "image/jpeg" });
+      const up = await supabase.storage.from(cfg.sezione).upload(percorso, v, { contentType: v.type || "image/jpeg" });
       if (up.error) return setStato("Errore nel caricamento: " + up.error.message);
       daAggiornare[c.chiave] = percorso;
     }
@@ -186,7 +212,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     const vecchi = immagini
       .map((c) => valori[c.chiave])
       .filter((p): p is string => typeof p === "string" && !!p && !immagini.some((c) => dati[c.chiave] === p));
-    if (vecchi.length) await supabase.storage.from(ARCHIVIO_FILE).remove(vecchi);
+    if (vecchi.length) await supabase.storage.from(cfg.sezione).remove(vecchi);
 
     await registra(`${cfg.sezione}_${nuovo ? "creato" : "modificato"}`, { id: risposta.data.id, nome: dati[cfg.colonne[0].chiave] ?? testoRif[cfg.campi.find((c) => c.tipo === "riferimento")?.chiave ?? ""] ?? null });
     onSalvato(risposta.data.id);
@@ -197,7 +223,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     if (c.tipo === "foto" || c.tipo === "firma")
       return (
         <div key={c.chiave} style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
-          <CampoImmagine etichetta={c.etichetta} valore={dati[c.chiave]} firma={c.tipo === "firma"} modificabile={modificabile}
+          <CampoImmagine archivio={cfg.sezione} etichetta={c.etichetta} valore={dati[c.chiave]} firma={c.tipo === "firma"} modificabile={modificabile}
             onCambia={(v) => cambia(c.chiave, v)} />
         </div>
       );
@@ -221,6 +247,15 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       controllo = (
         <input type="checkbox" id={props.id} className="casella" checked={!!dati[c.chiave]} disabled={!modificabile}
           onChange={(e) => cambia(c.chiave, e.target.checked)} />
+      );
+    else if (c.suggerimentiDa)
+      controllo = (
+        <>
+          <input {...props} list={`suggerimenti-${c.chiave}`} />
+          <datalist id={`suggerimenti-${c.chiave}`}>
+            {(elenchiRif[c.chiave] ?? []).map((r) => <option key={r.id} value={r.nome} />)}
+          </datalist>
+        </>
       );
     else if (c.suggerisciDa)
       controllo = (
@@ -310,6 +345,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             }}><CircleMinus size={30} strokeWidth={1.4} /></button>
             <button type="button" title="Sposta giù" onClick={() => spostaRiga(1)}><ArrowDown size={22} strokeWidth={2} className="cerchiata" /></button>
             <button type="button" title="Sposta su" onClick={() => spostaRiga(-1)}><ArrowUp size={22} strokeWidth={2} className="cerchiata" /></button>
+            <button type="button" title="Cerca nei materiali" onClick={() => setCercaMateriale(true)}><PackageSearch size={22} strokeWidth={2} className="cerchiata" /></button>
           </div>
         )}
         <div className="tabella-righe">
@@ -349,7 +385,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  if (codice.trim()) aggiungiRiga({ codice_barre: codice.trim() });
+                  if (codice.trim()) leggiCodice(codice.trim());
                   setCodice("");
                 }
               }}
@@ -392,8 +428,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     const firma = dati.firma;
     if (firma instanceof Blob) collegati._firma_url = URL.createObjectURL(firma);
     else if (typeof firma === "string" && firma) {
-      const { data } = await supabase.storage.from(ARCHIVIO_FILE).createSignedUrl(firma, 600);
-      collegati._firma_url = data?.signedUrl;
+      collegati._firma_url = await urlFirmato(cfg.sezione, firma);
     }
     finestra.document.write(cfg.stampa!({ ...dati, ...totali, ...testoRifNomi(), ...collegati }, righe));
     finestra.document.close();
@@ -485,6 +520,11 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           </>
         )}
       </form>
+      {cercaMateriale && (
+        <div onMouseDown={(e) => e.stopPropagation()}>
+          <CercaMateriale onChiudi={() => setCercaMateriale(false)} onScegli={(m) => aggiungiRiga(rigaDaMateriale(m))} />
+        </div>
+      )}
       {gestione && (
         <div onMouseDown={(e) => e.stopPropagation()}>
           <GestioneElenco
@@ -538,13 +578,11 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
 
   useEffect(() => {
     if (id === undefined) return setRighe([]);
-    supabase
-      .from(figlio.tabella)
-      .select("*")
-      .eq(figlio.campo, id)
-      .is("eliminato_il", null)
-      .order(figlio.ordine ?? "id", { ascending: !figlio.ordine })
-      .then(({ data }) => setRighe(data ?? []));
+    let q = supabase.from(figlio.tabella).select(figlio.select ?? "*").eq(figlio.campo, id);
+    // Le righe di dettaglio (es. righe dei rapporti) non hanno il cestino
+    if (!figlio.select) q = q.is("eliminato_il", null);
+    q.order(figlio.ordine ?? "id", { ascending: !figlio.ordine })
+      .then(({ data }) => setRighe((data as unknown as Record<string, unknown>[]) ?? []));
   }, [figlio, id]);
 
   if (!righe) return <p className="vuoto-linguetta">Caricamento…</p>;
@@ -556,7 +594,11 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
         {righe.map((r, i) => (
           <tr key={i}>
             {figlio.colonne.map((c) => (
-              <td key={c.chiave}>{c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave]) : String(r[c.chiave] ?? "")}</td>
+              <td key={c.chiave}>{(() => {
+                // Chiavi annidate, es. "rapporto.numero"
+                const v = c.chiave.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], r);
+                return c.tipo === "data" ? dataIt(v) : c.tipo === "euro" ? euro(v) : String(v ?? "");
+              })()}</td>
             ))}
           </tr>
         ))}
