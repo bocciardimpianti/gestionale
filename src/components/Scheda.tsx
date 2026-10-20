@@ -59,8 +59,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     onSalvato(risposta.data.id);
   };
 
-  const campo = (c: Campo) => {
-    if (c.tipo === "titolo") return <div key={c.chiave} className="sezione-scheda">{c.etichetta}</div>;
+  const campo = (c: Campo, aCapo: boolean) => {
+    if (c.tipo === "titolo") return <div key={c.chiave} className={`sezione-scheda ${c.stile ?? "grigio"}`}>{c.etichetta}</div>;
     const valore = String(dati[c.chiave] ?? "");
     const props = {
       id: `campo-${c.chiave}`,
@@ -85,7 +85,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     else controllo = <input {...props} />;
 
     return (
-      <div key={c.chiave} className={`cornice l${c.larghezza ?? 2}${c.finisciRiga ? " fine-riga" : ""}`}>
+      <div key={c.chiave} className={`cornice${c.finisciRiga ? " fine-riga" : ""}`}
+        style={{ gridColumn: c.larghezza === 4 ? "1 / -1" : `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
         <label htmlFor={props.id}>{c.etichetta}</label>
         {controllo}
         {c.tipo === "telefono" && (
@@ -125,7 +126,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
               </div>
               <div className="pannello-linguetta">
                 {linguetta === "Principale" ? (
-                  <div className="griglia-campi">{cfg.campi.map(campo)}</div>
+                  <div className="griglia-campi">{cfg.campi.map((c, i) => campo(c, !!cfg.campi[i - 1]?.finisciRiga))}</div>
                 ) : linguetta === "Log Cloud" ? (
                   <LogRecord sezione={cfg.sezione} id={valori.id as number | undefined} />
                 ) : (
