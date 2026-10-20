@@ -34,3 +34,11 @@ export async function adminUtenti(azione: string, dati: Record<string, unknown>)
   }
   return data;
 }
+
+export const vuoto = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
+
+// Scrive una voce nel registro attività
+export async function registra(azione: string, dettagli: unknown) {
+  const { data: { user } } = await supabase.auth.getUser();
+  await supabase.from("registro").insert({ utente_id: user?.id, azione, dettagli });
+}

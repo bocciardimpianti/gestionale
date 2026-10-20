@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
-import { supabase } from "../supabase";
+import { registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import Griglia from "../components/Griglia";
-import type { Archivio, Campo } from "../archivi";
+import Scheda from "../components/Scheda";
+import type { Archivio } from "../archivi";
 
 type Riga = Record<string, unknown> & { id: number };
 
-const vuoto = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
 const normalizza = (s: unknown) => String(s ?? "").trim().toLowerCase();
 
 // Legge tutte le righe superando il limite di 1000 per richiesta
@@ -20,11 +20,6 @@ async function leggiTutto(tabella: string) {
     tutte.push(...(data as Riga[]));
     if (!data || data.length < 1000) return tutte;
   }
-}
-
-async function registra(azione: string, dettagli: unknown) {
-  const { data: { user } } = await supabase.auth.getUser();
-  await supabase.from("registro").insert({ utente_id: user?.id, azione, dettagli });
 }
 
 export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
@@ -188,85 +183,6 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         />
       )}
       {archivio && <GestioneArchivio {...archivio} onChiudi={() => setArchivio(null)} />}
-    </div>
-  );
-}
-
-function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina }: {
-  cfg: Archivio;
-  valori: Record<string, unknown>;
-  onChiudi: () => void;
-  onSalvato: (id: number) => void;
-  onElimina: () => void;
-}) {
-  const { puo } = useAuth();
-  const nuovo = valori.id === undefined;
-  const modificabile = nuovo ? puo(cfg.sezione, "creare") : puo(cfg.sezione, "modificare");
-  const [dati, setDati] = useState<Record<string, unknown>>(valori);
-  const [opzioni, setOpzioni] = useState<Record<string, string[]>>({});
-  const [errore, setErrore] = useState("");
-
-  useEffect(() => {
-    for (const c of cfg.campi.filter((c) => c.opzioniDa)) {
-      supabase.from(c.opzioniDa!).select("nome").order("ordine").then(({ data }) =>
-        setOpzioni((o) => ({ ...o, [c.chiave]: (data ?? []).map((r) => r.nome) })),
-      );
-    }
-  }, [cfg.campi]);
-
-  const salva = async (e: FormEvent) => {
-    e.preventDefault();
-    const record: Record<string, unknown> = {};
-    for (const c of cfg.campi) record[c.chiave] = vuoto(dati[c.chiave]) ? null : String(dati[c.chiave]).trim();
-    const risposta = nuovo
-      ? await supabase.from(cfg.tabella).insert(record).select("id").single()
-      : await supabase.from(cfg.tabella).update(record).eq("id", valori.id).select("id").single();
-    if (risposta.error) return setErrore(risposta.error.message);
-    await registra(`${cfg.sezione}_${nuovo ? "creato" : "modificato"}`, { id: risposta.data.id, nome: record[cfg.colonne[0].chiave] });
-    onSalvato(risposta.data.id);
-  };
-
-  const input = (c: Campo) => {
-    const props = {
-      value: String(dati[c.chiave] ?? ""),
-      disabled: !modificabile,
-      required: c.obbligatorio,
-      onChange: (e: { target: { value: string } }) => setDati({ ...dati, [c.chiave]: e.target.value }),
-    };
-    if (c.tipo === "area") return <textarea rows={4} {...props} />;
-    if (c.tipo === "scelta")
-      return (
-        <select {...props}>
-          <option value="" />
-          {(opzioni[c.chiave] ?? []).map((o) => <option key={o}>{o}</option>)}
-        </select>
-      );
-    return <input {...props} />;
-  };
-
-  return (
-    <div className="velo" onMouseDown={onChiudi}>
-      <form className="finestra" onSubmit={salva} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="finestra-titolo">
-          {nuovo ? `Nuovo - ${cfg.titolo}` : String(valori[cfg.colonne[0].chiave] ?? "")}
-          <button type="button" className="chiudi" onClick={onChiudi}>×</button>
-        </div>
-        <div className="finestra-corpo campi-scheda">
-          {cfg.campi.map((c) => (
-            <label key={c.chiave} className={c.tipo === "area" ? "largo" : ""}>
-              {c.etichetta}
-              {input(c)}
-            </label>
-          ))}
-        </div>
-        {errore && <p className="errore">{errore}</p>}
-        <div className="finestra-piede">
-          {!nuovo && puo(cfg.sezione, "eliminare") && <button type="button" className="btn rosso" onClick={onElimina}>Elimina</button>}
-          <span style={{ flex: 1 }} />
-          <button type="button" className="btn grigio" onClick={onChiudi}>Annulla</button>
-          {modificabile && <button className="btn blu">Salva</button>}
-        </div>
-      </form>
     </div>
   );
 }
