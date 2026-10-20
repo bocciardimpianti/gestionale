@@ -12,6 +12,8 @@ export interface Campo {
   finisciRiga?: boolean;
   // Per i campi a scelta: tabella da cui leggere le opzioni (colonna "nome")
   opzioniDa?: string;
+  // In alternativa: funzione del database che restituisce { id, nome } (es. elenco utenti)
+  opzioniRpc?: string;
   // Titolo della finestra di gestione delle opzioni (solo admin)
   titoloOpzioni?: string;
   obbligatorio?: boolean;
@@ -108,6 +110,23 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "iban", etichetta: "Iban", larghezza: 1 },
       { chiave: "banca", etichetta: "Banca", tipo: "scelta", opzioniDa: "banche", titoloOpzioni: "Banche", larghezza: 1 },
       { chiave: "filiale", etichetta: "Filiale", larghezza: 1, finisciRiga: true },
+    ],
+  },
+  tecnici: {
+    sezione: "tecnici",
+    titolo: "Tecnici",
+    titoloNuovo: "Nuovo tecnici",
+    linguette: ["Storico", "Log Cloud"],
+    tabella: "tecnici",
+    chiaveImport: "nome",
+    colonne: [
+      { chiave: "nome", titolo: "Tecnico", excel: "Tecnico", larghezza: 810 },
+      { chiave: "id_tecnico", titolo: "ID Tecnico", excel: "ID Tecnico", larghezza: 812 },
+    ],
+    campi: [
+      { chiave: "nome", etichetta: "tecnici", obbligatorio: true, larghezza: 2 },
+      { chiave: "utente_id", etichetta: "Tecnico (utente del gestionale)", tipo: "scelta", opzioniRpc: "elenco_utenti", larghezza: 2 },
+      { chiave: "id_tecnico", etichetta: "ID Tecnico", larghezza: 2 },
     ],
   },
 };

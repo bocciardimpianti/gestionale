@@ -25,7 +25,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [gestione, setGestione] = useState<Campo | null>(null);
   const [versioneOpzioni, setVersioneOpzioni] = useState(0);
   const [dati, setDati] = useState<Record<string, unknown>>(valori);
-  const [opzioni, setOpzioni] = useState<Record<string, string[]>>({});
+  const [opzioni, setOpzioni] = useState<Record<string, { valore: string; etichetta: string }[]>>({});
   const [linguetta, setLinguetta] = useState("Principale");
   const [stato, setStato] = useState("Pronto");
   const [ingrandita, setIngrandita] = useState(false);
@@ -35,7 +35,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   useEffect(() => {
     for (const c of cfg.campi.filter((c) => c.opzioniDa)) {
       supabase.from(c.opzioniDa!).select("nome").order("ordine").then(({ data }) =>
-        setOpzioni((o) => ({ ...o, [c.chiave]: (data ?? []).map((r) => r.nome) })),
+        setOpzioni((o) => ({ ...o, [c.chiave]: (data ?? []).map((r) => ({ valore: r.nome, etichetta: r.nome })) })),
+      );
+    }
+    for (const c of cfg.campi.filter((c) => c.opzioniRpc)) {
+      supabase.rpc(c.opzioniRpc!).then(({ data }) =>
+        setOpzioni((o) => ({ ...o, [c.chiave]: ((data ?? []) as { id: string; nome: string }[]).map((r) => ({ valore: r.id, etichetta: r.nome })) })),
       );
     }
   }, [cfg.campi, versioneOpzioni]);
@@ -75,7 +80,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         <span className="scelta">
           <select {...props} disabled={!modificabile}>
             <option value="" />
-            {(opzioni[c.chiave] ?? []).map((o) => <option key={o}>{o}</option>)}
+            {(opzioni[c.chiave] ?? []).map((o) => <option key={o.valore} value={o.valore}>{o.etichetta}</option>)}
           </select>
           {profilo?.ruolo === "admin" && c.titoloOpzioni && (
             <button type="button" title={`Gestisci ${c.titoloOpzioni}`} onClick={() => setGestione(c)}>…</button>
