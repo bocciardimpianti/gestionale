@@ -19,9 +19,7 @@ Applicazione web: React + Vite, ospitata su **GitHub Pages**. Dati, login e 2FA 
 5. Crea il primo utente (sarà l'admin) da **Authentication → Users → Add user**.
 
 ### 2. GitHub
-1. In **Settings → Secrets and variables → Actions** aggiungi:
-   - `VITE_SUPABASE_URL`: Project URL di Supabase
-   - `VITE_SUPABASE_ANON_KEY`: chiave pubblica "anon"
+1. URL e chiave pubblica (publishable) di Supabase sono in `.env.production`.
 2. In **Settings → Pages → Source** scegli **GitHub Actions**.
 3. Ogni modifica su `main` viene pubblicata automaticamente.
 
