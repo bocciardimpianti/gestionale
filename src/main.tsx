@@ -1,11 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter, Navigate, NavLink, Route, Routes, useParams } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
 import Login from "./pages/Login";
 import DueFattori from "./pages/DueFattori";
 import Utenti from "./pages/admin/Utenti";
 import Registro from "./pages/admin/Registro";
+import Dashboard from "./pages/Dashboard";
+import Layout from "./Layout";
 import "./styles.css";
 
 function App() {
@@ -39,47 +41,23 @@ function App() {
 }
 
 function Struttura() {
-  const { profilo, sezioni, puo, esci } = useAuth();
+  const { profilo, puo } = useAuth();
   const admin = profilo?.ruolo === "admin";
-  const visibili = sezioni.filter((s) => puo(s.chiave, "vedere"));
 
   return (
-    <div className="struttura">
-      <aside className="menu">
-        <div className="marchio">Gestionale</div>
-        <nav>
-          <NavLink to="/" end>Home</NavLink>
-          {visibili.map((s) => (
-            <NavLink key={s.chiave} to={`/s/${s.chiave}`}>{s.etichetta}</NavLink>
-          ))}
-          {admin && (
-            <>
-              <div className="gruppo">Pannello di controllo</div>
-              <NavLink to="/admin/utenti">Utenti e permessi</NavLink>
-              <NavLink to="/admin/registro">Registro attività</NavLink>
-            </>
-          )}
-        </nav>
-        <div className="utente">
-          <div>{profilo?.nome || profilo?.email}</div>
-          <div className="piccolo">{admin ? "Amministratore" : "Utente standard"}</div>
-          <button className="collegamento" onClick={esci}>Esci</button>
-        </div>
-      </aside>
-      <main className="contenuto">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/s/:chiave" element={<PaginaSezione />} />
-          {admin && <Route path="/admin/utenti" element={<Utenti />} />}
-          {admin && <Route path="/admin/registro" element={<Registro />} />}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </main>
-    </div>
+    <Layout>
+      <Routes>
+        <Route path="/" element={puo("home", "vedere") ? <Dashboard /> : <Benvenuto />} />
+        <Route path="/s/:chiave" element={<PaginaSezione />} />
+        {admin && <Route path="/admin/utenti" element={<Utenti />} />}
+        {admin && <Route path="/admin/registro" element={<Registro />} />}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Layout>
   );
 }
 
-function Home() {
+function Benvenuto() {
   const { profilo } = useAuth();
   return (
     <>

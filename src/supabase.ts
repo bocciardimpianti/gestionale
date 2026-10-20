@@ -19,6 +19,7 @@ export interface Profilo {
 export interface Sezione {
   chiave: string;
   etichetta: string;
+  gruppo: string;
   ordine: number;
 }
 

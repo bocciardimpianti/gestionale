@@ -5,10 +5,15 @@
   --testo: #1f2933;
   --tenue: #6b7785;
   --bordo: #d5dbe3;
-  --primario: #1f5fa8;
+  --primario: #4f5b6b;
   --primario-testo: #ffffff;
-  --menu: #1e2a38;
-  --menu-testo: #d8e0ea;
+  --barra: #474b59;
+  --lato: #2c3440;
+  --lato-tenue: #8792a1;
+  --lato-attivo: #4f5b6b;
+  --arancio: #ff8a1d;
+  --sfondo-centro: #eff0f8;
+  --basso: #262b33;
   --errore: #b42318;
   --ok: #1d7a3a;
   font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
@@ -48,18 +53,83 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .riquadro .sottotitolo { margin: -8px 0 4px; color: var(--tenue); }
 .qr { width: 200px; height: 200px; align-self: center; }
 
-/* Struttura */
-.struttura { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
-.menu { background: var(--menu); color: var(--menu-testo); display: flex; flex-direction: column; }
-.marchio { font-weight: 700; font-size: 16px; padding: 16px; border-bottom: 1px solid #2f3e50; }
-.menu nav { flex: 1; display: flex; flex-direction: column; padding: 8px 0; }
-.menu nav a { color: var(--menu-testo); text-decoration: none; padding: 8px 16px; }
-.menu nav a:hover { background: #2a394b; }
-.menu nav a.active { background: var(--primario); color: #fff; }
-.menu .gruppo { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; opacity: .6; padding: 16px 16px 6px; }
-.menu .utente { padding: 16px; border-top: 1px solid #2f3e50; }
-.menu .utente .piccolo { color: #9fb0c3; }
-.contenuto { padding: 20px; overflow-x: auto; }
+/* Struttura come il programma originale */
+.app {
+  display: grid; height: 100vh;
+  grid-template-columns: 247px 1fr;
+  grid-template-rows: 39px 1fr 41px;
+  grid-template-areas: "alto alto" "lato centro" "basso basso";
+}
+.barra-alta {
+  grid-area: alto; background: var(--barra); color: #fff;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 12px;
+}
+.logo { font-size: 23px; letter-spacing: .5px; font-weight: 300; color: #fff; }
+.logo .arancio { color: var(--arancio); }
+.logo-accesso { background: var(--barra); padding: 10px 14px; border-radius: 4px; text-align: center; }
+.icone-alte { display: flex; gap: 18px; }
+.icone-alte button, .barra-bassa button {
+  background: none; border: none; color: #fff; padding: 0; display: grid; place-items: center;
+}
+.icone-alte button:hover, .barra-bassa button:hover { background: none; opacity: .75; }
+
+.laterale {
+  grid-area: lato; background: var(--lato); color: #fff;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.azienda {
+  background: var(--arancio); color: #fff; font-weight: 700; font-size: 13px;
+  height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between;
+}
+.laterale nav { flex: 1; }
+.laterale .gruppo {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  background: none; border: none; border-radius: 0; color: var(--lato-tenue);
+  font-size: 13px; padding: 11px 12px 9px 11px; text-align: left;
+}
+.laterale .gruppo:hover { background: none; color: #c8cfd9; }
+.freccia { font-size: 10px; color: #c8cfd9; transition: transform .15s; }
+.freccia.chiusa { transform: rotate(-90deg); }
+.laterale .voce {
+  display: flex; align-items: center; gap: 9px; height: 36px; padding: 0 14px;
+  color: #fff; text-decoration: none; font-size: 13.5px;
+}
+.laterale .voce:hover { background: #3a4452; }
+.laterale .voce.active { background: var(--lato-attivo); }
+.laterale .utente { padding: 10px 12px; border-top: 1px solid #3a4452; font-size: 12px; }
+.laterale .utente .ruolo { color: var(--lato-tenue); }
+
+.centro { grid-area: centro; background: var(--sfondo-centro); padding: 20px; overflow: auto; }
+
+.barra-bassa {
+  grid-area: basso; background: var(--basso); color: #fff;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+}
+.gruppo-icone { display: flex; gap: 38px; align-items: center; }
+.gruppo-icone a, .gruppo-icone span { color: #fff; display: grid; place-items: center; }
+
+/* Dashboard */
+.dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.cella { display: flex; flex-direction: column; min-height: 268px; }
+.cella.vuota { min-height: 30px; align-items: flex-end; }
+.intestazione-chiara {
+  display: flex; align-items: center; gap: 8px; height: 48px; color: #6f7680; font-size: 17px;
+}
+.intestazione-chiara span { flex: 1; }
+.intestazione-chiara small { font-size: 11px; color: var(--ok); }
+.ingranaggio { background: none; border: none; padding: 0; color: inherit; opacity: .8; display: grid; }
+.ingranaggio:hover { background: none; opacity: 1; }
+.cella.vuota .ingranaggio { color: #6f7680; }
+.riquadro-dash { flex: 1; border: none; }
+.riquadro-dash.bianco { background: #fff; }
+.riquadro-dash.note {
+  background: #ffffe0; resize: none; font: inherit; padding: 10px; outline: none; border-radius: 0;
+}
+.indicatore { color: #fff; display: flex; flex-direction: column; padding: 8px 10px; min-height: 268px; }
+.indicatore .intestazione { display: flex; justify-content: space-between; align-items: flex-start; }
+.indicatore .titolo { font-size: 16px; }
+.indicatore .data { font-size: 11.5px; margin-top: 4px; }
+.indicatore .valore { flex: 1; display: grid; place-items: center; font-size: 42px; font-weight: 700; }
 
 .barra-titolo { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
 .barra-titolo h2 { margin: 0; }
@@ -75,8 +145,10 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .pannello { background: var(--carta); border: 1px solid var(--bordo); border-radius: 6px; padding: 16px; margin: 16px 0; }
 .campi { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 8px; }
 
-@media (max-width: 720px) {
-  .struttura { grid-template-columns: 1fr; }
-  .menu nav { flex-direction: row; flex-wrap: wrap; }
-  .contenuto { padding: 16px; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 39px auto 1fr 41px; grid-template-areas: "alto" "lato" "centro" "basso"; height: auto; min-height: 100vh; }
+  .laterale { max-height: 45vh; }
+  .dashboard { grid-template-columns: 1fr; }
+  .gruppo-icone { gap: 22px; }
+  .centro { padding: 16px; }
 }

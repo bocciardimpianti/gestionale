@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { supabase } from "../supabase";
+import { Logo } from "../Layout";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -19,8 +20,8 @@ export default function Login() {
   return (
     <div className="schermo-accesso">
       <form className="riquadro" onSubmit={invia}>
-        <h1>Gestionale</h1>
-        <p className="sottotitolo">Accesso riservato</p>
+        <div className="logo-accesso"><Logo /></div>
+        <p className="sottotitolo">Bocciardi Impianti · Accesso riservato</p>
         <label>
           Email
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus />
