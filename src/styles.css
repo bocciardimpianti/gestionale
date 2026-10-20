@@ -407,3 +407,16 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 }
 .cerca-foto:hover { background: #eef5fc; }
 .suggerimento-foto { font-size: 11px; color: #8a929c; }
+
+/* Uscita / cambio utente */
+.laterale .utente .esci {
+  margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: #3a4452; border: 1px solid #4b5668; color: #fff; font-size: 12.5px; padding: 6px 8px; border-radius: 3px;
+}
+.laterale .utente .esci:hover { background: #d9534f; border-color: #d9534f; }
+.icone-alte .utente-alto {
+  display: flex !important; flex-direction: row; align-items: center; gap: 6px; font-size: 13px;
+  border: 1px solid rgba(255,255,255,.35) !important; border-radius: 3px; padding: 3px 10px !important; margin-right: 10px;
+}
+.icone-alte .utente-alto:hover { background: #d9534f !important; border-color: #d9534f !important; opacity: 1 !important; }
+@media (max-width: 760px) { .icone-alte .utente-alto span:first-child { display: none; } }

@@ -68,6 +68,11 @@ export default function Layout({ children }: { children: ReactNode }) {
       <header className="barra-alta">
         <Logo />
         <div className="icone-alte">
+          <button className="utente-alto" title="Esci per cambiare utente" onClick={esci}>
+            <span>{profilo?.nome || profilo?.email}</span>
+            <LogOut size={20} strokeWidth={1.5} />
+            <span>Esci</span>
+          </button>
           <button title="Nuovo" onClick={() => naviga("/")}><CirclePlus size={26} strokeWidth={1.3} /></button>
           <button title="Aggiorna" onClick={() => location.reload()}><RefreshCw size={24} strokeWidth={1.3} /></button>
           <button title="Aiuto"><CircleHelp size={26} strokeWidth={1.3} /></button>
@@ -103,6 +108,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="utente">
           <div>{profilo?.nome || profilo?.email}</div>
           <div className="ruolo">{admin ? "Amministratore" : "Utente standard"}</div>
+          <button className="esci" onClick={esci}><LogOut size={15} /> Esci / Cambia utente</button>
         </div>
       </aside>
 
