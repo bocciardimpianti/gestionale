@@ -9,6 +9,22 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
 }) {
   const [stato, setStato] = useState("");
   const [inCorso, setInCorso] = useState(false);
+  // Le foto dei materiali sono molte e cambiano poco: si possono escludere (scelta ricordata su questo PC)
+  const [fotoMateriali, setFotoMateriali] = useState(() => {
+    try {
+      return localStorage.getItem("backup-foto-materiali") !== "no";
+    } catch {
+      return true;
+    }
+  });
+  const cambiaFotoMateriali = (v: boolean) => {
+    setFotoMateriali(v);
+    try {
+      localStorage.setItem("backup-foto-materiali", v ? "si" : "no");
+    } catch {
+      /* archiviazione locale non disponibile */
+    }
+  };
 
   const salva = async () => {
     // Modulo caricato solo quando serve (contiene le librerie zip ed Excel)
@@ -18,7 +34,7 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
     if (!destinazione) return; // salvataggio annullato
     setInCorso(true);
     try {
-      const zip = await creaBackup(setStato);
+      const zip = await creaBackup(setStato, { fotoMateriali });
       setStato("Salvataggio del file…");
       await destinazione.scrivi(zip);
       setStato(`Backup salvato: ${nome}`);
@@ -39,9 +55,13 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
             {soloBackup ? "Salva sul computer" : "Prima di uscire vuoi salvare sul computer"} un backup completo del gestionale?
           </p>
           <p className="piccolo">
-            Contiene tutti i dati in Excel (un foglio per sezione), una copia completa per il ripristino e tutte le foto e firme.
+            Contiene tutti i dati in Excel (un foglio per sezione), una copia completa per il ripristino e le foto e firme dei rapporti.
             Ti verrà chiesto dove salvarlo: è proposta la cartella Documenti.
           </p>
+          <label className="interruttore opzione-backup">
+            <input type="checkbox" checked={fotoMateriali} disabled={inCorso} onChange={(e) => cambiaFotoMateriali(e.target.checked)} />
+            Includi le foto dei materiali <span className="piccolo">(backup più grande e più lento)</span>
+          </label>
           {stato && <p className={stato.startsWith("Errore") ? "errore" : "ok"}>{stato}</p>}
         </div>
         <div className="finestra-piede">

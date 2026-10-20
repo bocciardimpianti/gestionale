@@ -59,7 +59,10 @@ export const nomeBackup = () => {
 };
 
 // Crea il backup completo: un file Excel con un foglio per tabella, i dati in formato JSON e tutte le foto/firme
-export async function creaBackup(avanzamento: (messaggio: string) => void): Promise<Blob> {
+export async function creaBackup(
+  avanzamento: (messaggio: string) => void,
+  opzioni: { fotoMateriali: boolean } = { fotoMateriali: true },
+): Promise<Blob> {
   const zip = new JSZip();
   const dati: Record<string, Record<string, unknown>[]> = {};
 
@@ -85,6 +88,7 @@ export async function creaBackup(avanzamento: (messaggio: string) => void): Prom
   // Foto e firme
   const percorsi: { archivio: string; percorso: string }[] = [];
   for (const f of FILE) {
+    if (f.archivio === "materiali" && !opzioni.fotoMateriali) continue;
     for (const r of dati[f.tabella] ?? []) {
       for (const c of f.colonne) if (typeof r[c] === "string" && r[c]) percorsi.push({ archivio: f.archivio, percorso: r[c] as string });
     }
@@ -104,7 +108,7 @@ export async function creaBackup(avanzamento: (messaggio: string) => void): Prom
       "",
       "Dati gestionale.xlsx  tutte le tabelle, un foglio per tabella",
       "dati.json             gli stessi dati in formato completo (per un eventuale ripristino)",
-      "foto/                 foto e firme dei rapporti, foto dei materiali",
+      `foto/                 foto e firme dei rapporti${opzioni.fotoMateriali ? ", foto dei materiali" : " (foto dei materiali escluse)"}`,
       "",
       ...TABELLE.map((t) => `${t.foglio}: ${dati[t.tabella].length} righe`),
       `Foto e firme: ${percorsi.length - mancanti} file${mancanti ? ` (${mancanti} non scaricati)` : ""}`,
