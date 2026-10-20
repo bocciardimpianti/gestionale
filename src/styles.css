@@ -1,0 +1,82 @@
+/* Stile provvisorio: verrà adattato alle schermate del programma originale */
+:root {
+  --sfondo: #f3f5f8;
+  --carta: #ffffff;
+  --testo: #1f2933;
+  --tenue: #6b7785;
+  --bordo: #d5dbe3;
+  --primario: #1f5fa8;
+  --primario-testo: #ffffff;
+  --menu: #1e2a38;
+  --menu-testo: #d8e0ea;
+  --errore: #b42318;
+  --ok: #1d7a3a;
+  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 14px;
+  color: var(--testo);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--sfondo); }
+h1, h2, h3 { margin: 0 0 12px; }
+code { background: #eef1f5; padding: 2px 4px; border-radius: 3px; word-break: break-all; }
+
+button {
+  font: inherit; padding: 6px 12px; border: 1px solid var(--bordo);
+  background: var(--carta); border-radius: 4px; cursor: pointer;
+}
+button:hover { background: #eef1f5; }
+button:disabled { opacity: .6; cursor: default; }
+button.primario { background: var(--primario); color: var(--primario-testo); border-color: var(--primario); }
+button.pericolo { color: var(--errore); }
+button.collegamento { border: none; background: none; color: inherit; text-decoration: underline; padding: 4px 0; }
+
+input, select { font: inherit; padding: 6px 8px; border: 1px solid var(--bordo); border-radius: 4px; background: var(--carta); }
+label { display: flex; flex-direction: column; gap: 4px; }
+label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
+
+.errore { color: var(--errore); }
+.ok { color: var(--ok); }
+.piccolo { font-size: 12px; color: var(--tenue); }
+
+/* Accesso */
+.schermo-accesso { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.riquadro {
+  width: 100%; max-width: 380px; background: var(--carta); padding: 28px;
+  border-radius: 8px; border: 1px solid var(--bordo); display: flex; flex-direction: column; gap: 14px;
+}
+.riquadro .sottotitolo { margin: -8px 0 4px; color: var(--tenue); }
+.qr { width: 200px; height: 200px; align-self: center; }
+
+/* Struttura */
+.struttura { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+.menu { background: var(--menu); color: var(--menu-testo); display: flex; flex-direction: column; }
+.marchio { font-weight: 700; font-size: 16px; padding: 16px; border-bottom: 1px solid #2f3e50; }
+.menu nav { flex: 1; display: flex; flex-direction: column; padding: 8px 0; }
+.menu nav a { color: var(--menu-testo); text-decoration: none; padding: 8px 16px; }
+.menu nav a:hover { background: #2a394b; }
+.menu nav a.active { background: var(--primario); color: #fff; }
+.menu .gruppo { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; opacity: .6; padding: 16px 16px 6px; }
+.menu .utente { padding: 16px; border-top: 1px solid #2f3e50; }
+.menu .utente .piccolo { color: #9fb0c3; }
+.contenuto { padding: 20px; overflow-x: auto; }
+
+.barra-titolo { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.barra-titolo h2 { margin: 0; }
+
+/* Tabelle */
+.griglia { width: 100%; border-collapse: collapse; background: var(--carta); border: 1px solid var(--bordo); }
+.griglia th, .griglia td { padding: 6px 10px; border-bottom: 1px solid var(--bordo); text-align: left; vertical-align: middle; }
+.griglia th { background: #e8edf3; font-weight: 600; }
+.griglia tr.selezionata td { background: #e5effa; }
+.griglia td.azioni { display: flex; gap: 4px; flex-wrap: wrap; }
+.matrice td:not(:first-child), .matrice th:not(:first-child) { text-align: center; }
+
+.pannello { background: var(--carta); border: 1px solid var(--bordo); border-radius: 6px; padding: 16px; margin: 16px 0; }
+.campi { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 8px; }
+
+@media (max-width: 720px) {
+  .struttura { grid-template-columns: 1fr; }
+  .menu nav { flex-direction: row; flex-wrap: wrap; }
+  .contenuto { padding: 16px; }
+}
