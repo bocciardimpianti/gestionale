@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, Barcode, Mail, PackageSearch, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -343,14 +343,14 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       <div className="area-righe">
         {modificabile && (
           <div className="barra-righe">
-            <button type="button" title="Aggiungi riga" onClick={() => aggiungiRiga()}><CirclePlus size={30} strokeWidth={1.4} /></button>
+            <button type="button" title="Aggiungi materiali (o riga libera)" onClick={() => setCercaMateriale(true)}><CirclePlus size={30} strokeWidth={1.4} /></button>
             <button type="button" title="Elimina riga" disabled={rigaSel === null} onClick={() => {
               setRighe((rr) => rr.filter((_, j) => j !== rigaSel));
               setRigaSel(null);
             }}><CircleMinus size={30} strokeWidth={1.4} /></button>
             <button type="button" title="Sposta giù" onClick={() => spostaRiga(1)}><ArrowDown size={22} strokeWidth={2} className="cerchiata" /></button>
             <button type="button" title="Sposta su" onClick={() => spostaRiga(-1)}><ArrowUp size={22} strokeWidth={2} className="cerchiata" /></button>
-            <button type="button" title="Cerca nei materiali" onClick={() => setCercaMateriale(true)}><PackageSearch size={22} strokeWidth={2} className="cerchiata" /></button>
+            <button type="button" title="Aggiungi una riga libera da compilare a mano" onClick={() => aggiungiRiga()}><PencilLine size={22} strokeWidth={2} className="cerchiata" /></button>
           </div>
         )}
         <div className="tabella-righe">
@@ -555,7 +555,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       </form>
       {cercaMateriale && (
         <div onMouseDown={(e) => e.stopPropagation()}>
-          <CercaMateriale onChiudi={() => setCercaMateriale(false)} onScegli={(m) => aggiungiRiga(rigaDaMateriale(m))} />
+          <CercaMateriale onChiudi={() => setCercaMateriale(false)} onScegli={(m) => aggiungiRiga(rigaDaMateriale(m))} onRigaVuota={() => aggiungiRiga()} />
         </div>
       )}
       {gestione && (

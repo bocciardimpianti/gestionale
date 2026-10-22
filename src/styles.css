@@ -567,3 +567,8 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .autocompleta .proposte li { padding: 5px 8px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .autocompleta .proposte li.evidenziato { background: #fcd9a3; }
 .cornice:has(.proposte) { z-index: 61; }
+/* Finestra Aggiungi materiali */
+.finestra-materiali { width: min(1000px, 100%); }
+.finestra-materiali .risultati { height: 58vh; max-height: none; }
+.cerca-materiale tbody tr.evidenziata td { background: #fcd9a3; }
+.cerca-materiale .cella-miniatura { padding: 0 2px; }
