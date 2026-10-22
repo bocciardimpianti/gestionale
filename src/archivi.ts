@@ -1,12 +1,14 @@
 import type { Colonna } from "./components/Griglia";
 import { dataIso, supabase } from "./supabase";
-import { stampaRapporto } from "./stampe";
-import { euro } from "./components/Griglia";
+import { stampaPreventivo, stampaRapporto } from "./stampe";
+import { COLORI_STATO, euro } from "./components/Griglia";
 
 export interface Campo {
   chiave: string;
   etichetta: string;
-  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma";
+  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma" | "email";
+  // Campi a scelta: colore del quadratino accanto a ogni valore (es. stato del documento)
+  colori?: Record<string, string>;
   // Campi a scelta: scegliendo un'opzione copia questi valori dalla sua riga (es. importi della tariffa)
   copiaDaOpzione?: string[];
   // Campi numerici aggiuntivi nella finestra di gestione delle opzioni
@@ -84,10 +86,15 @@ export interface Archivio {
     tabella: string;
     campo: string;
     colonne: { chiave: string; titolo: string; larghezza: number; tipo?: "testo" | "numero" | "euro"; solaLettura?: boolean }[];
-    ricalcola: (riga: Record<string, unknown>) => Record<string, unknown>;
+    // "chiave" è il campo appena modificato (assente per una riga nuova)
+    ricalcola: (riga: Record<string, unknown>, chiave?: string) => Record<string, unknown>;
+    // Riga creata da un materiale di magazzino (codice a barre o ricerca)
+    daMateriale?: (m: Record<string, unknown>) => Record<string, unknown>;
   };
   // Campi sotto le righe (caselle e totali)
   piede?: Campo[];
+  // In alternativa: riquadri con titolo sotto le righe (es. Sconto e Tasse, Pagamenti, Totali)
+  piedeGruppi?: { titolo: string; campi: Campo[] }[];
   // Campi calcolati al salvataggio e mostrati nel piede (es. imponibile e totale)
   calcolaTotali?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => Record<string, number>;
   // Viste rapide nel menu Archivi (es. materiali senza foto)
@@ -144,6 +151,16 @@ function totaliRapporto(dati: Record<string, unknown>, righe: Record<string, unk
     _prezzo_km: prezzoKm,
     _totale_servizi: Math.round(tariffe * 100) / 100,
   };
+}
+
+// Preventivo: imponibile (somma righe) - sconto % + iva %
+function totaliPreventivo(dati: Record<string, unknown>, righe: Record<string, unknown>[]) {
+  const r2 = (x: number) => Math.round(x * 100) / 100;
+  const imponibile = righe.length ? r2(righe.reduce((t, r) => t + n(r.totale), 0)) : n(dati.imponibile);
+  const scontoTotale = r2(imponibile * n(dati.sconto) / 100);
+  const scontato = r2(imponibile - scontoTotale);
+  const ivaTotale = r2(scontato * n(dati.iva) / 100);
+  return { imponibile, sconto_totale: scontoTotale, prezzo_scontato: scontato, iva_totale: ivaTotale, totale: r2(scontato + ivaTotale) };
 }
 
 const oraAttuale = () => new Date().toTimeString().slice(0, 5);
@@ -452,8 +469,11 @@ export const ARCHIVI: Record<string, Archivio> = {
         { chiave: "totale", titolo: "Totale", larghezza: 70, tipo: "euro", solaLettura: true },
         { chiave: "nome_articolo", titolo: "Nome Articolo", larghezza: 110 },
       ],
-      ricalcola: (r) => {
-        const prezzoFinale = Math.round(n(r.prezzo) * (1 + n(r.ricarico) / 100) * 10000) / 10000;
+      // Il prezzo finale si ricalcola solo cambiando prezzo o ricarico: i prezzi corretti a mano restano
+      ricalcola: (r, chiave) => {
+        const prezzoFinale = !chiave || chiave === "prezzo" || chiave === "ricarico" || r.prezzo_finale == null
+          ? Math.round(n(r.prezzo) * (1 + n(r.ricarico) / 100) * 10000) / 10000
+          : n(r.prezzo_finale);
         return { ...r, prezzo_finale: prezzoFinale, totale: Math.round(n(r.quantita) * prezzoFinale * 100) / 100 };
       },
     },
@@ -542,6 +562,99 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "ricarico", etichetta: "Ricarico %", tipo: "numero", larghezza: 1 },
       { chiave: "giacenza_minima", etichetta: "Giacenza Minima", tipo: "numero", larghezza: 1 },
       { chiave: "dettaglio", etichetta: "Dettaglio", larghezza: 2 },
+    ],
+  },
+  preventivi: {
+    sezione: "preventivi",
+    titolo: "Preventivi",
+    titoloNuovo: "Nuovo preventivo",
+    titoloScheda: (v) => `Preventivo ${v.numero ?? ""} del ${String(v.data ?? "").split("-").reverse().join("/")}`,
+    linguette: ["Dettaglio", "Storico", "Log Cloud"],
+    tabella: "preventivi",
+    select: "*, cliente:clienti(nome)",
+    chiaveImport: ["data", "numero", "cliente"],
+    ordineIniziale: { chiave: "data", su: false },
+    calcolaTotali: totaliPreventivo,
+    stampa: stampaPreventivo,
+    valoriNuovo: async () => ({ data: dataIso(new Date()), stato: "Aperto", sconto: 0, iva: 0 }),
+    colonne: [
+      { chiave: "data", titolo: "Data", excel: "Data", larghezza: 88, tipo: "data" },
+      { chiave: "numero", titolo: "Numero", excel: "Numero", larghezza: 320 },
+      { chiave: "cliente", titolo: "Nome cliente", excel: "Nome cliente", larghezza: 212, riferimento: { campo: "cliente_id", tabella: "clienti" } },
+      { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 95, tipo: "euro" },
+      { chiave: "totale", titolo: "Totale", excel: "Totale", larghezza: 105, tipo: "euro" },
+      { chiave: "sconto", titolo: "Sconto", excel: "Sconto", larghezza: 55, tipo: "percentuale" },
+      { chiave: "iva", titolo: "Iva", excel: "Iva", larghezza: 55, tipo: "percentuale" },
+      { chiave: "sconto_totale", titolo: "Sconto Totale", excel: "Sconto Totale", larghezza: 55, tipo: "euro" },
+      { chiave: "iva_totale", titolo: "Iva Totale", excel: "Iva Totale", larghezza: 55, tipo: "euro" },
+      { chiave: "prezzo_scontato", titolo: "Imponibile scontato", excel: "Imponibile scontato", larghezza: 55, tipo: "euro" },
+      { chiave: "tipologia_pagamento", titolo: "Tipologia di pagamento", excel: "Tipologia di pagamento", larghezza: 28 },
+      { chiave: "modalita_pagamento", titolo: "Modalità Pagamento", excel: "Modalità Pagamento", larghezza: 28 },
+      { chiave: "firma", titolo: "Firma", excel: "Firma", larghezza: 28, tipo: "immagine" },
+      { chiave: "note", titolo: "Note", excel: "Note", larghezza: 100 },
+      { chiave: "pagata", titolo: "Pagata", excel: "Pagata", larghezza: 60, tipo: "booleano" },
+      { chiave: "email", titolo: "E-Mail", excel: "E-Mail", larghezza: 60 },
+      { chiave: "stato", titolo: "Stato Documento", excel: "Stato Documento", larghezza: 195, tipo: "stato" },
+    ],
+    campi: [
+      { chiave: "data", etichetta: "Data", tipo: "data", larghezza: 1, obbligatorio: true },
+      { chiave: "numero", etichetta: "Numero", larghezza: 1, segnaposto: "Auto compilato" },
+      { chiave: "cliente_id", etichetta: "Nome cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2 },
+      { chiave: "email", etichetta: "E-Mail", tipo: "email", larghezza: 2 },
+      { chiave: "stato", etichetta: "Stato Documento", tipo: "scelta", opzioniDa: "stati_documento", titoloOpzioni: "Stati documento", colori: COLORI_STATO, larghezza: 1, finisciRiga: true },
+      { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4, linguetta: "Dettaglio" },
+      { chiave: "firma", etichetta: "Firma", tipo: "firma", larghezza: 2, linguetta: "Dettaglio" },
+    ],
+    righe: {
+      tabella: "righe_preventivo",
+      campo: "preventivo_id",
+      colonne: [
+        { chiave: "codice_barre", titolo: "Codice a barre", larghezza: 80 },
+        { chiave: "descrizione", titolo: "Descrizione Articolo", larghezza: 420 },
+        { chiave: "unita_misura", titolo: "Unità", larghezza: 45 },
+        { chiave: "quantita", titolo: "Quantità", larghezza: 65, tipo: "numero" },
+        { chiave: "prezzo_base", titolo: "Prezzo Base", larghezza: 70, tipo: "numero" },
+        { chiave: "prezzo", titolo: "Prezzo", larghezza: 75, tipo: "euro", solaLettura: true },
+        { chiave: "ricarico", titolo: "Ricarico %", larghezza: 55, tipo: "numero" },
+        { chiave: "totale", titolo: "Totale", larghezza: 80, tipo: "euro", solaLettura: true },
+      ],
+      // Il prezzo si ricalcola solo cambiando prezzo base o ricarico: i prezzi corretti a mano restano
+      ricalcola: (r, chiave) => {
+        const prezzo = !chiave || chiave === "prezzo_base" || chiave === "ricarico" || r.prezzo == null
+          ? Math.round(n(r.prezzo_base) * (1 + n(r.ricarico) / 100) * 10000) / 10000
+          : n(r.prezzo);
+        return { ...r, prezzo, totale: Math.round(n(r.quantita) * prezzo * 100) / 100 };
+      },
+      daMateriale: (m) => ({
+        materiale_id: m.id, codice_barre: m.codice_barre ?? null, descrizione: m.descrizione ?? null,
+        unita_misura: m.unita_misura ?? null, prezzo_base: m.prezzo_base ?? 0, ricarico: m.ricarico ?? 0,
+      }),
+    },
+    piedeGruppi: [
+      {
+        titolo: "Sconto e Tasse",
+        campi: [
+          { chiave: "sconto", etichetta: "Sconto %", tipo: "numero" },
+          { chiave: "iva", etichetta: "Iva %", tipo: "numero" },
+        ],
+      },
+      {
+        titolo: "Pagamenti",
+        campi: [
+          { chiave: "tipologia_pagamento", etichetta: "Tipologia di pagamento", tipo: "scelta", opzioniDa: "tipologie_pagamento" },
+          { chiave: "modalita_pagamento", etichetta: "Modalità Pagamento", tipo: "scelta", opzioniDa: "modalita_pagamento" },
+          { chiave: "pagata", etichetta: "Pagata", tipo: "booleano" },
+        ],
+      },
+      {
+        titolo: "Totali",
+        campi: [
+          { chiave: "imponibile", etichetta: "Imponibile", tipo: "euro", solaLettura: true },
+          { chiave: "sconto_totale", etichetta: "Sconto Totale", tipo: "euro", solaLettura: true },
+          { chiave: "iva_totale", etichetta: "Iva Totale", tipo: "euro", solaLettura: true },
+          { chiave: "totale", etichetta: "Totale", tipo: "euro", solaLettura: true },
+        ],
+      },
     ],
   },
 };

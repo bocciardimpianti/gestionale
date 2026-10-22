@@ -3,11 +3,16 @@ import { Camera, Filter } from "lucide-react";
 import { dataIt } from "../supabase";
 import { Miniatura } from "./CampoImmagine";
 
+// Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
+export const COLORI_STATO: Record<string, string> = {
+  Aperto: "#ef8c1a", Eseguito: "#3fae4b", Accettato: "#3fae4b", Chiuso: "#7f8c8d", Rifiutato: "#d9342b", Annullato: "#d9342b",
+};
+
 export interface Colonna {
   chiave: string;
   titolo: string;
   larghezza: number;
-  tipo?: "data" | "booleano" | "euro" | "immagine" | "miniatura" | "numero" | "percentuale";
+  tipo?: "data" | "booleano" | "euro" | "immagine" | "miniatura" | "numero" | "percentuale" | "stato";
   // Per le miniature: archivio file in cui si trova l'immagine
   archivio?: string;
 }
@@ -143,6 +148,10 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
                     </td>
                   ) : c.tipo === "immagine" ? (
                     <td key={c.chiave} className="centrata">{r[c.chiave] ? <Camera size={13} color="#8a6d3b" /> : null}</td>
+                  ) : c.tipo === "stato" ? (
+                    <td key={c.chiave} title={testo(r[c.chiave])}>
+                      {r[c.chiave] ? <><span className="quadratino" style={{ background: COLORI_STATO[testo(r[c.chiave])] ?? "#999" }} />{testo(r[c.chiave])}</> : null}
+                    </td>
                   ) : c.tipo === "booleano" ? (
                     <td key={c.chiave} className="centrata"><input type="checkbox" checked={!!r[c.chiave]} readOnly tabIndex={-1} /></td>
                   ) : (

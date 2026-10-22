@@ -134,3 +134,75 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
 <script>window.onload = () => window.print()</script>
 </body></html>`;
 }
+
+// Preventivo, con la stessa grafica del rapporto di intervento
+export function stampaPreventivo(d: Record<string, unknown>, righe: Record<string, unknown>[]) {
+  const titolo = `PREVENTIVO ${d.numero ?? ""} DEL ${dataIt(d.data)}`;
+  const n = (v: unknown) => Number(v ?? 0);
+  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(titolo)}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body { font: 11px Calibri, Arial, sans-serif; color: #222; margin: 0; }
+  .alto { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .azienda h1 { color: #1e88e5; font-size: 17px; margin: 12px 0 4px; }
+  .azienda div { font-size: 11.5px; line-height: 1.35; }
+  .box { border: 1.5px solid #1e88e5; display: grid; }
+  .box > div { border-right: 1px solid #1e88e5; padding: 2px 4px; min-height: 40px; }
+  .box > div:last-child { border-right: none; }
+  .etichetta { font-size: 9.5px; }
+  .valore { font-size: 13px; text-align: center; margin-top: 3px; }
+  .grande { font-size: 15px; font-weight: 700; }
+  .dest { background: #dcecfb; border: 1.5px solid #1e88e5; padding: 3px 4px; min-height: 130px; margin-top: 12px; }
+  .dest .nome { color: #1e88e5; font-size: 17px; font-weight: 700; margin: 30px 0 14px; }
+  table.righe { width: 100%; border-collapse: separate; border-spacing: 4px 0; margin-top: 14px; }
+  table.righe th { background: #a9d1f5; font-size: 10px; padding: 2px; }
+  table.righe td { background: #dcecfb; padding: 3px 4px; vertical-align: top; }
+  table.righe tr.riempi td { height: ${Math.max(40, 360 - righe.length * 18)}px; }
+  .destra { text-align: right; }
+  .totali { width: 40%; margin-left: auto; margin-top: 8px; }
+  .totali > div { background: #e9f3fd; padding: 3px 6px; margin-bottom: 3px; display: flex; justify-content: space-between; font-size: 12.5px; }
+  .totali .documento { background: #1e88e5; color: #fff; font-weight: 700; font-size: 15px; padding: 6px; }
+  .annotazioni { background: #e9f3fd; padding: 3px 4px; min-height: 34px; margin-top: 10px; }
+  .firma { width: 40%; margin-left: auto; margin-top: 14px; min-height: 60px; }
+</style></head><body>
+<div class="alto">
+  <div class="azienda">
+    <img src="${logo()}" alt="" style="height: 95px; margin-top: 6px">
+    <h1>${esc(AZIENDA.nome)}</h1>
+    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)}<br>Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div>
+  </div>
+  <div>
+    <div class="box" style="grid-template-columns: 1fr 1.4fr 1fr">
+      <div><div class="etichetta">Tipo Documento</div><div class="valore grande">Preventivo</div></div>
+      <div><div class="etichetta">Numero</div><div class="valore grande">${esc(d.numero)}</div></div>
+      <div><div class="etichetta">Data</div><div class="valore">${dataIt(d.data)}</div></div>
+    </div>
+    <div class="dest">
+      <div class="etichetta">Destinatario</div>
+      <div class="nome">${esc(d.cliente)}</div>
+      <div>${esc(d.cliente_indirizzo_fatturazione)}</div>
+      <div>P.Iva/C.F.: ${esc(d.cliente_piva || d.cliente_codice_fiscale)}</div>
+      <div>E-mail: ${esc(d.email || d.cliente_email)}</div>
+    </div>
+  </div>
+</div>
+<table class="righe">
+  <thead><tr><th style="width: 52%">Descrizione</th><th style="width: 9%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 14%">Prezzo</th><th>Totale</th></tr></thead>
+  <tbody>
+    ${righe.map((r) => `<tr><td>${esc(r.descrizione)}</td><td>${num(r.quantita)}</td><td style="text-align:center">${esc(r.unita_misura)}</td><td class="destra">${euro(r.prezzo)}</td><td class="destra">${euro(r.totale)}</td></tr>`).join("")}
+    <tr class="riempi"><td></td><td></td><td></td><td></td><td></td></tr>
+  </tbody>
+</table>
+<div class="totali">
+  <div><span>Imponibile</span><span>${euro(d.imponibile) || "0,00 €"}</span></div>
+  ${n(d.sconto) ? `<div><span>Sconto ${num(d.sconto)}%</span><span>- ${euro(d.sconto_totale)}</span></div>` : ""}
+  ${n(d.iva) ? `<div><span>Iva ${num(d.iva)}%</span><span>${euro(d.iva_totale)}</span></div>` : ""}
+  <div class="documento"><span>Totale</span><span>${euro(d.totale) || "0,00 €"}</span></div>
+</div>
+${d.tipologia_pagamento || d.modalita_pagamento ? `<p>Pagamento: ${esc([d.modalita_pagamento, d.tipologia_pagamento].filter(Boolean).join(" - "))}</p>` : ""}
+<div class="annotazioni"><div class="etichetta">Annotazioni</div>${esc(d.note).replace(/\n/g, "<br>")}</div>
+<div class="firma"><div class="etichetta">Firma per accettazione</div>${d._firma_url ? `<img src="${esc(d._firma_url)}" alt="" style="max-height: 70px; max-width: 100%">` : ""}</div>
+<script>window.onload = () => window.print()</script>
+</body></html>`;
+}

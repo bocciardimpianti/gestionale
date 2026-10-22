@@ -15,8 +15,16 @@ interface RapportoRO {
   immagini: Record<string, Immagine>;
   [campo: string]: unknown;
 }
+interface PreventivoRO {
+  gguid: string;
+  eliminato: boolean;
+  cliente: string | null;
+  righe: Record<string, unknown>[];
+  [campo: string]: unknown;
+}
 interface Pacchetto {
   origine: string;
+  preventivi?: PreventivoRO[];
   tariffe: Record<string, unknown>[];
   rapporti: RapportoRO[];
   foto_materiali: (Immagine & { codice_interno: string | null; descrizione: string | null })[];
@@ -63,7 +71,11 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
     try {
       setStato("Lettura del file…");
       const p = JSON.parse(await file.text()) as Pacchetto;
-      if (p.origine !== "ReportOne" || !Array.isArray(p.rapporti)) throw new Error("Il file non è un'esportazione di ReportOne preparata per il gestionale");
+      p.rapporti ??= [];
+      p.tariffe ??= [];
+      p.foto_materiali ??= [];
+      const preventivi = p.preventivi ?? [];
+      if (p.origine !== "ReportOne") throw new Error("Il file non è un'esportazione di ReportOne preparata per il gestionale");
 
       // 1. Tariffe
       setStato("Tariffe…");
@@ -86,8 +98,8 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       const perNumero = new Map(esistenti.map((r) => [Number(r.numero), r]));
 
       // Clienti presenti nei rapporti ma non in anagrafica (es. eliminati in ReportOne): si creano
-      const mancanti = [...new Set(p.rapporti.map((r) => r.cliente).filter((c): c is string => !!c && !idCliente.has(norm(c))))];
-      if (mancanti.length && confirm(`${mancanti.length} clienti dei rapporti non sono in anagrafica:\n${mancanti.slice(0, 15).join("\n")}${mancanti.length > 15 ? "\n…" : ""}\n\nVuoi crearli?`)) {
+      const mancanti = [...new Set([...p.rapporti, ...preventivi].map((r) => r.cliente).filter((c): c is string => !!c && !idCliente.has(norm(c))))];
+      if (mancanti.length && confirm(`${mancanti.length} clienti dei documenti non sono in anagrafica:\n${mancanti.slice(0, 15).join("\n")}${mancanti.length > 15 ? "\n…" : ""}\n\nVuoi crearli?`)) {
         const { data, error } = await supabase.from("clienti").insert(mancanti.map((nome) => ({ nome }))).select("id, nome");
         if (error) err.push("Clienti: " + error.message);
         for (const c of data ?? []) idCliente.set(norm(c.nome), c.id);
@@ -96,7 +108,11 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       // 3. Rapporti: aggiornamento di quelli esistenti (per numero) e creazione dei mancanti
       const nuovi = p.rapporti.filter((r) => !perNumero.has(r.numero)).length;
       if (!confirm(
-        `File ReportOne: ${p.rapporti.length} rapporti.\n• ${p.rapporti.length - nuovi} già presenti: verranno completati (orari, tariffe, KM, impianto, materiali)\n• ${nuovi} non presenti: verranno aggiunti\n\nProcedere?`,
+        "File ReportOne:\n" +
+        (p.rapporti.length ? `• ${p.rapporti.length} rapporti: ${p.rapporti.length - nuovi} da completare, ${nuovi} da aggiungere\n` : "") +
+        (preventivi.length ? `• ${preventivi.length} preventivi con le loro righe\n` : "") +
+        (p.foto_materiali.length ? `• ${p.foto_materiali.length} foto di materiali\n` : "") +
+        "\nProcedere?",
       )) {
         setInCorso(false);
         setStato("");
@@ -170,12 +186,40 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         if (error) err.push(`Foto materiale ${f.codice_interno}: ${error.message}`);
       }, (n) => setStato(`Foto dei materiali… ${n} / ${daCaricare.length}`));
 
+      // 7. Preventivi con le righe (riconosciuti dal codice ReportOne: si possono reimportare senza doppioni)
+      let preventiviFatti = 0;
+      if (preventivi.length) {
+        const giaPresenti = await leggiTutto("preventivi", "id, gguid_reportone");
+        const perGguid = new Map(giaPresenti.filter((x) => x.gguid_reportone).map((x) => [String(x.gguid_reportone), x.id]));
+        const idPerBarre = new Map(materiali.filter((m) => m.codice_interno).map((m) => [norm(m.codice_interno), m.id]));
+        await aGruppi(preventivi, 6, async (pv) => {
+          const { righe, cliente, gguid, eliminato, ...campi } = pv;
+          const record: Record<string, unknown> = { ...campi, gguid_reportone: gguid, cliente_id: cliente ? idCliente.get(norm(cliente)) ?? null : null };
+          if (eliminato) record.eliminato_il = new Date().toISOString();
+          const es = perGguid.get(gguid);
+          const risposta = es
+            ? await supabase.from("preventivi").update(record).eq("id", es).select("id").single()
+            : await supabase.from("preventivi").insert(record).select("id").single();
+          if (risposta.error) return void err.push(`Preventivo ${pv.numero}: ${risposta.error.message}`);
+          const id = risposta.data.id;
+          const del = await supabase.from("righe_preventivo").delete().eq("preventivo_id", id);
+          if (del.error) return void err.push(`Righe preventivo ${pv.numero}: ${del.error.message}`);
+          if (righe.length) {
+            const ins = await supabase.from("righe_preventivo").insert(righe.map((x) => ({
+              ...x, preventivo_id: id, materiale_id: x.codice_barre ? idPerBarre.get(norm(x.codice_barre)) ?? null : null,
+            })));
+            if (ins.error) return void err.push(`Righe preventivo ${pv.numero}: ${ins.error.message}`);
+          }
+          preventiviFatti++;
+        }, (n) => setStato(`Preventivi… ${n} / ${preventivi.length}`));
+      }
+
       await registra("rapporti_importato_reportone", {
         file: file.name, rapporti: idRapporto.size, nuovi, righe: conRighe.length, foto_materiali: daCaricare.length, errori: err.length,
       });
       setStato(
         `Importazione completata: ${idRapporto.size} rapporti (${nuovi} nuovi), materiali in ${conRighe.length} rapporti, ` +
-        `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe.` +
+        `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe, ${preventiviFatti} preventivi.` +
         (err.length ? ` ${err.length} errori (vedi sotto).` : ""),
       );
       setErrori(err);
@@ -192,7 +236,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         <div className="finestra-titolo">Importa dati da ReportOne</div>
         <div className="finestra-corpo">
           <p style={{ marginTop: 0 }}>
-            Scegli il file <b>"ReportOne - completamento rapporti.json"</b> preparato dal database di ReportOne.
+            Scegli il file preparato dal database di ReportOne (es. <b>"ReportOne - completamento rapporti.json"</b> o <b>"ReportOne - preventivi.json"</b>).
           </p>
           <p className="piccolo">
             Completa i rapporti con ora inizio e fine, tariffe, KM, impianto e righe dei materiali; aggiunge i rapporti mancanti,

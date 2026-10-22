@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, Barcode, PackageSearch, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Barcode, Mail, PackageSearch, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -46,7 +46,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [codice, setCodice] = useState("");
   const [cercaMateriale, setCercaMateriale] = useState(false);
   const [suggerimenti, setSuggerimenti] = useState<Record<string, Record<string, unknown>[]>>({});
-  const tuttiCampi = [...cfg.campi, ...(cfg.piede ?? [])];
+  const tuttiCampi = [...cfg.campi, ...(cfg.piede ?? []), ...(cfg.piedeGruppi ?? []).flatMap((g) => g.campi)];
 
   useEffect(() => {
     if (!cfg.righe || nuovo) return;
@@ -73,13 +73,13 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const totali = cfg.calcolaTotali?.(dati, righe) ?? {};
 
   const cambiaRiga = (i: number, chiave: string, valore: unknown) =>
-    setRighe((rr) => rr.map((r, j) => (j === i ? cfg.righe!.ricalcola({ ...r, [chiave]: valore }) : r)));
+    setRighe((rr) => rr.map((r, j) => (j === i ? cfg.righe!.ricalcola({ ...r, [chiave]: valore }, chiave) : r)));
   const aggiungiRiga = (extra: Record<string, unknown> = {}) => {
     setRighe((rr) => [...rr, cfg.righe!.ricalcola({ quantita: 1, ...extra })]);
     setRigaSel(righe.length);
   };
   // Riga compilata da un materiale di magazzino
-  const rigaDaMateriale = (m: Record<string, unknown>) => ({
+  const rigaDaMateriale = (m: Record<string, unknown>) => cfg.righe?.daMateriale?.(m) ?? ({
     materiale_id: m.id,
     codice_barre: m.codice_barre ?? null,
     descrizione: m.descrizione ?? null,
@@ -139,7 +139,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     for (const c of tuttiCampi.filter((c) => c.opzioniFisse)) {
       setOpzioni((o) => ({ ...o, [c.chiave]: c.opzioniFisse!.map((v) => ({ valore: v, etichetta: v })) }));
     }
-    for (const c of cfg.campi.filter((c) => c.opzioniDa)) {
+    for (const c of tuttiCampi.filter((c) => c.opzioniDa)) {
       supabase.from(c.opzioniDa!).select("*").order("ordine").then(({ data }) =>
         setOpzioni((o) => ({ ...o, [c.chiave]: (data ?? []).map((r) => ({ valore: r.nome, etichetta: r.nome, riga: r })) })),
       );
@@ -322,6 +322,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         style={{ gridColumn: c.larghezza === 4 ? "1 / -1" : `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
         <label htmlFor={props.id}>{c.etichetta}</label>
         {controllo}
+        {c.tipo === "email" && (
+          <a className="chiama" href={valore ? `mailto:${valore}` : undefined} title="Scrivi e-mail"><Mail size={14} strokeWidth={2} /></a>
+        )}
+        {c.colori && valore && <span className="quadratino" style={{ background: c.colori[valore] ?? "#999" }} />}
         {c.tipo === "telefono" && (
           <a className="chiama" href={valore ? `tel:${valore.replace(/\s/g, "")}` : undefined} title="Chiama">
             <Phone size={13} strokeWidth={2} />
@@ -392,6 +396,33 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
               }}
             />
             <Barcode size={22} />
+          </div>
+        )}
+        {cfg.piedeGruppi && (
+          <div className="piede-gruppi">
+            {cfg.piedeGruppi.map((g) => (
+              <div key={g.titolo} className="gruppo-piede">
+                <div className="titolo-gruppo">{g.titolo}</div>
+                {g.campi.map((c) => (
+                  <label key={c.chiave} className="voce-piede valore">
+                    <span>{c.etichetta}</span>
+                    {c.tipo === "booleano" ? (
+                      <input type="checkbox" checked={!!dati[c.chiave]} disabled={!modificabile} onChange={(e) => cambia(c.chiave, e.target.checked)} />
+                    ) : c.solaLettura ? (
+                      <b>{euro(c.chiave in totali ? totali[c.chiave] : dati[c.chiave] ?? 0)}</b>
+                    ) : c.tipo === "scelta" ? (
+                      <select value={String(dati[c.chiave] ?? "")} disabled={!modificabile} onChange={(e) => cambia(c.chiave, e.target.value)}>
+                        <option value="" />
+                        {(opzioni[c.chiave] ?? []).map((o) => <option key={o.valore} value={o.valore}>{o.etichetta}</option>)}
+                      </select>
+                    ) : (
+                      <input type="number" step="0.01" className="destra" value={String(dati[c.chiave] ?? "")} readOnly={!modificabile}
+                        placeholder={c.segnaposto} onChange={(e) => cambia(c.chiave, e.target.value)} />
+                    )}
+                  </label>
+                ))}
+              </div>
+            ))}
           </div>
         )}
         {cfg.piede && (

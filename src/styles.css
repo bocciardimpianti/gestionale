@@ -542,3 +542,16 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .impegno .orario { font-weight: 700; font-size: 12px; }
 .impegno .cliente { font-size: 12px; }
 .impegno.posizionato { padding: 3px 6px; }
+
+/* Stato documento con quadratino colorato */
+.quadratino { display: inline-block; width: 13px; height: 13px; margin-right: 6px; vertical-align: -2px; }
+.cornice .quadratino { position: absolute; left: 6px; bottom: 9px; }
+.cornice:has(.quadratino) select { padding-left: 20px; }
+
+/* Riquadri sotto le righe (Sconto e Tasse, Pagamenti, Totali) */
+.piede-gruppi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 10px; align-items: start; }
+.gruppo-piede { border: 1px solid #d4d7dc; background: #fff; }
+.titolo-gruppo { background: #dde2e8; padding: 6px 16px; font-size: 13px; }
+.gruppo-piede .voce-piede { border: none; border-top: 1px solid #e3e5e8; grid-column: auto !important; grid-row: auto !important; }
+.gruppo-piede .voce-piede select { border: none; font: inherit; font-size: 13px; padding: 2px 4px; background: #fff; }
+@media (max-width: 760px) { .piede-gruppi { grid-template-columns: 1fr; } }

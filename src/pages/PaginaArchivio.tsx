@@ -377,7 +377,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                     {voce(RotateCcw, "#666", "Ripristina colonne", () => salvaNascoste([]))}
                     {voce(FileUp, "#3a8a3a", "Importa da Excel", () => fileRef.current?.click(),
                       !nelCestino && puo(cfg.sezione, "creare") && puo(cfg.sezione, "modificare"))}
-                    {cfg.sezione === "rapporti" && voce(Database, "#d9822b", "Importa da ReportOne (file .json)", () => setImportaReportOne(true),
+                    {(cfg.sezione === "rapporti" || cfg.sezione === "preventivi") && voce(Database, "#d9822b", "Importa da ReportOne (file .json)", () => setImportaReportOne(true),
                       !nelCestino && profilo?.ruolo === "admin")}
                   </div>
                 )}
