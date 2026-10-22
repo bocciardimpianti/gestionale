@@ -79,6 +79,8 @@ export interface Archivio {
     linguetta: string; titolo?: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string; crescente?: boolean; select?: string;
     // Ordinamento (dal più recente) su un campo collegato, es. "rapporto.data"; esclusione di righe (es. documento nel cestino)
     recentiPer?: string; escludi?: (r: Record<string, unknown>) => boolean;
+    // Clic sulla riga: apre la scheda del documento (sezione e id del record da aprire)
+    apri?: { sezione: string; id: (r: Record<string, unknown>) => unknown };
   }[];
   // Ordinamento iniziale della griglia
   ordineIniziale?: { chiave: string; su: boolean };
@@ -216,12 +218,14 @@ export const ARCHIVI: Record<string, Archivio> = {
       linguetta: "Storico",
       tabella: "rapporti",
       campo: "cliente_id",
+      apri: { sezione: "rapporti", id: (r) => r.id },
       ordine: "data",
       colonne: COLONNE_STORICO,
     }, {
       linguetta: "Impianti",
       tabella: "impianti",
       campo: "cliente_id",
+      apri: { sezione: "impianti", id: (r) => r.id },
       colonne: [
         { chiave: "impianto", titolo: "Impianto", larghezza: 200 },
         { chiave: "tipo_impianto", titolo: "Tipo impianto", larghezza: 150 },
@@ -325,7 +329,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     titoloNuovo: "Nuovo impianto",
     linguette: ["Materiali", "Storico", "Log Cloud"],
     tabella: "impianti",
-    figli: [{ linguetta: "Storico", tabella: "rapporti", campo: "impianto_id", ordine: "data", colonne: COLONNE_STORICO }],
+    figli: [{ linguetta: "Storico", tabella: "rapporti", campo: "impianto_id", ordine: "data", colonne: COLONNE_STORICO, apri: { sezione: "rapporti", id: (r) => r.id } }],
     select: "*, cliente:clienti(nome)",
     chiaveImport: ["cliente", "impianto", "tipo_impianto", "marca", "modello", "matricola"],
     quandoCambia: prossimoIntervento,
@@ -538,6 +542,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       titolo: "Rapporti di intervento (materiale usato)",
       tabella: "righe_rapporto",
       campo: "materiale_id",
+      apri: { sezione: "rapporti", id: (r) => r.rapporto_id },
       select: "*, rapporto:rapporti(numero, data, eliminato_il, cliente:clienti(nome))",
       recentiPer: "rapporto.data",
       escludi: (r) => !!(r.rapporto as Record<string, unknown> | null)?.eliminato_il,
@@ -553,6 +558,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       titolo: "DDT di acquisto (materiale acquistato)",
       tabella: "righe_ddt_acquisto",
       campo: "materiale_id",
+      apri: { sezione: "ddt_acquisto", id: (r) => r.ddt_id },
       select: "*, ddt:ddt_acquisto(numero_ddt, data, eliminato_il, fornitore:fornitori(nome))",
       recentiPer: "ddt.data",
       escludi: (r) => !!(r.ddt as Record<string, unknown> | null)?.eliminato_il,
@@ -570,6 +576,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       titolo: "Preventivi (materiale preventivato)",
       tabella: "righe_preventivo",
       campo: "materiale_id",
+      apri: { sezione: "preventivi", id: (r) => r.preventivo_id },
       select: "*, preventivo:preventivi(numero, data, stato, eliminato_il, cliente:clienti(nome))",
       recentiPer: "preventivo.data",
       escludi: (r) => !!(r.preventivo as Record<string, unknown> | null)?.eliminato_il,
@@ -731,6 +738,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     // Rate generate dalla tipologia di pagamento (vedi Scadenziario)
     figli: [{
       linguetta: "Pagamenti", tabella: "scadenziario", campo: "ddt_id", ordine: "data", crescente: true,
+      apri: { sezione: "scadenziario", id: (r) => r.id },
       colonne: [
         { chiave: "data", titolo: "Scadenza", larghezza: 90, tipo: "data" },
         { chiave: "descrizione", titolo: "Descrizione", larghezza: 300 },

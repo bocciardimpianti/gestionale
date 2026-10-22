@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus,
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
-import type { Archivio, Campo } from "../archivi";
+import { ARCHIVI, type Archivio, type Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
 import CampoImmagine, { urlFirmato } from "./CampoImmagine";
@@ -630,7 +630,24 @@ function LogRecord({ sezione, id }: { sezione: string; id?: number }) {
 
 // Record collegati mostrati in una linguetta (es. gli impianti del cliente)
 function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]>[number]; id?: number }) {
+  const { puo } = useAuth();
   const [righe, setRighe] = useState<Record<string, unknown>[] | null>(null);
+  const [aperto, setAperto] = useState<{ cfg: Archivio; valori: Record<string, unknown> } | null>(null);
+  const [versione, setVersione] = useState(0);
+  const apribile = !!figlio.apri && !!ARCHIVI[figlio.apri.sezione] && puo(figlio.apri.sezione, "vedere");
+
+  // Apre la scheda del documento collegato (stessa lettura della sua sezione, nomi collegati appiattiti)
+  const apri = async (r: Record<string, unknown>) => {
+    if (!apribile) return;
+    const cfgDoc = ARCHIVI[figlio.apri!.sezione];
+    const id = figlio.apri!.id(r);
+    if (id === null || id === undefined) return;
+    const { data, error } = await supabase.from(cfgDoc.tabella).select(cfgDoc.select ?? "*").eq("id", id).single();
+    if (error || !data) return alert("Documento non trovato" + (error ? ": " + error.message : ""));
+    const valori = { ...(data as unknown as Record<string, unknown>) };
+    for (const [k, v] of Object.entries(valori)) if (v && typeof v === "object" && "nome" in v) valori[k] = (v as { nome: unknown }).nome;
+    setAperto({ cfg: cfgDoc, valori });
+  };
 
   useEffect(() => {
     if (id === undefined) return setRighe([]);
@@ -646,16 +663,29 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
         }
         setRighe(r);
       });
-  }, [figlio, id]);
+  }, [figlio, id, versione]);
 
   if (!righe) return <p className="vuoto-linguetta">Caricamento…</p>;
   if (!righe.length) return <p className="vuoto-linguetta">Nessun elemento collegato.</p>;
   return (
-    <table className="griglia">
+    <>
+    {aperto && (
+      <Scheda
+        cfg={aperto.cfg}
+        valori={aperto.valori}
+        cartelle={[]}
+        nelCestino={!!aperto.valori.eliminato_il}
+        onChiudi={() => setAperto(null)}
+        onSalvato={() => { setAperto(null); setVersione((v) => v + 1); }}
+        onElimina={() => alert(`Per eliminare questo documento aprilo dalla sezione ${aperto.cfg.titolo}`)}
+        onSposta={() => alert(`Per spostarlo in un archivio aprilo dalla sezione ${aperto.cfg.titolo}`)}
+      />
+    )}
+    <table className={`griglia${apribile ? " righe-apribili" : ""}`}>
       <thead><tr>{figlio.colonne.map((c) => <th key={c.chiave}>{c.titolo}</th>)}</tr></thead>
       <tbody>
         {righe.map((r, i) => (
-          <tr key={i}>
+          <tr key={i} onClick={() => apri(r)} title={apribile ? `Clicca per aprire (${ARCHIVI[figlio.apri!.sezione].titolo})` : undefined}>
             {figlio.colonne.map((c) => (
               <td key={c.chiave}>{(() => {
                 // Chiavi annidate, es. "rapporto.numero"
@@ -668,5 +698,6 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
         ))}
       </tbody>
     </table>
+    </>
   );
 }
