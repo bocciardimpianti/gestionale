@@ -9,7 +9,7 @@ import CercaMateriale from "./CercaMateriale";
 // lettura delle righe, abbinamento ai materiali di magazzino (con conferma) e salvataggio.
 
 type Rec = Record<string, unknown> & { id: number };
-type Stato = "ricordato" | "codice" | "proposta" | "multipli" | "nuovo" | "scelto" | "libera";
+type Stato = "ricordato" | "codice" | "proposta" | "multipli" | "simili" | "nuovo" | "scelto" | "libera";
 interface Riga {
   pdf: RigaPdf;
   stato: Stato;
@@ -24,6 +24,25 @@ interface Riga {
 const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
 const senzaZeri = (s: unknown) => norm(s).replace(/^0+(?=.)/, "");
 const valido = (s: unknown) => !vuoto(s) && String(s).replace(/[\s/.-]/g, "") !== "";
+// Un campo codice può contenere più codici (es. "90040 - 9000350": vecchio e nuovo codice CLLAT)
+const codiciDi = (s: unknown) => (valido(s) ? String(s).split(/\s+-\s+|\s*;\s*|\s+/).filter(valido).map(senzaZeri) : []);
+// Parole significative di una descrizione (per proporre materiali simili)
+const parole = (s: unknown) => new Set(String(s ?? "").toLowerCase().replace(/["'ø°]/g, "").split(/[^a-z0-9.,/]+/).map((w) => w.replace(/^[.,/]+|[.,/]+$/g, "")).filter((w) => w.length >= 2));
+function simili(descr: string, mats: Rec[], quanti = 3) {
+  const p = parole(descr);
+  if (p.size < 2) return [];
+  return mats
+    .map((m) => {
+      const q = parole(`${m.descrizione ?? ""} ${m.nome_articolo ?? ""}`);
+      let comuni = 0;
+      for (const w of p) if (q.has(w)) comuni++;
+      return { m, comuni, punti: comuni / p.size };
+    })
+    .filter((x) => x.comuni >= 2 && x.punti >= 0.6)
+    .sort((a, b) => b.punti - a.punti || b.comuni - a.comuni)
+    .slice(0, quanti)
+    .map((x) => x.m);
+}
 const UM: Record<string, string> = { NR: "Pz", PZ: "Pz", N: "Pz", MT: "Mt", ML: "Mt", M: "Mt", KG: "Kg", CF: "Cf", LT: "Lt", MQ: "Mq", RT: "Rt", CP: "Cp", PA: "Pa" };
 const umDa = (u: string) => UM[u.toUpperCase()] ?? (u ? u[0].toUpperCase() + u.slice(1).toLowerCase() : "Pz");
 const r4 = (x: number) => Math.round(x * 10000) / 10000;
@@ -35,6 +54,7 @@ const ETICHETTE: Record<Stato, { testo: string; colore: string }> = {
   scelto: { testo: "Scelto da te", colore: "verde" },
   proposta: { testo: "Proposta: da confermare", colore: "giallo" },
   multipli: { testo: "Più materiali con questo codice: scegli", colore: "giallo" },
+  simili: { testo: "Codice non trovato: materiali con descrizione simile", colore: "giallo" },
   nuovo: { testo: "Non in magazzino", colore: "rosso" },
   libera: { testo: "Riga senza magazzino", colore: "verde" },
 };
@@ -68,14 +88,17 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
       const base = { pdf: p, candidati: [] as Rec[], nuovaDescrizione: p.descrizione, nuovaUm: umDa(p.um) };
       const ric = ricordati.get(norm(p.codice));
       if (ric && perId.has(ric)) return { ...base, stato: "ricordato", materiale: perId.get(ric)!, confermata: true };
-      const perCodice = mats.filter((m) => [m.codice_fornitore1, m.codice_fornitore2].some((c) => valido(c) && senzaZeri(c) === senzaZeri(p.codice)));
+      const perCodice = mats.filter((m) => [m.codice_fornitore1, m.codice_fornitore2].some((c) => codiciDi(c).includes(senzaZeri(p.codice))));
       if (perCodice.length === 1) return { ...base, stato: "codice", materiale: perCodice[0], confermata: true };
       if (perCodice.length > 1) return { ...base, stato: "multipli", materiale: null, candidati: perCodice, confermata: false };
       // Codice del produttore: solo come proposta da confermare
       const perProduttore = valido(p.codiceProduttore)
-        ? mats.filter((m) => [m.codice_fornitore1, m.codice_fornitore2, m.codice_barre, m.nome_articolo].some((c) => valido(c) && senzaZeri(c) === senzaZeri(p.codiceProduttore)))
+        ? mats.filter((m) => [m.codice_fornitore1, m.codice_fornitore2, m.codice_barre, m.nome_articolo].some((c) => codiciDi(c).includes(senzaZeri(p.codiceProduttore))))
         : [];
       if (perProduttore.length) return { ...base, stato: "proposta", materiale: perProduttore[0], candidati: perProduttore, confermata: false };
+      // Descrizione simile (es. materiali ancora con il vecchio codice del fornitore): solo proposte da scegliere
+      const perDescrizione = simili(p.descrizione, mats);
+      if (perDescrizione.length) return { ...base, stato: "simili", materiale: null, candidati: perDescrizione, confermata: false };
       return { ...base, stato: "nuovo", materiale: null, confermata: false };
     });
   };
@@ -91,7 +114,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
     setUrlPdf(URL.createObjectURL(f));
     try {
       setStato(`Lettura di ${f.name}…`);
-      const d = leggiDdt(await scritteDaPdf(f));
+      const d = leggiDdt(await scritteDaPdf(f), f.name);
       if (!d) throw new Error(`Fornitore non riconosciuto. Per ora so leggere i DDT di: ${MODELLI_DISPONIBILI.join(", ")}. Mandami un esempio per aggiungere gli altri.`);
       setStato("Lettura di fornitori e materiali…");
       const [forn, mats] = await Promise.all([
@@ -195,7 +218,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
         for (const r of nuovi) { r.materiale = creato.get(norm(r.pdf.codice))!; r.stato = "scelto"; }
       }
       // 2. Abbinamenti da ricordare e codice fornitore nei materiali che non lo hanno
-      const daRicordare = finali.filter((r) => r.materiale && ["scelto", "proposta", "multipli"].includes(r.stato));
+      const daRicordare = finali.filter((r) => r.materiale && ["scelto", "proposta", "multipli", "simili"].includes(r.stato));
       if (daRicordare.length) {
         const { error } = await supabase.from("abbinamenti_fornitore").upsert(
           [...new Map(daRicordare.map((r) => [norm(r.pdf.codice), { fornitore_id: fornitore.id, codice: r.pdf.codice, materiale_id: r.materiale!.id }])).values()],
@@ -258,8 +281,8 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
     return (
       <div className="azioni-riga-pdf">
         {r.stato === "proposta" && !r.confermata && btn("Conferma", () => cambia(i, { confermata: true }), "verde")}
-        {r.stato === "multipli" && r.candidati.map((c) => btn(`${c.codice_interno ?? ""} ${String(c.descrizione ?? "").slice(0, 30)}`, () => cambia(i, { materiale: c, stato: "scelto", confermata: true })))}
-        {r.stato === "nuovo" && !r.confermata && btn("Crea nuovo materiale", () => cambia(i, { confermata: true }), "verde")}
+        {(r.stato === "multipli" || r.stato === "simili") && r.candidati.map((c) => btn(`${c.codice_interno ?? ""} ${String(c.descrizione ?? "").slice(0, 30)}`, () => cambia(i, { materiale: c, stato: "scelto", confermata: true })))}
+        {(r.stato === "nuovo" || r.stato === "simili") && !r.confermata && btn("Crea nuovo materiale", () => cambia(i, { stato: "nuovo", confermata: true }), r.stato === "nuovo" ? "verde" : "grigio")}
         {btn(r.materiale ? "Cambia materiale" : "Scegli materiale", () => setScegliPer(i))}
         {r.stato !== "libera" && btn("Senza magazzino", () => cambia(i, { materiale: null, stato: "libera", confermata: true }))}
       </div>

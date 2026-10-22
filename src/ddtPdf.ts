@@ -234,18 +234,95 @@ function mef(scritte: Scritta[]): DdtPdf {
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// CLLAT: modulo prestampato, nel PDF ci sono solo i dati. Riga di testata "DESTINATARIO|MITTENTE  VENDITA  1  8361  13/10/26",
+// righe: Codice CLLAT | Codice fornitore (produttore) | Descrizione | UM | Quantità | Prezzo (netto, 5 decimali).
+// Nessun totale: controlli su data ripetuta in fondo e numero/anno nel nome del file (es. "001D_20260008361.pdf").
+// ---------------------------------------------------------------------------
+function cllat(scritte: Scritta[], nomeFile = ""): DdtPdf {
+  const out: DdtPdf = { modello: "CLLAT", fornitore: /cllat/i, codiceInternoDalFornitore: true, numeroDdt: "", data: "", note: "", righe: [], errori: [], avvisi: [] };
+  const righe = righeDiTesto(scritte);
+  const note: string[] = [];
+  const anno = (aa: string) => (aa.length === 2 ? `20${aa}` : aa);
+
+  // Testata: riga con "VENDITA", numero e data gg/mm/aa
+  let yTestata = -1;
+  for (const r of righe) {
+    if (!r.el.some((e) => /^VENDITA$/i.test(e.s.trim()))) continue;
+    for (const e of r.el) {
+      const t = e.s.trim();
+      const d = t.match(/^(\d{2})\/(\d{2})\/(\d{2}|\d{4})$/);
+      if (d) out.data = `${anno(d[3])}-${d[2]}-${d[1]}`;
+      else if (e.x > 400 && /^\d{1,9}$/.test(t)) out.numeroDdt = t.replace(/^0+(?=\d)/, "");
+    }
+    yTestata = r.y;
+    break;
+  }
+  if (!out.numeroDdt) out.errori.push("Numero del documento non trovato");
+  if (!out.data) out.errori.push("Data del documento non trovata");
+
+  // Controlli: data ripetuta in fondo (gg.mm.aa) e nome del file
+  const dateInFondo = righe.filter((r) => r.y < 300).flatMap((r) => r.el.map((e) => e.s.trim().match(/^(\d{2})\.(\d{2})\.(\d{2})$/))).filter(Boolean) as RegExpMatchArray[];
+  if (out.data && dateInFondo.length && !dateInFondo.some((d) => `${anno(d[3])}-${d[2]}-${d[1]}` === out.data))
+    out.errori.push(`La data del documento non corrisponde a quella stampata in fondo (${dateInFondo[0][0]})`);
+  const f = nomeFile.match(/_(\d{4})(\d{7})\b/);
+  if (f && out.numeroDdt && (String(Number(f[2])) !== out.numeroDdt || (out.data && !out.data.startsWith(f[1]))))
+    out.errori.push(`Numero o anno non corrispondono al nome del file (${nomeFile})`);
+
+  // Righe: codice numerico a sinistra; in fondo alla riga UM, quantità e prezzo
+  let ultimaY = -1;
+  let codiciVisti = 0;
+  let fine = false;
+  for (const r of righe) {
+    if (fine || yTestata < 0 || r.y >= yTestata) continue;
+    const el = r.el;
+    const testo = el.map((e) => e.s.trim()).join(" ");
+    // "Punti ddt …": fine delle righe articolo
+    if (/^Punti ddt/i.test(testo)) { fine = true; continue; }
+    if (el[0].x < 60 && /^\d{5,9}$/.test(el[0].s.trim()) && el.length >= 4) {
+      codiciVisti++;
+      ultimaY = r.y;
+      const [qta, prezzo] = el.slice(-2).map((e) => e.s.trim());
+      const pezzi = el.slice(1, -2).map((e) => ({ s: e.s.trim(), x: e.x }));
+      const um = pezzi.length && /^[A-Z]{1,4}$/.test(pezzi[pezzi.length - 1].s) ? pezzi.pop()!.s : "";
+      const codProd = pezzi.length && pezzi[0].x < 160 ? pezzi.shift()!.s : "";
+      const descrizione = pezzi.map((p) => p.s).join(" ").replace(/\s+/g, " ").trim();
+      const codice = el[0].s.trim();
+      if (!eNumeroIt(qta) || !eNumeroIt(prezzo)) { out.errori.push(`Riga ${codice}: valori non leggibili (${qta} ${prezzo})`); continue; }
+      const riga: RigaPdf = { codice, codiceProduttore: codProd, descrizione, um, quantita: numeroIt(qta), prezzo: numeroIt(prezzo), importo: null, iva: 22 };
+      if (!(riga.quantita > 0)) out.errori.push(`Riga ${codice}: quantità non valida`);
+      if (!um) out.avvisi.push(`Riga ${codice}: unità di misura non trovata`);
+      out.righe.push(riga);
+      continue;
+    }
+    // Riga subito sotto (stessa spaziatura): seguito della descrizione; più distante: nota (es. chi ha ritirato)
+    if (out.righe.length && ultimaY > 0 && ultimaY - r.y < 12 && el.every((e) => e.x >= 150 && e.x < 415)) {
+      out.righe[out.righe.length - 1].descrizione += " " + testo;
+      ultimaY = r.y;
+      continue;
+    }
+    ultimaY = -1;
+    if (out.righe.length && r.y > 250 && el.every((e) => e.x >= 150 && e.x < 415)) note.push(testo);
+  }
+  if (!out.righe.length) out.errori.push("Nessuna riga articolo trovata");
+  if (codiciVisti !== out.righe.length) out.errori.push(`Righe lette ${out.righe.length} su ${codiciVisti}`);
+  out.note = note.join("\n");
+  return out;
+}
+
 // Letture disponibili: si riconosce il fornitore dal testo del PDF
-const MODELLI: { nome: string; riconosci: RegExp; leggi: (s: Scritta[]) => DdtPdf }[] = [
+const MODELLI: { nome: string; riconosci: RegExp; leggi: (s: Scritta[], nomeFile?: string) => DdtPdf }[] = [
   { nome: "Palagini", riconosci: /PALAGINI PIERO & FIGLI/i, leggi: palagini },
   { nome: "MEF", riconosci: /MEF S\.r\.l\. - Società/i, leggi: mef },
+  { nome: "CLLAT", riconosci: /Punti ddt \d+, totale punti/i, leggi: cllat },
 ];
 
 export const MODELLI_DISPONIBILI = MODELLI.map((m) => m.nome);
 
-export function leggiDdt(scritte: Scritta[]): DdtPdf | null {
+export function leggiDdt(scritte: Scritta[], nomeFile = ""): DdtPdf | null {
   const tutto = scritte.map((s) => s.s).join(" ");
   const m = MODELLI.find((x) => x.riconosci.test(tutto));
-  return m ? m.leggi(scritte) : null;
+  return m ? m.leggi(scritte, nomeFile) : null;
 }
 
 // Estrae le scritte con le coordinate da un file PDF (nel browser)
