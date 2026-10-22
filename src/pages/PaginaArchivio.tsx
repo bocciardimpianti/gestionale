@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
 import {
-  ChevronRight, Columns3, Filter, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, RefreshCw,
+  ChevronRight, Columns3, Database, Filter, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, RefreshCw,
   RotateCcw, Search, Sheet, Trash2, Undo2,
 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
 import Griglia from "../components/Griglia";
 import Scheda from "../components/Scheda";
+import ImportaReportOne from "../components/ImportaReportOne";
 import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
 
@@ -61,6 +62,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [scheda, setScheda] = useState<Record<string, unknown> | null>(null);
   const [menu, setMenu] = useState<"" | "azioni" | "tabella" | "archivi">("");
   const [sceltaColonne, setSceltaColonne] = useState(false);
+  const [importaReportOne, setImportaReportOne] = useState(false);
   const [nascoste, setNascoste] = useState<string[]>(() => leggiNascoste(cfg.sezione));
   const [messaggio, setMessaggio] = useState("");
   const [ricerca, setRicerca] = useState("");
@@ -375,6 +377,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                     {voce(RotateCcw, "#666", "Ripristina colonne", () => salvaNascoste([]))}
                     {voce(FileUp, "#3a8a3a", "Importa da Excel", () => fileRef.current?.click(),
                       !nelCestino && puo(cfg.sezione, "creare") && puo(cfg.sezione, "modificare"))}
+                    {cfg.sezione === "rapporti" && voce(Database, "#d9822b", "Importa da ReportOne (file .json)", () => setImportaReportOne(true),
+                      !nelCestino && profilo?.ruolo === "admin")}
                   </div>
                 )}
               </div>
@@ -442,6 +446,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         />
       )}
 
+      {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={carica} />}
       {sceltaColonne && (
         <div className="velo" onMouseDown={() => setSceltaColonne(false)}>
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
