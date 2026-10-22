@@ -279,7 +279,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         const senzaDdt = scadenze.filter((x) => x.gguid_ddt && !idDdt.has(x.gguid_ddt)).length;
         if (senzaDdt && !confirm(`${senzaDdt} scadenze appartengono a DDT di acquisto non ancora importati: resteranno senza collegamento al DDT.\nConviene prima importare "ReportOne - DDT di acquisto.json".\n\nContinuare comunque?`)) {
           setInCorso(false);
-          setStato("");
+          setStato(`Scadenziario non importato: ${senzaDdt} scadenze appartengono a DDT di acquisto non ancora importati. Importa prima "ReportOne - DDT di acquisto.json" dalla sezione DDT di Acquisto, poi ripeti.`);
           return;
         }
         const record = scadenze.map(({ gguid, gguid_ddt, ...campi }) => ({
