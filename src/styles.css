@@ -537,3 +537,8 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
   .agenda { display: block; }
   .ore-corpo { overflow: visible; }
 }
+/* Agenda: colonne più larghe e impegni leggibili (orario + cliente) */
+.intestazione-colonna, .colonna-giorno { flex-basis: 260px; min-width: 260px; }
+.impegno .orario { font-weight: 700; font-size: 12px; }
+.impegno .cliente { font-size: 12px; }
+.impegno.posizionato { padding: 3px 6px; }

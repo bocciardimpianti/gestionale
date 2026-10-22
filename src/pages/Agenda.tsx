@@ -377,8 +377,10 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
   const perColonna = (c: (typeof colonne)[number]) =>
     impegni.filter((i) => i.data === c.giorno && (c.tecnico === undefined || i.tecnico_id === c.tecnico));
 
-  const etichetta = (i: Impegno) =>
-    `${i.ora_inizio ? `${hhmm(i.ora_inizio)}-${hhmm(i.ora_fine ?? i.ora_inizio)} ` : ""}${i.cliente?.nome ?? "(senza cliente)"}`;
+  // "09:00 – 11:30", oppure solo "12:01" se l'ora di fine non è indicata (uguale all'inizio)
+  const orario = (i: Impegno) =>
+    !i.ora_inizio ? "" : !i.ora_fine || hhmm(i.ora_fine) === hhmm(i.ora_inizio) ? hhmm(i.ora_inizio) : `${hhmm(i.ora_inizio)} – ${hhmm(i.ora_fine)}`;
+  const etichetta = (i: Impegno) => `${orario(i)} ${i.cliente?.nome ?? "(senza cliente)"}`.trim();
 
   return (
     <div className="vista-ore">
@@ -414,7 +416,8 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
             .map((i) => {
               const inizio = minuti(i.ora_inizio)!;
               const fine = Math.max(inizio, minuti(i.ora_fine) ?? inizio);
-              return { i, inizio, fine: Math.max(fine, inizio + 30) };
+              // Altezza minima di 50 minuti: orario e cliente restano leggibili anche senza ora di fine
+              return { i, inizio, fine: Math.max(fine, inizio + 50) };
             })
             .sort((x, y) => x.inizio - y.inizio);
           // Impegni sovrapposti affiancati: le corsie si calcolano per ogni gruppo di impegni che si sovrappongono
@@ -446,7 +449,7 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
                   className="impegno posizionato"
                   style={{
                     top: (e.inizio / 60) * ALTEZZA_ORA,
-                    height: Math.max(22, ((e.fine - e.inizio) / 60) * ALTEZZA_ORA - 2),
+                    height: Math.max(38, ((e.fine - e.inizio) / 60) * ALTEZZA_ORA - 2),
                     left: `${(posizioni[k].corsia / posizioni[k].totale) * 100}%`,
                     width: `calc(${100 / posizioni[k].totale}% - 4px)`,
                     borderLeftColor: colore(e.i.tecnico_id),
@@ -455,8 +458,9 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
                   onClick={() => onApri(e.i.id)}
                 >
                   {mostraTecnico && <b>{nomeTecnico(e.i.tecnico_id)}</b>}
-                  <span>{etichetta(e.i)}</span>
-                  {e.fine - e.inizio >= 60 && e.i.attivita && <span className="attivita">{e.i.attivita}</span>}
+                  <span className="orario">{orario(e.i)}</span>
+                  <span className="cliente">{e.i.cliente?.nome ?? "(senza cliente)"}</span>
+                  {e.fine - e.inizio >= 90 && e.i.attivita && <span className="attivita">{e.i.attivita}</span>}
                 </button>
               ))}
             </div>

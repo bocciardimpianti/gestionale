@@ -17,6 +17,23 @@ type Vista = { tipo: "tutti" } | { tipo: "archivio"; id: number; nome: string } 
 export interface Cartella { id: number; nome: string }
 
 const normalizza = (s: unknown) => String(s ?? "").trim().toLowerCase();
+const due = (n: number) => String(n).padStart(2, "0");
+
+// Le date lette dall'Excel arrivano come "ora del foglio" in UTC: vanno lette in UTC,
+// altrimenti il fuso orario italiano sposta le ore (+1/+2) e, dopo le 22, anche il giorno
+function dataExcel(v: unknown) {
+  if (v instanceof Date && !isNaN(v.getTime())) return `${v.getUTCFullYear()}-${due(v.getUTCMonth() + 1)}-${due(v.getUTCDate())}`;
+  return dataIso(v);
+}
+function oraExcel(v: unknown): string | null {
+  if (v instanceof Date && !isNaN(v.getTime())) return `${due(v.getUTCHours())}:${due(v.getUTCMinutes())}`;
+  if (typeof v === "number" && v >= 0 && v < 1) {
+    const m = Math.round(v * 24 * 60);
+    return `${due(Math.floor(m / 60))}:${due(m % 60)}`;
+  }
+  const t = String(v ?? "").match(/(\d{1,2})[:.](\d{2})/);
+  return t ? `${due(Number(t[1]))}:${t[2]}` : null;
+}
 const testo = (v: unknown) => (vuoto(v) ? "" : String(v));
 
 // Colonne nascoste, ricordate per utente su questo dispositivo
@@ -180,9 +197,14 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       const indiceIntestazione = celle.findIndex((r) => r.some((v) => cfg.colonne.some((c) => normalizza(c.excel) === normalizza(v))));
       if (indiceIntestazione < 0) throw new Error("Il file non contiene le colonne attese");
       const intestazione = celle[indiceIntestazione].map(normalizza);
-      const mappa = cfg.colonne
-        .filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura")
-        .map((c) => ({ chiave: c.chiave, i: intestazione.indexOf(normalizza(c.excel)) }))
+      // Colonne della griglia + colonne aggiuntive che possono esserci nell'export (es. Ora inizio)
+      const colonneImport = [
+        ...cfg.colonne.filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura")
+          .map((c) => ({ chiave: c.chiave, excel: [c.excel], tipo: c.tipo as string | undefined, extra: false })),
+        ...(cfg.importaExtra ?? []).map((e) => ({ chiave: e.chiave, excel: e.excel, tipo: e.tipo as string | undefined, extra: true })),
+      ];
+      const mappa = colonneImport
+        .map((c) => ({ ...c, i: intestazione.findIndex((h) => c.excel.some((x) => normalizza(x) === h)) }))
         .filter((m) => m.i >= 0);
 
       // Valori ammessi per i campi a scelta (valori sconosciuti vengono lasciati vuoti)
@@ -202,18 +224,19 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           const o: Record<string, string | null> = {};
           for (const m of mappa) {
             const v = r[m.i];
+            // Le colonne aggiuntive vuote non cancellano valori ricavati da altre colonne
+            if (m.extra && vuoto(v)) continue;
             // Ora contenuta nella data (es. 19/10/2026 18:30) → ora inizio/fine, come nell'agenda originale
             const oraIn = colonnaDi(m.chiave)?.oraIn;
-            if (oraIn && v instanceof Date && (v.getHours() || v.getMinutes())) {
-              const ora = `${String(v.getHours()).padStart(2, "0")}:${String(v.getMinutes()).padStart(2, "0")}`;
-              for (const k of oraIn) (o as Record<string, unknown>)[k] = ora;
-            }
-            const tipo = colonnaDi(m.chiave)?.tipo;
+            const ora = v instanceof Date ? oraExcel(v) : null;
+            if (oraIn && ora && ora !== "00:00") for (const k of oraIn) (o as Record<string, unknown>)[k] = ora;
+            const tipo = m.tipo;
             (o as Record<string, unknown>)[m.chiave] =
-              tipo === "data" ? dataIso(v)
+              tipo === "data" ? dataExcel(v)
+              : tipo === "ora" ? oraExcel(v)
               : tipo === "booleano" ? v === 1 || v === true || ["1", "si", "sì", "true", "vero"].includes(normalizza(v))
               : tipo === "euro" ? (vuoto(v) || isNaN(Number(v)) ? 0 : Math.round(Number(v) * 10000) / 10000)
-              : tipo === "numero" || tipo === "percentuale" ? (vuoto(v) || isNaN(Number(v)) ? 0 : Number(v))
+              : tipo === "numero" || tipo === "percentuale" ? (vuoto(v) || isNaN(Number(String(v).replace(",", "."))) ? 0 : Number(String(v).replace(",", ".")))
               : vuoto(v) ? null : String(v).trim();
             if (ammessi[m.chiave] && o[m.chiave] && !ammessi[m.chiave].has(o[m.chiave]!)) o[m.chiave] = null;
           }

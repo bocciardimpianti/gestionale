@@ -63,6 +63,8 @@ export interface Archivio {
     oraIn?: string[];
   })[];
   campi: Campo[];
+  // Colonne che possono esserci nell'export Excel ma non nella griglia (es. Ora inizio): nomi alternativi accettati
+  importaExtra?: { chiave: string; excel: string[]; tipo?: "ora" | "numero" | "euro" | "data" }[];
   // Campo (o campi) usati per riconoscere i doppioni in importazione
   chiaveImport: string | string[];
   // Colonne da leggere, con eventuali tabelle collegate (default "*")
@@ -325,6 +327,22 @@ export const ARCHIVI: Record<string, Archivio> = {
     tabella: "rapporti",
     select: "*, cliente:clienti(nome), tecnico:tecnici(nome)",
     chiaveImport: "numero",
+    importaExtra: [
+      { chiave: "ora_inizio", excel: ["Ora inizio", "Ora Inizio"], tipo: "ora" },
+      { chiave: "ora_fine", excel: ["Ora fine", "Ora Fine"], tipo: "ora" },
+      { chiave: "ore_pausa", excel: ["Ore Pausa", "Ore pausa"], tipo: "numero" },
+      { chiave: "totale_ore", excel: ["Totale ore", "Totale Ore"], tipo: "numero" },
+      { chiave: "km_percorsi", excel: ["KM percorsi", "Km percorsi"], tipo: "numero" },
+      { chiave: "diritto_chiamata", excel: ["Diritto chiamata", "Diritto di chiamata"], tipo: "euro" },
+      { chiave: "tariffa_fissa", excel: ["Tariffa fissa"], tipo: "euro" },
+      { chiave: "tariffa_oraria", excel: ["Tariffa oraria"], tipo: "euro" },
+      { chiave: "tariffa_km", excel: ["Tariffa KM", "Tariffa Km"], tipo: "euro" },
+      { chiave: "tipo_impianto", excel: ["Tipo impianto"] },
+      { chiave: "impianto", excel: ["Impianto"] },
+      { chiave: "marca", excel: ["Marca"] },
+      { chiave: "modello", excel: ["Modello"] },
+      { chiave: "matricola", excel: ["Matricola"] },
+    ],
     ordineIniziale: { chiave: "data", su: false },
     quandoCambia: oreRapporto,
     calcolaTotali: totaliRapporto,
