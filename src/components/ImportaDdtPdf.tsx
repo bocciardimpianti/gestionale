@@ -163,8 +163,16 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
   const daConfermare = righe.filter((r) => !r.confermata).length;
   const bloccato = !ddt || ddt.errori.length > 0 || !!doppione || !fornitore || daConfermare > 0;
 
+  // Tipologia di pagamento: dalla scheda del fornitore o, se vuota, dall'ultimo DDT dello stesso fornitore
+  const tipologiaPagamento = async (f: Rec) => {
+    if (!vuoto(f.tipologia_pagamento)) return String(f.tipologia_pagamento);
+    const { data } = await supabase.from("ddt_acquisto").select("tipologia_pagamento").eq("fornitore_id", f.id)
+      .not("tipologia_pagamento", "is", null).is("eliminato_il", null).order("data", { ascending: false }).limit(1);
+    return (data?.[0]?.tipologia_pagamento as string | undefined) ?? null;
+  };
+
   // Correzione a mano: le righe abbinate restano collegate al materiale, le altre diventano righe libere
-  const correggi = () => {
+  const correggi = async () => {
     if (!ddt || !file) return;
     const righeScheda = righe.map((r, i) => {
       const m = r.confermata || r.stato === "proposta" ? r.materiale : null;
@@ -180,7 +188,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
     onCorreggi({
       data: ddt.data || null, numero_ddt: ddt.numeroDdt || null, stato: "Chiuso",
       fornitore_id: fornitore?.id ?? null, fornitore: fornitore?.nome ?? "",
-      email: fornitore?.email ?? null, tipologia_pagamento: fornitore?.tipologia_pagamento ?? null,
+      email: fornitore?.email ?? null, tipologia_pagamento: fornitore ? await tipologiaPagamento(fornitore) : null,
       note: [ddt.note, avvisi.length ? `Da controllare (lettura PDF): ${avvisi.join("; ")}` : ""].filter(Boolean).join("\n") || null,
       pdf: file,
       _righe: righeScheda,
@@ -247,7 +255,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
       const tot = cfg.calcolaTotali!({}, righeFinali);
       const { data: nuovo, error } = await supabase.from("ddt_acquisto").insert({
         data: ddt.data, fornitore_id: fornitore.id, numero_ddt: ddt.numeroDdt, email: fornitore.email ?? null,
-        tipologia_pagamento: fornitore.tipologia_pagamento ?? null, stato: "Chiuso", note: ddt.note || null, ...tot,
+        tipologia_pagamento: await tipologiaPagamento(fornitore), stato: "Chiuso", note: ddt.note || null, ...tot,
       }).select("id").single();
       if (error) throw new Error("DDT: " + error.message);
       const ins = await supabase.from("righe_ddt_acquisto").insert(righeFinali.map((r) => ({ ...r, ddt_id: nuovo.id })));
