@@ -5,7 +5,7 @@ import { Miniatura } from "./CampoImmagine";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
-  Aperto: "#ef8c1a", Eseguito: "#3fae4b", Accettato: "#3fae4b", Chiuso: "#7f8c8d", Rifiutato: "#d9342b", Annullato: "#d9342b",
+  Aperto: "#ef8c1a", Eseguito: "#3fae4b", Accettato: "#3fae4b", Chiuso: "#22b33a", Rifiutato: "#d9342b", Annullato: "#d9342b",
 };
 
 export interface Colonna {

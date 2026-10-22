@@ -163,6 +163,24 @@ function totaliPreventivo(dati: Record<string, unknown>, righe: Record<string, u
   return { imponibile, sconto_totale: scontoTotale, prezzo_scontato: scontato, iva_totale: ivaTotale, totale: r2(scontato + ivaTotale) };
 }
 
+// DDT di acquisto: costo × quantità, sconto % e iva % per riga; materiali e servizi separati
+function totaliDdt(_dati: Record<string, unknown>, righe: Record<string, unknown>[]): Record<string, number> {
+  const r2 = (x: number) => Math.round(x * 100) / 100;
+  if (!righe.length) return {};
+  const somma = (f: (r: Record<string, unknown>) => number) => r2(righe.reduce((t, r) => t + f(r), 0));
+  const materiali = somma((r) => (r.servizio ? 0 : n(r.totale_scontato)));
+  const servizi = somma((r) => (r.servizio ? n(r.totale_scontato) : 0));
+  return {
+    totale_materiali: materiali,
+    totale_servizi: servizi,
+    totale_materiali_servizi: r2(materiali + servizi),
+    imponibile: somma((r) => n(r.totale)),
+    sconto_totale: somma((r) => n(r.totale) - n(r.totale_scontato)),
+    iva_totale: somma((r) => n(r.totale_iva)),
+    totale: somma((r) => n(r.totale_ivato)),
+  };
+}
+
 const oraAttuale = () => new Date().toTimeString().slice(0, 5);
 
 // Prezzo ricaricato = prezzo base + ricarico %
@@ -653,6 +671,100 @@ export const ARCHIVI: Record<string, Archivio> = {
           { chiave: "sconto_totale", etichetta: "Sconto Totale", tipo: "euro", solaLettura: true },
           { chiave: "iva_totale", etichetta: "Iva Totale", tipo: "euro", solaLettura: true },
           { chiave: "totale", etichetta: "Totale", tipo: "euro", solaLettura: true },
+        ],
+      },
+    ],
+  },
+  ddt_acquisto: {
+    sezione: "ddt_acquisto",
+    titolo: "DDT di Acquisto",
+    titoloNuovo: "Nuovo DDT di Acquisto",
+    titoloScheda: (v) => `DDT di Acquisto n. ${v.numero ?? ""} del ${String(v.data ?? "").split("-").reverse().join("/")}`,
+    linguette: ["Dettaglio", "Pagamenti", "Storico", "Log Cloud"],
+    tabella: "ddt_acquisto",
+    select: "*, fornitore:fornitori(nome)",
+    chiaveImport: ["data", "numero"],
+    ordineIniziale: { chiave: "data", su: false },
+    calcolaTotali: totaliDdt,
+    valoriNuovo: async () => ({ data: dataIso(new Date()), stato: "Aperto" }),
+    colonne: [
+      { chiave: "fornitore", titolo: "Nominativo", excel: "Nominativo", larghezza: 165, riferimento: { campo: "fornitore_id", tabella: "fornitori" } },
+      { chiave: "numero", titolo: "Numero", excel: "Numero", larghezza: 78 },
+      { chiave: "data", titolo: "Data", excel: "Data", larghezza: 78, tipo: "data" },
+      { chiave: "stato", titolo: "Stato Documento", excel: "Stato Documento", larghezza: 97, tipo: "stato" },
+      { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 67, tipo: "euro" },
+      { chiave: "iva_totale", titolo: "Iva", excel: "Iva", larghezza: 67, tipo: "euro" },
+      { chiave: "totale", titolo: "Totale Documento", excel: "Totale Documento", larghezza: 67, tipo: "euro" },
+      { chiave: "numero_ddt", titolo: "Numero DDT", excel: "Numero DDT", larghezza: 177 },
+      { chiave: "email", titolo: "E-Mail", excel: "E-Mail", larghezza: 197 },
+      { chiave: "prezzo", titolo: "Prezzo", excel: "Prezzo", larghezza: 197, tipo: "euro" },
+      { chiave: "tipologia_pagamento", titolo: "Tipologia Pagamento", excel: "Tipologia Pagamento", larghezza: 197 },
+      { chiave: "pagato", titolo: "Pagato", excel: "Pagato", larghezza: 215, tipo: "booleano" },
+    ],
+    campi: [
+      { chiave: "fornitore_id", etichetta: "Nominativo", tipo: "riferimento", riferimentoA: "fornitori", larghezza: 2, obbligatorio: true },
+      { chiave: "numero_ddt", etichetta: "Numero DDT", larghezza: 1 },
+      { chiave: "data", etichetta: "Data", tipo: "data", larghezza: 1, obbligatorio: true },
+      { chiave: "numero", etichetta: "Numero (progressivo, automatico se vuoto)", larghezza: 1, linguetta: "Dettaglio" },
+      { chiave: "email", etichetta: "E-Mail", tipo: "email", larghezza: 2, linguetta: "Dettaglio", finisciRiga: true },
+      { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4, linguetta: "Dettaglio" },
+      { chiave: "pagato", etichetta: "Pagato", tipo: "booleano", larghezza: 1, linguetta: "Pagamenti" },
+      { chiave: "prezzo", etichetta: "Prezzo", tipo: "euro", larghezza: 1, linguetta: "Pagamenti", finisciRiga: true },
+    ],
+    righe: {
+      tabella: "righe_ddt_acquisto",
+      campo: "ddt_id",
+      colonne: [
+        { chiave: "codice_barre", titolo: "Codice a barre", larghezza: 80 },
+        { chiave: "descrizione", titolo: "Descrizione", larghezza: 420 },
+        { chiave: "unita_misura", titolo: "UM", larghezza: 45 },
+        { chiave: "quantita", titolo: "Quantità", larghezza: 75, tipo: "numero" },
+        { chiave: "costo", titolo: "Costo", larghezza: 80, tipo: "euro" },
+        { chiave: "sconto", titolo: "Sconto %", larghezza: 60, tipo: "numero" },
+        { chiave: "iva", titolo: "Iva", larghezza: 55, tipo: "numero" },
+        { chiave: "totale_ivato", titolo: "Totale Ivato", larghezza: 90, tipo: "euro", solaLettura: true },
+      ],
+      ricalcola: (r) => {
+        const q = n(r.quantita);
+        const iva = r.iva == null || r.iva === "" ? 22 : n(r.iva);
+        const scontato = n(r.costo) * (1 - n(r.sconto) / 100);
+        const r4 = (x: number) => Math.round(x * 10000) / 10000;
+        return {
+          ...r, iva,
+          totale: r4(n(r.costo) * q),
+          totale_scontato: r4(scontato * q),
+          totale_iva: r4(scontato * q * iva / 100),
+          totale_ivato: r4(scontato * q * (1 + iva / 100)),
+        };
+      },
+      daMateriale: (m) => ({
+        materiale_id: m.id, codice_barre: m.codice_interno ?? m.codice_barre ?? null, descrizione: m.descrizione ?? null,
+        unita_misura: m.unita_misura ?? null, costo: m.prezzo_base ?? 0, sconto: 0, iva: 22,
+      }),
+    },
+    piedeGruppi: [
+      {
+        titolo: "Info Documento",
+        campi: [
+          { chiave: "stato", etichetta: "Stato Documento", tipo: "scelta", opzioniDa: "stati_documento", titoloOpzioni: "Stati documento", colori: COLORI_STATO },
+          { chiave: "tipologia_pagamento", etichetta: "Tipologia Pagamento", tipo: "scelta", opzioniDa: "tipologie_pagamento", titoloOpzioni: "Tipologie Pagamento" },
+        ],
+      },
+      {
+        titolo: "Materiali e Servizi",
+        campi: [
+          { chiave: "totale_materiali", etichetta: "Totale Materiali", tipo: "euro", solaLettura: true },
+          { chiave: "totale_servizi", etichetta: "Totale Servizi", tipo: "euro", solaLettura: true },
+          { chiave: "totale_materiali_servizi", etichetta: "Tot Materiali + Servizi", tipo: "euro", solaLettura: true },
+        ],
+      },
+      {
+        titolo: "Totali",
+        campi: [
+          { chiave: "imponibile", etichetta: "Imponibile", tipo: "euro", solaLettura: true },
+          { chiave: "sconto_totale", etichetta: "Sconto Totale", tipo: "euro", solaLettura: true },
+          { chiave: "iva_totale", etichetta: "Iva", tipo: "euro", solaLettura: true },
+          { chiave: "totale", etichetta: "Totale Documento", tipo: "euro", solaLettura: true },
         ],
       },
     ],

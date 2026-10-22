@@ -22,9 +22,17 @@ interface PreventivoRO {
   righe: Record<string, unknown>[];
   [campo: string]: unknown;
 }
+interface DdtRO {
+  gguid: string;
+  eliminato: boolean;
+  fornitore: string | null;
+  righe: Record<string, unknown>[];
+  [campo: string]: unknown;
+}
 interface Pacchetto {
   origine: string;
   preventivi?: PreventivoRO[];
+  ddt_acquisto?: DdtRO[];
   tariffe: Record<string, unknown>[];
   rapporti: RapportoRO[];
   foto_materiali: (Immagine & { codice_interno: string | null; descrizione: string | null })[];
@@ -75,6 +83,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       p.tariffe ??= [];
       p.foto_materiali ??= [];
       const preventivi = p.preventivi ?? [];
+      const ddt = p.ddt_acquisto ?? [];
       if (p.origine !== "ReportOne") throw new Error("Il file non è un'esportazione di ReportOne preparata per il gestionale");
 
       // 1. Tariffe
@@ -111,6 +120,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         "File ReportOne:\n" +
         (p.rapporti.length ? `• ${p.rapporti.length} rapporti: ${p.rapporti.length - nuovi} da completare, ${nuovi} da aggiungere\n` : "") +
         (preventivi.length ? `• ${preventivi.length} preventivi con le loro righe\n` : "") +
+        (ddt.length ? `• ${ddt.length} DDT di acquisto con le loro righe (la giacenza dei materiali non cambia)\n` : "") +
         (p.foto_materiali.length ? `• ${p.foto_materiali.length} foto di materiali\n` : "") +
         "\nProcedere?",
       )) {
@@ -214,12 +224,48 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         }, (n) => setStato(`Preventivi… ${n} / ${preventivi.length}`));
       }
 
+      // 8. DDT di acquisto con le righe (riconosciuti dal codice ReportOne); i fornitori mancanti si possono creare
+      let ddtFatti = 0;
+      if (ddt.length) {
+        setStato("Lettura dei fornitori e dei DDT esistenti…");
+        const [fornitori, giaPresenti] = await Promise.all([leggiTutto("fornitori", "id, nome"), leggiTutto("ddt_acquisto", "id, gguid_reportone")]);
+        const idFornitore = new Map(fornitori.map((f) => [norm(f.nome), f.id]));
+        const fornMancanti = [...new Map(ddt.filter((d) => d.fornitore && !idFornitore.has(norm(d.fornitore))).map((d) => [norm(d.fornitore), d.fornitore!])).values()];
+        if (fornMancanti.length && confirm(`${fornMancanti.length} fornitori dei DDT non sono in anagrafica:\n${fornMancanti.slice(0, 15).join("\n")}${fornMancanti.length > 15 ? "\n…" : ""}\n\nVuoi crearli?`)) {
+          const { data, error } = await supabase.from("fornitori").insert(fornMancanti.map((nome) => ({ nome }))).select("id, nome");
+          if (error) err.push("Fornitori: " + error.message);
+          for (const f of data ?? []) idFornitore.set(norm(f.nome), f.id);
+        }
+        const perGguid = new Map(giaPresenti.filter((x) => x.gguid_reportone).map((x) => [String(x.gguid_reportone), x.id]));
+        const idPerCodice = new Map(materiali.filter((m) => m.codice_interno).map((m) => [norm(m.codice_interno), m.id]));
+        await aGruppi(ddt, 6, async (d) => {
+          const { righe, fornitore, gguid, eliminato, ...campi } = d;
+          const record: Record<string, unknown> = { ...campi, gguid_reportone: gguid, fornitore_id: fornitore ? idFornitore.get(norm(fornitore)) ?? null : null };
+          if (eliminato) record.eliminato_il = new Date().toISOString();
+          const es = perGguid.get(gguid);
+          const risposta = es
+            ? await supabase.from("ddt_acquisto").update(record).eq("id", es).select("id").single()
+            : await supabase.from("ddt_acquisto").insert(record).select("id").single();
+          if (risposta.error) return void err.push(`DDT ${d.numero}: ${risposta.error.message}`);
+          const id = risposta.data.id;
+          const del = await supabase.from("righe_ddt_acquisto").delete().eq("ddt_id", id);
+          if (del.error) return void err.push(`Righe DDT ${d.numero}: ${del.error.message}`);
+          if (righe.length) {
+            const ins = await supabase.from("righe_ddt_acquisto").insert(righe.map((x) => ({
+              ...x, ddt_id: id, materiale_id: x.codice_barre ? idPerCodice.get(norm(x.codice_barre)) ?? null : null,
+            })));
+            if (ins.error) return void err.push(`Righe DDT ${d.numero}: ${ins.error.message}`);
+          }
+          ddtFatti++;
+        }, (n) => setStato(`DDT di acquisto… ${n} / ${ddt.length}`));
+      }
+
       await registra("rapporti_importato_reportone", {
         file: file.name, rapporti: idRapporto.size, nuovi, righe: conRighe.length, foto_materiali: daCaricare.length, errori: err.length,
       });
       setStato(
         `Importazione completata: ${idRapporto.size} rapporti (${nuovi} nuovi), materiali in ${conRighe.length} rapporti, ` +
-        `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe, ${preventiviFatti} preventivi.` +
+        `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe, ${preventiviFatti} preventivi, ${ddtFatti} DDT di acquisto.` +
         (err.length ? ` ${err.length} errori (vedi sotto).` : ""),
       );
       setErrori(err);
@@ -236,7 +282,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         <div className="finestra-titolo">Importa dati da ReportOne</div>
         <div className="finestra-corpo">
           <p style={{ marginTop: 0 }}>
-            Scegli il file preparato dal database di ReportOne (es. <b>"ReportOne - completamento rapporti.json"</b> o <b>"ReportOne - preventivi.json"</b>).
+            Scegli il file preparato dal database di ReportOne (es. <b>"ReportOne - completamento rapporti.json"</b> , <b>"ReportOne - preventivi.json"</b> o <b>"ReportOne - DDT di acquisto.json"</b>).
           </p>
           <p className="piccolo">
             Completa i rapporti con ora inizio e fine, tariffe, KM, impianto e righe dei materiali; aggiunge i rapporti mancanti,

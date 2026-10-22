@@ -10,6 +10,10 @@ const TABELLE: { tabella: string; foglio: string; ordine: string }[] = [
   { tabella: "impianti", foglio: "Impianti", ordine: "id" },
   { tabella: "rapporti", foglio: "Rapporti di intervento", ordine: "id" },
   { tabella: "righe_rapporto", foglio: "Righe rapporti", ordine: "id" },
+  { tabella: "preventivi", foglio: "Preventivi", ordine: "id" },
+  { tabella: "righe_preventivo", foglio: "Righe preventivi", ordine: "id" },
+  { tabella: "ddt_acquisto", foglio: "DDT di acquisto", ordine: "id" },
+  { tabella: "righe_ddt_acquisto", foglio: "Righe DDT di acquisto", ordine: "id" },
   { tabella: "materiali", foglio: "Materiali", ordine: "id" },
   { tabella: "archivi", foglio: "Archivi", ordine: "id" },
   { tabella: "tipologie_pagamento", foglio: "Tipologie pagamento", ordine: "ordine" },
@@ -31,6 +35,7 @@ const TABELLE: { tabella: string; foglio: string; ordine: string }[] = [
 const FILE: { archivio: string; tabella: string; colonne: string[] }[] = [
   { archivio: "rapporti", tabella: "rapporti", colonne: ["firma", "foto1", "foto2", "foto3", "foto4"] },
   { archivio: "materiali", tabella: "materiali", colonne: ["foto"] },
+  { archivio: "preventivi", tabella: "preventivi", colonne: ["firma"] },
 ];
 
 async function leggiTabella(tabella: string, ordine: string) {
