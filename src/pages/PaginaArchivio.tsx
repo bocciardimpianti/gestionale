@@ -50,6 +50,17 @@ function leggiNascoste(sezione: string): string[] {
 
 export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const { puo, profilo } = useAuth();
+  // Casella spuntata direttamente nella griglia (es. Pagato nello scadenziario): salvataggio immediato
+  const spunta = async (r: Riga, chiave: string, valore: boolean) => {
+    setRighe((rr) => rr.map((x) => (x.id === r.id ? { ...x, [chiave]: valore } : x)));
+    const { error } = await supabase.from(cfg.tabella).update({ [chiave]: valore }).eq("id", r.id);
+    if (error) {
+      alert("Errore: " + error.message);
+      setRighe((rr) => rr.map((x) => (x.id === r.id ? { ...x, [chiave]: !valore } : x)));
+      return;
+    }
+    await registra(`${cfg.sezione}_modificato`, { id: r.id, [chiave]: valore });
+  };
   const apriNuovo = async () => {
     const base = vista.tipo === "archivio" ? { archivio_id: vista.id } : {};
     const proposti = (await cfg.valoriNuovo?.({ utenteId: profilo?.id ?? "", admin: profilo?.ruolo === "admin" })) ?? {};
@@ -382,7 +393,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                     {voce(RotateCcw, "#666", "Ripristina colonne", () => salvaNascoste([]))}
                     {voce(FileUp, "#3a8a3a", "Importa da Excel", () => fileRef.current?.click(),
                       !nelCestino && puo(cfg.sezione, "creare") && puo(cfg.sezione, "modificare"))}
-                    {["rapporti", "preventivi", "ddt_acquisto"].includes(cfg.sezione) && voce(Database, "#d9822b", "Importa da ReportOne (file .json)", () => setImportaReportOne(true),
+                    {["rapporti", "preventivi", "ddt_acquisto", "scadenziario"].includes(cfg.sezione) && voce(Database, "#d9822b", "Importa da ReportOne (file .json)", () => setImportaReportOne(true),
                       !nelCestino && profilo?.ruolo === "admin")}
                   </div>
                 )}
@@ -428,6 +439,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         ordineIniziale={rapida?.ordine ?? cfg.ordineIniziale}
         ricerca={ricerca}
         colonnaRicerca={colonnaRicerca}
+        onSpunta={!nelCestino && puo(cfg.sezione, "modificare") ? spunta : undefined}
       />
       </div>
 

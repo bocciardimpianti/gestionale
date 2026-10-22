@@ -29,8 +29,15 @@ interface DdtRO {
   righe: Record<string, unknown>[];
   [campo: string]: unknown;
 }
+interface ScadenzaRO {
+  gguid: string;
+  gguid_ddt: string | null;
+  nominativo: string | null;
+  [campo: string]: unknown;
+}
 interface Pacchetto {
   origine: string;
+  scadenziario?: ScadenzaRO[];
   preventivi?: PreventivoRO[];
   ddt_acquisto?: DdtRO[];
   tariffe: Record<string, unknown>[];
@@ -84,6 +91,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       p.foto_materiali ??= [];
       const preventivi = p.preventivi ?? [];
       const ddt = p.ddt_acquisto ?? [];
+      const scadenze = p.scadenziario ?? [];
       if (p.origine !== "ReportOne") throw new Error("Il file non è un'esportazione di ReportOne preparata per il gestionale");
 
       // 1. Tariffe
@@ -121,6 +129,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         (p.rapporti.length ? `• ${p.rapporti.length} rapporti: ${p.rapporti.length - nuovi} da completare, ${nuovi} da aggiungere\n` : "") +
         (preventivi.length ? `• ${preventivi.length} preventivi con le loro righe\n` : "") +
         (ddt.length ? `• ${ddt.length} DDT di acquisto con le loro righe (la giacenza dei materiali non cambia)\n` : "") +
+        (scadenze.length ? `• ${scadenze.length} scadenze dello scadenziario (da importare dopo i DDT di acquisto)\n` : "") +
         (p.foto_materiali.length ? `• ${p.foto_materiali.length} foto di materiali\n` : "") +
         "\nProcedere?",
       )) {
@@ -260,12 +269,38 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         }, (n) => setStato(`DDT di acquisto… ${n} / ${ddt.length}`));
       }
 
+      // 9. Scadenziario: collegato ai DDT importati da ReportOne (riconosciuti dal codice ReportOne)
+      let scadenzeFatte = 0;
+      if (scadenze.length) {
+        setStato("Lettura di DDT e fornitori per lo scadenziario…");
+        const [ddtPresenti, forn] = await Promise.all([leggiTutto("ddt_acquisto", "id, gguid_reportone"), leggiTutto("fornitori", "id, nome")]);
+        const idDdt = new Map(ddtPresenti.filter((x) => x.gguid_reportone).map((x) => [String(x.gguid_reportone), x.id]));
+        const idForn = new Map(forn.map((f) => [norm(f.nome), f.id]));
+        const senzaDdt = scadenze.filter((x) => x.gguid_ddt && !idDdt.has(x.gguid_ddt)).length;
+        if (senzaDdt && !confirm(`${senzaDdt} scadenze appartengono a DDT di acquisto non ancora importati: resteranno senza collegamento al DDT.\nConviene prima importare "ReportOne - DDT di acquisto.json".\n\nContinuare comunque?`)) {
+          setInCorso(false);
+          setStato("");
+          return;
+        }
+        const record = scadenze.map(({ gguid, gguid_ddt, ...campi }) => ({
+          ...campi, gguid_reportone: gguid,
+          ddt_id: gguid_ddt ? idDdt.get(gguid_ddt) ?? null : null,
+          fornitore_id: campi.nominativo ? idForn.get(norm(campi.nominativo)) ?? null : null,
+        }));
+        for (let i = 0; i < record.length; i += 500) {
+          setStato(`Scadenziario… ${i} / ${record.length}`);
+          const { error } = await supabase.from("scadenziario").upsert(record.slice(i, i + 500), { onConflict: "gguid_reportone" });
+          if (error) err.push(`Scadenziario (righe ${i + 1}-${i + 500}): ${error.message}`);
+          else scadenzeFatte += Math.min(500, record.length - i);
+        }
+      }
+
       await registra("rapporti_importato_reportone", {
         file: file.name, rapporti: idRapporto.size, nuovi, righe: conRighe.length, foto_materiali: daCaricare.length, errori: err.length,
       });
       setStato(
         `Importazione completata: ${idRapporto.size} rapporti (${nuovi} nuovi), materiali in ${conRighe.length} rapporti, ` +
-        `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe, ${preventiviFatti} preventivi, ${ddtFatti} DDT di acquisto.` +
+        `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe, ${preventiviFatti} preventivi, ${ddtFatti} DDT di acquisto, ${scadenzeFatte} scadenze.` +
         (err.length ? ` ${err.length} errori (vedi sotto).` : ""),
       );
       setErrori(err);
@@ -282,7 +317,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         <div className="finestra-titolo">Importa dati da ReportOne</div>
         <div className="finestra-corpo">
           <p style={{ marginTop: 0 }}>
-            Scegli il file preparato dal database di ReportOne (es. <b>"ReportOne - completamento rapporti.json"</b> , <b>"ReportOne - preventivi.json"</b> o <b>"ReportOne - DDT di acquisto.json"</b>).
+            Scegli il file preparato dal database di ReportOne (es. <b>"ReportOne - completamento rapporti.json"</b> , <b>"ReportOne - preventivi.json"</b>, <b>"ReportOne - DDT di acquisto.json"</b> o <b>"ReportOne - scadenziario.json"</b>).
           </p>
           <p className="piccolo">
             Completa i rapporti con ora inizio e fine, tariffe, KM, impianto e righe dei materiali; aggiunge i rapporti mancanti,

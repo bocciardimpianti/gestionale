@@ -74,7 +74,7 @@ export interface Archivio {
   // Ricalcola altri campi quando uno cambia (es. data prossimo intervento)
   quandoCambia?: (dati: Record<string, unknown>, chiave: string) => Record<string, unknown> | null;
   // Linguette della scheda che mostrano i record collegati (es. gli impianti di un cliente)
-  figli?: { linguetta: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string; select?: string }[];
+  figli?: { linguetta: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string; crescente?: boolean; select?: string }[];
   // Ordinamento iniziale della griglia
   ordineIniziale?: { chiave: string; su: boolean };
   // Valori proposti per un nuovo record
@@ -686,6 +686,16 @@ export const ARCHIVI: Record<string, Archivio> = {
     linguette: ["Dettaglio", "Pagamenti", "Storico", "Log Cloud"],
     tabella: "ddt_acquisto",
     select: "*, fornitore:fornitori(nome)",
+    // Rate generate dalla tipologia di pagamento (vedi Scadenziario)
+    figli: [{
+      linguetta: "Pagamenti", tabella: "scadenziario", campo: "ddt_id", ordine: "data", crescente: true,
+      colonne: [
+        { chiave: "data", titolo: "Scadenza", larghezza: 90, tipo: "data" },
+        { chiave: "descrizione", titolo: "Descrizione", larghezza: 300 },
+        { chiave: "importo", titolo: "Importo", larghezza: 90, tipo: "euro" },
+        { chiave: "pagato", titolo: "Pagato", larghezza: 60, tipo: "booleano" },
+      ],
+    }],
     chiaveImport: ["data", "numero_ddt", "fornitore"],
     ordineIniziale: { chiave: "data", su: false },
     calcolaTotali: totaliDdt,
@@ -710,8 +720,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "email", etichetta: "E-Mail", tipo: "email", larghezza: 2, linguetta: "Dettaglio", finisciRiga: true },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4, linguetta: "Dettaglio" },
       { chiave: "pdf", etichetta: "PDF originale del fornitore", tipo: "pdf", larghezza: 2, linguetta: "Dettaglio", solaLettura: true },
-      { chiave: "pagato", etichetta: "Pagato", tipo: "booleano", larghezza: 1, linguetta: "Pagamenti" },
-      { chiave: "prezzo", etichetta: "Prezzo", tipo: "euro", larghezza: 1, linguetta: "Pagamenti", finisciRiga: true },
+      { chiave: "pagato", etichetta: "Pagato (automatico quando tutte le rate sono pagate)", tipo: "booleano", larghezza: 2, linguetta: "Dettaglio" },
+      { chiave: "prezzo", etichetta: "Prezzo", tipo: "euro", larghezza: 1, linguetta: "Dettaglio", finisciRiga: true },
     ],
     righe: {
       tabella: "righe_ddt_acquisto",
@@ -769,6 +779,42 @@ export const ARCHIVI: Record<string, Archivio> = {
           { chiave: "totale", etichetta: "Totale Documento", tipo: "euro", solaLettura: true },
         ],
       },
+    ],
+  },
+  scadenziario: {
+    sezione: "scadenziario",
+    titolo: "Scadenziario",
+    titoloNuovo: "Nuova scadenza",
+    titoloScheda: (v) => `Scadenza del ${String(v.data ?? "").split("-").reverse().join("/")}`,
+    linguette: ["Log Cloud"],
+    tabella: "scadenziario",
+    chiaveImport: ["data", "nominativo", "descrizione", "importo"],
+    ordineIniziale: { chiave: "data", su: true },
+    valoriNuovo: async () => ({ data: dataIso(new Date()), importo: 0, pagato: false }),
+    colonne: [
+      { chiave: "data", titolo: "Data", excel: "Data", larghezza: 110, tipo: "data" },
+      { chiave: "nominativo", titolo: "Nominativo", excel: "Nominativo", larghezza: 300 },
+      { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 420 },
+      { chiave: "importo", titolo: "Importo", excel: "Importo", larghezza: 140, tipo: "euro", somma: true },
+      { chiave: "pagato", titolo: "Pagato", excel: "Pagato", larghezza: 90, tipo: "booleano", spuntabile: true },
+    ],
+    campi: [
+      { chiave: "data", etichetta: "Data", tipo: "data", larghezza: 1, obbligatorio: true },
+      { chiave: "nominativo", etichetta: "Nominativo", larghezza: 2, suggerimentiDa: "fornitori", obbligatorio: true },
+      { chiave: "importo", etichetta: "Importo", tipo: "euro", larghezza: 1, finisciRiga: true },
+      { chiave: "descrizione", etichetta: "Descrizione", larghezza: 4 },
+      { chiave: "pagato", etichetta: "Pagato", tipo: "booleano", larghezza: 1 },
+    ],
+    visteRapide: [
+      { nome: "Da pagare", filtro: (r) => !r.pagato, ordine: { chiave: "data", su: true } },
+      { nome: "Scadute e non pagate", filtro: (r) => !r.pagato && String(r.data ?? "") < (dataIso(new Date()) ?? ""), ordine: { chiave: "data", su: true } },
+      { nome: "In scadenza nei prossimi 30 giorni", filtro: (r) => {
+        const oggi = new Date();
+        const tra30 = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate() + 30);
+        const d = String(r.data ?? "");
+        return !r.pagato && d >= (dataIso(oggi) ?? "") && d <= (dataIso(tra30) ?? "");
+      }, ordine: { chiave: "data", su: true } },
+      { nome: "Pagate", filtro: (r) => !!r.pagato, ordine: { chiave: "data", su: false } },
     ],
   },
 };

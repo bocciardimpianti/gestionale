@@ -308,6 +308,7 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .griglia-dati td.destra, .destra { text-align: right; }
 .griglia-dati td.centrata { text-align: center; }
 .griglia-dati td input[type="checkbox"] { margin: 0; pointer-events: none; width: 12px; height: 12px; }
+.griglia-dati td input.spunta { pointer-events: auto; cursor: pointer; width: 15px; height: 15px; }
 .griglia-dati .intestazioni th { white-space: normal; line-height: 1.15; }
 .griglia-dati .intestazioni th span:first-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .griglia-dati .filtri select { width: 100%; height: 21px; border: none; background: transparent; font-size: 11px; padding: 0; }
@@ -610,3 +611,4 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .campo-pdf { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
 .campo-pdf .etichetta { font-size: 11px; color: #3a7dc0; }
 .campo-pdf .btn { align-self: flex-start; }
+.griglia-piede .somma-colonna { margin-left: 24px; }

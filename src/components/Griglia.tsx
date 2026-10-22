@@ -15,6 +15,10 @@ export interface Colonna {
   tipo?: "data" | "booleano" | "euro" | "immagine" | "miniatura" | "numero" | "percentuale" | "stato";
   // Per le miniature: archivio file in cui si trova l'immagine
   archivio?: string;
+  // Caselle che si possono spuntare direttamente nella griglia (es. Pagato)
+  spuntabile?: boolean;
+  // Somma della colonna (righe visibili) nel piede della griglia
+  somma?: boolean;
 }
 
 type Riga = Record<string, unknown> & { id: number };
@@ -31,6 +35,8 @@ interface Props {
   // Ricerca libera su tutte le colonne, o solo su "colonnaRicerca"
   ricerca?: string;
   colonnaRicerca?: string;
+  // Caselle "spuntabili" (es. Pagato): clic sulla casella senza aprire la scheda
+  onSpunta?: (riga: Riga, chiave: string, valore: boolean) => void;
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -42,7 +48,7 @@ const mostra = (c: Colonna, r: Riga) =>
   : c.tipo === "numero" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : Number(r[c.chiave]).toLocaleString("it-IT")) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "" }: Props) {
+export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta }: Props) {
   const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
   // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record
@@ -164,7 +170,12 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
                       {r[c.chiave] ? <><span className="quadratino" style={{ background: COLORI_STATO[testo(r[c.chiave])] ?? "#999" }} />{testo(r[c.chiave])}</> : null}
                     </td>
                   ) : c.tipo === "booleano" ? (
-                    <td key={c.chiave} className="centrata"><input type="checkbox" checked={!!r[c.chiave]} readOnly tabIndex={-1} /></td>
+                    <td key={c.chiave} className="centrata">
+                      {c.spuntabile && onSpunta
+                        ? <input type="checkbox" className="spunta" checked={!!r[c.chiave]} title="Clicca per cambiare" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
+                            onChange={(e) => onSpunta(r, c.chiave, e.target.checked)} />
+                        : <input type="checkbox" checked={!!r[c.chiave]} readOnly tabIndex={-1} />}
+                    </td>
                   ) : (
                     <td key={c.chiave} title={mostra(c, r)} className={c.tipo === "euro" || c.tipo === "numero" || c.tipo === "percentuale" ? "destra" : ""}>{mostra(c, r)}</td>
                   )
@@ -175,7 +186,12 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
           </tbody>
         </table>
       </div>
-      <div className="griglia-piede">{visibili.length} di {righe.length} righe</div>
+      <div className="griglia-piede">
+        {visibili.length} di {righe.length} righe
+        {colonne.filter((c) => c.somma).map((c) => (
+          <span key={c.chiave} className="somma-colonna">{c.titolo}: <b>{euro(visibili.reduce((t, r) => t + (Number(r[c.chiave]) || 0), 0))}</b></span>
+        ))}
+      </div>
     </div>
   );
 }

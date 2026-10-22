@@ -630,7 +630,7 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
     let q = supabase.from(figlio.tabella).select(figlio.select ?? "*").eq(figlio.campo, id);
     // Le righe di dettaglio (es. righe dei rapporti) non hanno il cestino
     if (!figlio.select) q = q.is("eliminato_il", null);
-    q.order(figlio.ordine ?? "id", { ascending: !figlio.ordine })
+    q.order(figlio.ordine ?? "id", { ascending: !figlio.ordine || !!figlio.crescente })
       .then(({ data }) => setRighe((data as unknown as Record<string, unknown>[]) ?? []));
   }, [figlio, id]);
 
@@ -646,7 +646,7 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
               <td key={c.chiave}>{(() => {
                 // Chiavi annidate, es. "rapporto.numero"
                 const v = c.chiave.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], r);
-                return c.tipo === "data" ? dataIt(v) : c.tipo === "euro" ? euro(v) : String(v ?? "");
+                return c.tipo === "data" ? dataIt(v) : c.tipo === "euro" ? euro(v) : c.tipo === "booleano" ? (v ? "Sì" : "No") : String(v ?? "");
               })()}</td>
             ))}
           </tr>
