@@ -721,7 +721,7 @@ export const ARCHIVI: Record<string, Archivio> = {
         { chiave: "descrizione", titolo: "Descrizione", larghezza: 420 },
         { chiave: "unita_misura", titolo: "UM", larghezza: 45 },
         { chiave: "quantita", titolo: "Quantità", larghezza: 75, tipo: "numero" },
-        { chiave: "costo", titolo: "Costo", larghezza: 80, tipo: "euro" },
+        { chiave: "costo", titolo: "Costo", larghezza: 80, tipo: "numero" },
         { chiave: "sconto", titolo: "Sconto %", larghezza: 60, tipo: "numero" },
         { chiave: "iva", titolo: "Iva", larghezza: 55, tipo: "numero" },
         { chiave: "totale_ivato", titolo: "Totale Ivato", larghezza: 90, tipo: "euro", solaLettura: true },

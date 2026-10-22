@@ -44,7 +44,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     return t;
   });
   const [elenchiRif, setElenchiRif] = useState<Record<string, { id: number; nome: string }[]>>({});
-  const [righe, setRighe] = useState<Record<string, unknown>[]>([]);
+  // Un nuovo record può arrivare con righe già compilate (es. DDT letto da PDF da correggere a mano)
+  const [righe, setRighe] = useState<Record<string, unknown>[]>(() => (Array.isArray(valori._righe) ? valori._righe as Record<string, unknown>[] : []));
   const [rigaSel, setRigaSel] = useState<number | null>(null);
   const [codice, setCodice] = useState("");
   const [cercaMateriale, setCercaMateriale] = useState(false);
@@ -161,7 +162,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     for (const c of tuttiCampi.filter((c) => c.tipo !== "titolo" && !(c.solaLettura && c.chiave in totali))) {
       const v = dati[c.chiave];
       if (c.solaLettura && nuovo && vuoto(v)) continue;
-      if ((c.tipo === "foto" || c.tipo === "firma") && v instanceof Blob) continue;
+      if ((c.tipo === "foto" || c.tipo === "firma" || c.tipo === "pdf") && v instanceof Blob) continue;
       record[c.chiave] =
         c.tipo === "booleano" ? !!v
         : c.tipo === "numero" || c.tipo === "euro" ? (vuoto(v) ? null : Number(v))
@@ -198,13 +199,13 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     }
     // Foto e firma: caricamento dei nuovi file e rimozione di quelli sostituiti o eliminati
     const id = risposta.data.id;
-    const immagini = tuttiCampi.filter((c) => c.tipo === "foto" || c.tipo === "firma");
+    const immagini = tuttiCampi.filter((c) => c.tipo === "foto" || c.tipo === "firma" || c.tipo === "pdf");
     const daAggiornare: Record<string, string> = {};
     for (const c of immagini) {
       const v = dati[c.chiave];
       if (!(v instanceof Blob)) continue;
       setStato(`Caricamento ${c.etichetta.toLowerCase()}…`);
-      const percorso = `${id}/${c.chiave}-${Date.now()}.${v.type === "image/png" ? "png" : "jpg"}`;
+      const percorso = `${id}/${c.chiave}-${Date.now()}.${v.type === "application/pdf" ? "pdf" : v.type === "image/png" ? "png" : "jpg"}`;
       const up = await supabase.storage.from(cfg.sezione).upload(percorso, v, { contentType: v.type || "image/jpeg" });
       if (up.error) return setStato("Errore nel caricamento: " + up.error.message);
       daAggiornare[c.chiave] = percorso;
@@ -228,7 +229,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       return (
         <div key={c.chiave} className="campo-pdf" style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
           <span className="etichetta">{c.etichetta}</span>
-          {typeof dati[c.chiave] === "string" && dati[c.chiave]
+          {dati[c.chiave] instanceof Blob
+            ? <span className="piccolo">Il PDF letto verrà archiviato al salvataggio</span>
+            : typeof dati[c.chiave] === "string" && dati[c.chiave]
             ? <button type="button" className="btn grigio" onClick={async () => {
                 const finestra = window.open("", "_blank");
                 const url = await urlFirmato(cfg.sezione, String(dati[c.chiave]));

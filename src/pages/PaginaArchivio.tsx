@@ -453,7 +453,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       )}
 
       {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={carica} />}
-      {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={carica} />}
+      {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={carica} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}
       {sceltaColonne && (
         <div className="velo" onMouseDown={() => setSceltaColonne(false)}>
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>

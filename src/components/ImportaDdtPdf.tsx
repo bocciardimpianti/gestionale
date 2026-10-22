@@ -39,7 +39,12 @@ const ETICHETTE: Record<Stato, { testo: string; colore: string }> = {
   libera: { testo: "Riga senza magazzino", colore: "verde" },
 };
 
-export default function ImportaDdtPdf({ onChiudi, onFinito }: { onChiudi: () => void; onFinito: () => void }) {
+export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
+  onChiudi: () => void;
+  onFinito: () => void;
+  // Apre la normale scheda di un nuovo DDT già compilata con quanto letto, da completare a mano
+  onCorreggi: (valori: Record<string, unknown>) => void;
+}) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [coda, setCoda] = useState<File[]>([]);
   const [file, setFile] = useState<File | null>(null);
@@ -134,6 +139,30 @@ export default function ImportaDdtPdf({ onChiudi, onFinito }: { onChiudi: () => 
 
   const daConfermare = righe.filter((r) => !r.confermata).length;
   const bloccato = !ddt || ddt.errori.length > 0 || !!doppione || !fornitore || daConfermare > 0;
+
+  // Correzione a mano: le righe abbinate restano collegate al materiale, le altre diventano righe libere
+  const correggi = () => {
+    if (!ddt || !file) return;
+    const righeScheda = righe.map((r, i) => {
+      const m = r.confermata || r.stato === "proposta" ? r.materiale : null;
+      return cfg.righe!.ricalcola({
+        ordine: i, materiale_id: m?.id ?? null,
+        codice_barre: m ? m.codice_interno ?? m.codice_barre ?? null : r.pdf.codice,
+        descrizione: m ? m.descrizione : r.pdf.descrizione,
+        unita_misura: m ? m.unita_misura : umDa(r.pdf.um),
+        quantita: r.pdf.quantita, costo: r.pdf.prezzo, sconto: 0, iva: r.pdf.iva,
+      });
+    });
+    const avvisi = [...ddt.errori, ...ddt.avvisi];
+    onCorreggi({
+      data: ddt.data || null, numero_ddt: ddt.numeroDdt || null, stato: "Chiuso",
+      fornitore_id: fornitore?.id ?? null, fornitore: fornitore?.nome ?? "",
+      email: fornitore?.email ?? null, tipologia_pagamento: fornitore?.tipologia_pagamento ?? null,
+      note: [ddt.note, avvisi.length ? `Da controllare (lettura PDF): ${avvisi.join("; ")}` : ""].filter(Boolean).join("\n") || null,
+      pdf: file,
+      _righe: righeScheda,
+    });
+  };
 
   const salva = async () => {
     if (!ddt || !fornitore || !file || bloccato) return;
@@ -350,6 +379,12 @@ export default function ImportaDdtPdf({ onChiudi, onFinito }: { onChiudi: () => 
           {coda.length > 0 && <span className="piccolo" style={{ padding: "0 10px" }}>Altri {coda.length} PDF in attesa</span>}
           <span style={{ flex: 1 }} />
           {ddt && coda.length > 0 && <button type="button" className="btn grigio" disabled={inCorso} onClick={() => apri(coda[0], coda.slice(1))}>Salta questo</button>}
+          {ddt && !doppione && (
+            <button type="button" className="btn grigio" disabled={inCorso} onClick={correggi}
+              title="Apre la scheda di un nuovo DDT già compilata con quanto letto: correggi quello che serve e salva">
+              Correggi a mano
+            </button>
+          )}
           {ddt && (
             <button type="button" className="btn blu" disabled={inCorso || bloccato} onClick={salva}
               title={bloccato ? "Risolvi gli errori e conferma tutte le righe" : "Salva il DDT e carica il magazzino"}>
