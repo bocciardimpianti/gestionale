@@ -452,3 +452,88 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .finestra-backup .finestra-piede { flex-wrap: wrap; }
 .finestra-backup .btn { padding: 0 16px; white-space: nowrap; }
 .opzione-backup { margin: 4px 0 6px; font-size: 13.5px; }
+
+/* ================= Agenda ================= */
+.centro:has(.pagina-agenda) { padding: 12px 18px 0 16px; }
+.pagina-agenda { display: flex; flex-direction: column; height: 100%; }
+.btn.giallo.con-punta { padding: 0 0 0 30px; display: flex; align-items: center; gap: 20px; }
+.btn.giallo .punta { border-left: 1px solid rgba(255,255,255,.4); padding: 0 6px; height: 100%; display: grid; place-items: center; }
+.voci .scelta-attiva { font-weight: 700; background: #eef1f5; }
+.agenda { flex: 1; min-height: 0; display: grid; grid-template-columns: 216px 1fr; gap: 16px; padding-bottom: 12px; }
+.agenda-sinistra { background: #fff; border: 1px solid #d4d7dc; overflow-y: auto; padding: 0 0 10px; }
+.scegli-tecnici { padding: 0; }
+.campo-tecnici {
+  width: 100%; display: flex; justify-content: space-between; gap: 6px; border: none; border-bottom: 1px solid #d4d7dc;
+  border-radius: 0; background: #fff; padding: 5px 6px; font-size: 13px; text-align: left;
+}
+.campo-tecnici span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elenco-tecnici { left: 0; right: auto; min-width: 214px; padding: 4px 0; }
+.elenco-tecnici label { display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+.elenco-tecnici label:hover { background: #eef1f5; }
+.pallino { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.mini-mese { padding: 10px 6px 0; font-size: 12px; }
+.mini-titolo { display: flex; align-items: center; gap: 4px; padding: 0 6px 6px; }
+.mini-titolo button { border: none; background: none; padding: 0 4px; color: #555; }
+.mini-mese table { width: 100%; border-collapse: collapse; }
+.mini-mese th { font-weight: 400; color: #555; font-size: 11px; padding: 2px 0; border-bottom: 1px solid #ccc; }
+.mini-mese td { text-align: center; padding: 1px 0; }
+.mini-mese .num-settimana { font-size: 9px; color: #888; border-right: 1px solid #ccc; width: 18px; }
+.mini-mese td button { border: 1px solid transparent; background: none; padding: 1px 0; width: 24px; font-size: 12px; color: #b0302a; border-radius: 0; }
+.mini-mese td button.con-impegni { font-weight: 700; color: #a01010; }
+.mini-mese td button.selezionato { background: #c9ced6; }
+.mini-mese td button.odierno { border-color: #3a7dc0; }
+.mini-mese td button:hover { background: #e5e8ee; }
+.agenda-sinistra .oggi { display: block; margin: 12px auto 0; background: #c9ced6; border: none; padding: 2px 18px; font-size: 12px; }
+
+.agenda-destra { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid #d4d7dc; }
+.agenda-navigazione { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid #d4d7dc; flex-wrap: wrap; }
+.agenda-navigazione button { padding: 3px 8px; font-size: 12.5px; display: inline-flex; align-items: center; }
+.titolo-periodo { margin-left: 8px; font-size: 15px; text-transform: capitalize; }
+.mostra-calendario { display: none !important; }
+
+.vista-ore { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-x: auto; }
+.ore-intestazione, .ore-corpo { display: flex; min-width: max-content; }
+.ore-corpo { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.colonna-ore { width: 48px; flex: 0 0 48px; background: #fff; border-right: 1px solid #d4d7dc; }
+.ora { border-bottom: 1px solid #d4d7dc; padding: 2px 4px 0 6px; font-size: 22px; line-height: 1; color: #222; }
+.ora sup { font-size: 9px; margin-left: 1px; }
+.intestazione-colonna { flex: 1 0 200px; min-width: 200px; border-right: 1px solid #d4d7dc; border-bottom: 1px solid #d4d7dc; font-size: 12px; text-align: center; }
+.intestazione-colonna > div:first-child { padding: 6px 4px; border-bottom: 1px solid #e3e5e8; text-transform: capitalize; }
+.intestazione-colonna .sotto { padding: 6px 4px; border-bottom: 1px solid #e3e5e8; }
+.senza-orario { display: flex; flex-direction: column; gap: 2px; padding: 2px; max-height: 96px; overflow-y: auto; }
+.colonna-giorno { flex: 1 0 200px; min-width: 200px; position: relative; border-right: 1px solid #d4d7dc; background: #e6e7ea; }
+.mezzora { border-bottom: 1px solid #d0d3d8; }
+.mezzora.dispari { border-bottom-color: #bfc3c9; }
+.impegno {
+  display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 1px;
+  background: #fff; border: 1px solid #b8bcc2; border-left: 4px solid #3a7dc0; border-radius: 0;
+  font-size: 11.5px; padding: 2px 5px; overflow: hidden; cursor: pointer; color: #222;
+}
+.impegno:hover { background: #fff7e6; }
+.impegno.posizionato { position: absolute; margin: 1px 2px; }
+.impegno span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.impegno .attivita { color: #666; white-space: normal; }
+
+.vista-mese { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); grid-template-rows: 26px repeat(6, minmax(100px, 1fr)); }
+.intestazione-mese { text-align: center; font-size: 12px; padding: 4px; border-bottom: 1px solid #d4d7dc; border-right: 1px solid #e3e5e8; height: 26px; }
+.giorno-mese { border-right: 1px solid #e3e5e8; border-bottom: 1px solid #e3e5e8; padding: 2px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.giorno-mese.fuori { background: #f5f6f8; }
+.giorno-mese.oggi { background: #eef5fc; }
+.numero-giorno { align-self: flex-end; border: none; background: none; padding: 0 4px; font-size: 12px; }
+.impegno.riga { flex-direction: row; white-space: nowrap; text-overflow: ellipsis; display: block; padding: 1px 4px; font-size: 11px; }
+.altri { border: none; background: none; color: #3a7dc0; font-size: 11px; padding: 0 4px; text-align: left; }
+
+@media (max-width: 900px) {
+  .agenda { grid-template-columns: 1fr; }
+  .agenda-sinistra { display: none; }
+  .agenda-sinistra.aperta { display: block; position: fixed; left: 8px; top: 120px; z-index: 30; width: 230px; max-height: 70vh; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+  .mostra-calendario { display: inline-flex !important; }
+  .intestazione-colonna, .colonna-giorno { flex-basis: 160px; min-width: 160px; }
+}
+
+@media print {
+  .barra-alta, .laterale, .barra-bassa, .agenda-sinistra, .pulsanti, .agenda-navigazione button { display: none !important; }
+  .app { display: block; height: auto; }
+  .agenda { display: block; }
+  .ore-corpo { overflow: visible; }
+}

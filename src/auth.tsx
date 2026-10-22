@@ -53,7 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("sezioni").select("*").order("ordine"),
       supabase.from("permessi").select("*").eq("utente_id", session.user.id),
     ]);
-    setSezioni(sez ?? []);
+    // "Start Tecnici" non viene usato: non compare nel menu né nei permessi
+    setSezioni((sez ?? []).filter((s) => s.chiave !== "start_tecnici"));
     setPermessi(per ?? []);
     setStato("pronto");
   }, []);

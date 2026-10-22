@@ -202,6 +202,12 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           const o: Record<string, string | null> = {};
           for (const m of mappa) {
             const v = r[m.i];
+            // Ora contenuta nella data (es. 19/10/2026 18:30) → ora inizio/fine, come nell'agenda originale
+            const oraIn = colonnaDi(m.chiave)?.oraIn;
+            if (oraIn && v instanceof Date && (v.getHours() || v.getMinutes())) {
+              const ora = `${String(v.getHours()).padStart(2, "0")}:${String(v.getMinutes()).padStart(2, "0")}`;
+              for (const k of oraIn) (o as Record<string, unknown>)[k] = ora;
+            }
             const tipo = colonnaDi(m.chiave)?.tipo;
             (o as Record<string, unknown>)[m.chiave] =
               tipo === "data" ? dataIso(v)

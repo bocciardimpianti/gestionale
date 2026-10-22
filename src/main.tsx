@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Layout from "./Layout";
 import PaginaArchivio from "./pages/PaginaArchivio";
 import { ARCHIVI } from "./archivi";
+import Agenda from "./pages/Agenda";
 import "./styles.css";
 
 function App() {
@@ -76,6 +77,7 @@ function PaginaSezione() {
   const sezione = sezioni.find((s) => s.chiave === chiave);
   if (!sezione || !puo(chiave, "vedere")) return <p className="errore">Non hai accesso a questa sezione.</p>;
   if (ARCHIVI[chiave]) return <PaginaArchivio key={chiave} cfg={ARCHIVI[chiave]} />;
+  if (chiave === "agenda") return <Agenda />;
   return (
     <>
       <h2>{sezione.etichetta}</h2>

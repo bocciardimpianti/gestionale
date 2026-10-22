@@ -59,6 +59,8 @@ export interface Archivio {
     excel: string;
     // Colonna che mostra il nome di un record collegato: in importazione il nome diventa l'id
     riferimento?: { campo: string; tabella: string };
+    // Colonne data con ora: in importazione l'ora viene copiata in questi campi (es. ora inizio/fine)
+    oraIn?: string[];
   })[];
   campi: Campo[];
   // Campo (o campi) usati per riconoscere i doppioni in importazione
@@ -340,7 +342,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       };
     },
     colonne: [
-      { chiave: "data", titolo: "Data", excel: "Data", larghezza: 82, tipo: "data" },
+      { chiave: "data", titolo: "Data", excel: "Data", larghezza: 82, tipo: "data", oraIn: ["ora_inizio", "ora_fine"] },
       { chiave: "pagamento_contanti", titolo: "Pagamento in contanti", excel: "Pagamento in contanti", larghezza: 60, tipo: "booleano" },
       { chiave: "considera_totale_preventivo", titolo: "Considera totale preventivo", excel: "Considera totale preventivo", larghezza: 40, tipo: "booleano" },
       { chiave: "numero", titolo: "Numero", excel: "Numero", larghezza: 44 },
