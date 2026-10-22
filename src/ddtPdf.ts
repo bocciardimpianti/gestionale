@@ -138,9 +138,104 @@ function palagini(scritte: Scritta[]): DdtPdf {
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// MEF s.r.l.: "Documento di Trasporto nr° 6001366048" del "10.07.2026"
+// Colonne: Pos | Codice articolo | Descrizione | U.M. | Quantità | Prezzo unitario (es. "15,08" o "79,93/100") | Totale €
+// Il prezzo stampato è arrotondato: il costo esatto è totale ÷ quantità. Il totale del documento serve da controllo.
+// ---------------------------------------------------------------------------
+function mef(scritte: Scritta[]): DdtPdf {
+  const out: DdtPdf = { modello: "MEF", fornitore: /\bmef\b/i, numeroDdt: "", data: "", note: "", righe: [], errori: [], avvisi: [] };
+  const righe = righeDiTesto(scritte);
+  const note: string[] = [];
+  const testoRiga = (r: { el: Scritta[] }) => r.el.map((e) => e.s.trim()).join(" ");
+
+  // Intestazione (prima pagina, in alto): numero e data
+  for (const r of righe) {
+    if (r.pagina !== 1 || r.y < 600) continue;
+    for (const e of r.el) {
+      const t = e.s.trim();
+      if (!out.numeroDdt && /^\d{9,12}$/.test(t)) out.numeroDdt = t;
+      const d = t.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (!out.data && d) out.data = `${d[3]}-${d[2]}-${d[1]}`;
+    }
+  }
+  if (!out.numeroDdt) out.errori.push("Numero del documento non trovato");
+  if (!out.data) out.errori.push("Data del documento non trovata");
+  if (!/Documento di Trasporto/i.test(scritte.map((x) => x.s).join(" "))) out.errori.push("Il documento non è un Documento di Trasporto");
+
+  // Numero ripetuto in fondo alla pagina (es. "6 0 0 1 3 6 6 0 4 8"): controllo
+  const controlli = righe.filter((r) => r.y < 40).flatMap((r) => r.el.map((e) => e.s.replace(/\s/g, ""))).filter((t) => /^\d{9,12}$/.test(t));
+  if (controlli.length && controlli.some((c) => c !== out.numeroDdt)) out.errori.push(`Il numero del documento non corrisponde a quello stampato in fondo alla pagina (${controlli[0]})`);
+
+  // Totale del documento (numero seguito da "€" nel riquadro TOTALE): si prende l'ultimo
+  let totaleDoc: number | null = null;
+  for (const r of righe) {
+    const iEuro = r.el.findIndex((e) => e.s.trim() === "€");
+    if (iEuro > 0 && eNumeroIt(r.el[iEuro - 1].s.trim()) && r.el[iEuro - 1].x > 400) totaleDoc = numeroIt(r.el[iEuro - 1].s.trim());
+  }
+
+  // Righe articolo, tra l'intestazione delle colonne e "ASPETTO ESTERIORE" di ogni pagina
+  let inTabella = false;
+  let dopoRiferimento = false;
+  let posVisti = 0;
+  for (const r of righe) {
+    const testo = testoRiga(r);
+    if (/^POS\b.*DESCRIZIONE/i.test(testo)) { inTabella = true; continue; }
+    if (/^ASPETTO ESTERIORE/i.test(testo)) { inTabella = false; continue; }
+    if (!inTabella) continue;
+    if (/^RIFERIMENTO ORDINE/i.test(testo)) { note.push(testo); dopoRiferimento = true; continue; }
+    const el = r.el;
+    const pos = el[0].x < 58 && /^\d{1,4}$/.test(el[0].s.trim());
+    if (pos && el.length >= 5) {
+      posVisti++;
+      dopoRiferimento = false;
+      const codice = el[1].s.trim();
+      const [qta, prezzoTxt, totaleTxt] = el.slice(-3).map((e) => e.s.trim());
+      const pezzi = el.slice(2, -3).map((e) => e.s.trim());
+      let um = pezzi.length > 1 && /^[A-Z]{1,4}$/.test(pezzi[pezzi.length - 1]) ? pezzi.pop()! : "";
+      let descrizione = pezzi.join(" ").replace(/\s+/g, " ").trim();
+      if (!um) {
+        const m = descrizione.match(/^(.*?)\s+([A-Z]{1,4})$/);
+        if (m) { descrizione = m[1]; um = m[2]; }
+      }
+      const prezzoM = prezzoTxt.match(/^([\d.,]+)(?:\/(\d+))?$/);
+      if (!eNumeroIt(qta) || !eNumeroIt(totaleTxt) || !prezzoM || !eNumeroIt(prezzoM[1])) {
+        out.errori.push(`Riga ${codice}: valori non leggibili (${qta} ${prezzoTxt} ${totaleTxt})`);
+        continue;
+      }
+      const quantita = numeroIt(qta);
+      const totale = numeroIt(totaleTxt);
+      const prezzoStampato = numeroIt(prezzoM[1]) / Number(prezzoM[2] ?? 1);
+      const riga: RigaPdf = {
+        codice, codiceProduttore: "", descrizione, um, quantita,
+        prezzo: quantita ? Math.round((totale / quantita) * 10000) / 10000 : 0, importo: totale, iva: 22,
+      };
+      if (!(quantita > 0)) out.errori.push(`Riga ${codice}: quantità non valida`);
+      if (Math.abs(prezzoStampato * quantita - totale) > quantita * 0.005 + 0.011)
+        out.errori.push(`Riga ${codice}: quantità × prezzo (${(prezzoStampato * quantita).toFixed(2)}) diverso dal totale (${totale.toFixed(2)})`);
+      if (!um) out.avvisi.push(`Riga ${codice}: unità di misura non trovata`);
+      out.righe.push(riga);
+      continue;
+    }
+    // Testo sotto il riferimento ordine (es. nome di chi ritira) o seconda riga della descrizione
+    if (el.every((e) => e.x >= 140 && e.x < 350)) {
+      if (dopoRiferimento || !out.righe.length) note.push(testo);
+      else out.righe[out.righe.length - 1].descrizione += " " + testo;
+    }
+  }
+  if (!out.righe.length) out.errori.push("Nessuna riga articolo trovata");
+  if (posVisti !== out.righe.length) out.errori.push(`Righe lette ${out.righe.length} su ${posVisti}`);
+  const somma = Math.round(out.righe.reduce((t, x) => t + (x.importo ?? 0), 0) * 100) / 100;
+  if (totaleDoc === null) out.errori.push("Totale del documento non trovato");
+  else if (Math.abs(somma - totaleDoc) > 0.005) out.errori.push(`La somma delle righe (${somma.toFixed(2)}) non corrisponde al totale del documento (${totaleDoc.toFixed(2)})`);
+  out.note = note.join("\n");
+  return out;
+}
+
 // Letture disponibili: si riconosce il fornitore dal testo del PDF
 const MODELLI: { nome: string; riconosci: RegExp; leggi: (s: Scritta[]) => DdtPdf }[] = [
   { nome: "Palagini", riconosci: /PALAGINI PIERO & FIGLI/i, leggi: palagini },
+  { nome: "MEF", riconosci: /MEF S\.r\.l\. - Società/i, leggi: mef },
 ];
 
 export const MODELLI_DISPONIBILI = MODELLI.map((m) => m.nome);
