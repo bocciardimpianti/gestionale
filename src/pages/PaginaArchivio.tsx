@@ -105,7 +105,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   };
 
   const spostaNelCestino = async (r: Riga) => {
-    if (!confirm(`Spostare "${nomeDi(r)}" nel cestino?`)) return;
+    if (!confirm(`Eliminare "${nomeDi(r)}"?\n\nVerrà spostato nel Cestino (Archivi → Cestino), da dove si può ripristinare. ` +
+      "I documenti già fatti (es. rapporti di intervento) restano invariati e non verrà più proposto nelle nuove schede.")) return;
     if (await aggiorna(r.id, { eliminato_il: new Date().toISOString() }, "eliminato", nomeDi(r))) {
       setSelezionata(null);
       setScheda(null);
@@ -117,7 +118,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   };
 
   const eliminaDefinitivo = async (r: Riga) => {
-    if (!confirm(`Eliminare definitivamente "${nomeDi(r)}"? L'operazione non si può annullare.`)) return;
+    if (!confirm(`Eliminare definitivamente "${nomeDi(r)}"? L'operazione non si può annullare.\n\n` +
+      "I documenti collegati (es. rapporti di intervento) perderanno il riferimento. Se vuoi solo toglierlo dagli elenchi, lascialo nel Cestino.")) return;
     const { error } = await supabase.from(cfg.tabella).delete().eq("id", r.id);
     if (error) return setMessaggio("Errore: " + error.message);
     await registra(`${cfg.sezione}_eliminato_definitivamente`, { id: r.id, nome: nomeDi(r) });
@@ -335,6 +337,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
                 {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
                 {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}
+                {!nelCestino && rigaSel && voce(Trash2, "#d9342b", `Elimina "${nomeDi(rigaSel)}"`, () => spostaNelCestino(rigaSel), puo(cfg.sezione, "eliminare"))}
                 {nelCestino && rigaSel && voce(Undo2, "#3a7dc0", "Ripristina", () => ripristina(rigaSel), puo(cfg.sezione, "eliminare"))}
                 {nelCestino && rigaSel && voce(Trash2, "#d9342b", "Elimina definitivamente", () => eliminaDefinitivo(rigaSel), puo(cfg.sezione, "eliminare"))}
                 {menu === "tabella" && (

@@ -116,7 +116,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   useEffect(() => {
     for (const c of cfg.campi.filter((c) => c.tipo === "riferimento" || c.suggerimentiDa)) {
-      leggiTutto(c.riferimentoA ?? c.suggerimentiDa!, "id, nome").then((r) =>
+      // Nei menu di scelta solo i record attivi (es. non i tecnici eliminati)
+      leggiTutto(c.riferimentoA ?? c.suggerimentiDa!, "id, nome", true).then((r) =>
         setElenchiRif((e) => ({ ...e, [c.chiave]: r as unknown as { id: number; nome: string }[] })),
       );
     }

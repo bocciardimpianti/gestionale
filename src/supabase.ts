@@ -45,10 +45,13 @@ export async function registra(azione: string, dettagli: unknown) {
 
 // Legge tutte le righe superando il limite di 1000 per richiesta.
 // Le tabelle collegate (es. "cliente:clienti(nome)") vengono appiattite al solo nome.
-export async function leggiTutto(tabella: string, select = "*") {
+// Con "soloAttivi" esclude i record nel cestino.
+export async function leggiTutto(tabella: string, select = "*", soloAttivi = false) {
   const tutte: (Record<string, unknown> & { id: number })[] = [];
   for (let da = 0; ; da += 1000) {
-    const { data, error } = await supabase.from(tabella).select(select).order("id").range(da, da + 999);
+    let q = supabase.from(tabella).select(select);
+    if (soloAttivi) q = q.is("eliminato_il", null);
+    const { data, error } = await q.order("id").range(da, da + 999);
     if (error) throw error;
     for (const r of (data ?? []) as unknown as Record<string, unknown>[]) {
       for (const [k, v] of Object.entries(r)) {
