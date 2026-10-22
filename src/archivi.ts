@@ -1,5 +1,5 @@
 import type { Colonna } from "./components/Griglia";
-import { dataIso, supabase } from "./supabase";
+import { dataIso, prossimiCodiciInterni, supabase } from "./supabase";
 import { stampaPreventivo, stampaRapporto } from "./stampe";
 import { COLORI_STATO, euro } from "./components/Griglia";
 
@@ -513,7 +513,10 @@ export const ARCHIVI: Record<string, Archivio> = {
     chiaveImport: ["codice_interno", "descrizione"],
     ordineIniziale: { chiave: "codice_interno", su: true },
     quandoCambia: prezzoRicaricato,
-    valoriNuovo: async () => ({ ricarico: 35, prezzo_base: 0, prezzo_ricaricato: 0, giacenza: 0, giacenza_minima: 0 }),
+    valoriNuovo: async () => ({
+      codice_interno: (await prossimiCodiciInterni().catch(() => [""]))[0] || null,
+      ricarico: 35, prezzo_base: 0, prezzo_ricaricato: 0, giacenza: 0, giacenza_minima: 0,
+    }),
     visteRapide: [{
       // Le giacenze più negative sono gli articoli più usati in ReportOne
       nome: "Senza foto (più usati prima)",

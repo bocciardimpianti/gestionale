@@ -63,6 +63,16 @@ export async function leggiTutto(tabella: string, select = "*", soloAttivi = fal
   }
 }
 
+// Codice interno dei materiali: progressivo a 6 cifre (es. "004795"), compresi quelli nel cestino.
+// I codici a 7 cifre dei materiali CLLAT (codice del fornitore) non contano per la numerazione.
+export async function prossimiCodiciInterni(quanti = 1): Promise<string[]> {
+  const { data, error } = await supabase.from("materiali").select("codice_interno")
+    .filter("codice_interno", "match", "^[0-9]{6}$").order("codice_interno", { ascending: false }).limit(1);
+  if (error) throw error;
+  const ultimo = Number(data?.[0]?.codice_interno ?? 0);
+  return Array.from({ length: quanti }, (_, i) => String(ultimo + i + 1).padStart(6, "0"));
+}
+
 // Date: nel database "aaaa-mm-gg", a schermo "gg/mm/aaaa"
 export function dataIso(v: unknown): string | null {
   if (v instanceof Date && !isNaN(v.getTime())) {

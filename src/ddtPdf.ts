@@ -16,6 +16,8 @@ export interface RigaPdf {
 
 export interface DdtPdf {
   modello: string; // nome della lettura usata (es. "Palagini")
+  // Nuovi materiali di questo fornitore: codice interno = codice articolo del fornitore (es. CLLAT)
+  codiceInternoDalFornitore?: boolean;
   fornitore: RegExp; // per trovare il fornitore in anagrafica
   numeroDdt: string;
   data: string; // aaaa-mm-gg

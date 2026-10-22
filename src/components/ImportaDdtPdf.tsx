@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { leggiTutto, registra, supabase, vuoto } from "../supabase";
+import { leggiTutto, prossimiCodiciInterni, registra, supabase, vuoto } from "../supabase";
 import { ARCHIVI } from "../archivi";
 import { leggiDdt, MODELLI_DISPONIBILI, scritteDaPdf, type DdtPdf, type RigaPdf } from "../ddtPdf";
 import { euro } from "./Griglia";
@@ -144,16 +144,21 @@ export default function ImportaDdtPdf({ onChiudi, onFinito }: { onChiudi: () => 
       const nuovi = finali.filter((r) => r.stato === "nuovo");
       if (nuovi.length) {
         setStato("Creazione dei nuovi materiali…");
-        const { data: tutti } = await supabase.from("materiali").select("codice_interno");
-        let ultimo = Math.max(0, ...(tutti ?? []).map((m) => (/^\d+$/.test(String(m.codice_interno ?? "")) ? Number(m.codice_interno) : 0)));
-        const lung = Math.max(6, ...(tutti ?? []).map((m) => (/^\d+$/.test(String(m.codice_interno ?? "")) ? String(m.codice_interno).length : 0)));
         // Un solo materiale per codice, anche se il codice compare in più righe
         const unici = [...new Map(nuovi.map((r) => [norm(r.pdf.codice), r])).values()];
-        const { data, error } = await supabase.from("materiali").insert(unici.map((r) => ({
-          codice_interno: String(++ultimo).padStart(lung, "0"),
+        // Codice interno: quello del fornitore (CLLAT) oppure il progressivo a 6 cifre
+        const dalFornitore = !!ddt.codiceInternoDalFornitore;
+        const progressivi = dalFornitore ? [] : await prossimiCodiciInterni(unici.length);
+        if (dalFornitore) {
+          const { data: esistenti } = await supabase.from("materiali").select("codice_interno, descrizione").in("codice_interno", unici.map((r) => r.pdf.codice));
+          if (esistenti?.length) throw new Error(`Esiste già un materiale con codice interno ${esistenti.map((m) => `${m.codice_interno} (${m.descrizione})`).join(", ")}: sceglilo con "Scegli materiale"`);
+        }
+        const slot = dalFornitore ? 1 : 2;
+        const { data, error } = await supabase.from("materiali").insert(unici.map((r, k) => ({
+          codice_interno: dalFornitore ? r.pdf.codice : progressivi[k],
           descrizione: r.nuovaDescrizione.trim() || r.pdf.descrizione,
           unita_misura: r.nuovaUm || "Pz",
-          fornitore2: fornitore.nome, codice_fornitore2: r.pdf.codice,
+          [`fornitore${slot}`]: fornitore.nome, [`codice_fornitore${slot}`]: r.pdf.codice,
           prezzo_base: r.pdf.prezzo, ricarico: 35, prezzo_ricaricato: r4(r.pdf.prezzo * 1.35), giacenza: 0,
         }))).select("*");
         if (error) throw new Error("Nuovi materiali: " + error.message);
@@ -306,6 +311,9 @@ export default function ImportaDdtPdf({ onChiudi, onFinito }: { onChiudi: () => 
                           <td>
                             <div className={`etichetta-pdf ${colore}`}>{r.confermata && r.stato === "proposta" ? "Confermato" : r.confermata && r.stato === "nuovo" ? "Verrà creato" : et.testo}</div>
                             {r.materiale && <div><b>{String(r.materiale.codice_interno ?? "")}</b> {String(r.materiale.descrizione ?? "")}</div>}
+                            {r.stato === "nuovo" && (
+                              <div className="piccolo">Codice interno: {ddt.codiceInternoDalFornitore ? <b>{r.pdf.codice}</b> : "progressivo (assegnato al salvataggio)"}</div>
+                            )}
                             {r.stato === "nuovo" && (
                               <div className="nuovo-materiale">
                                 <input value={r.nuovaDescrizione} onChange={(e) => cambia(i, { nuovaDescrizione: e.target.value })} title="Descrizione del nuovo materiale" />
