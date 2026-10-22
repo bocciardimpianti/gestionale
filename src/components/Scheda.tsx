@@ -18,10 +18,12 @@ interface Props {
   cartelle: Cartella[];
   nelCestino: boolean;
   onSposta: (archivio: Cartella | null) => void;
+  // Ripristino dal Cestino (scheda aperta dal Cestino)
+  onRipristina?: () => void;
 }
 
 // Finestra di dettaglio come nel programma originale: linguette, campi incorniciati, piede con Salva/Azioni/Chiudi
-export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta }: Props) {
+export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta, onRipristina }: Props) {
   const { puo, profilo } = useAuth();
   const nuovo = valori.id === undefined;
   const modificabile = !nelCestino && (nuovo ? puo(cfg.sezione, "creare") : puo(cfg.sezione, "modificare"));
@@ -243,7 +245,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     else if (c.tipo === "numero" || c.tipo === "euro")
       controllo = c.solaLettura
         ? <input {...props} className="destra" value={c.tipo === "euro" ? euro(valore) : vuoto(valore) ? "" : Number(valore).toLocaleString("it-IT", { minimumFractionDigits: 2 })} />
-        : <input type="number" step="0.01" {...props} className="destra" />;
+        : <input type="number" step="0.01" {...props} className="destra"
+            value={c.tipo === "euro" && !vuoto(valore) ? String(Math.round(Number(valore) * 100) / 100) : valore} />;
     else if (c.tipo === "booleano")
       controllo = (
         <input type="checkbox" id={props.id} className="casella" checked={!!dati[c.chiave]} disabled={!modificabile}
@@ -370,7 +373,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                         <input
                           type={c.tipo && c.tipo !== "testo" ? "number" : "text"}
                           step="0.01"
-                          value={String(r[c.chiave] ?? "")}
+                          value={c.tipo === "euro" && r[c.chiave] != null && r[c.chiave] !== "" ? String(Math.round(Number(r[c.chiave]) * 100) / 100) : String(r[c.chiave] ?? "")}
                           onChange={(e) => cambiaRiga(i, c.chiave, c.tipo && c.tipo !== "testo" ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value)}
                         />
                       )}
@@ -540,6 +543,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                           </>
                         )}
                         {!nelCestino && puo(cfg.sezione, "eliminare") && <button type="button" onClick={onElimina}>Elimina</button>}
+                        {nelCestino && onRipristina && puo(cfg.sezione, "eliminare") && <button type="button" onClick={onRipristina}>Ripristina</button>}
                         {cfg.stampa && <button type="button" onClick={stampa}>Stampa</button>}
                         {dati.email ? <a href={`mailto:${dati.email}`}>Invia e-mail</a> : null}
                       </div>

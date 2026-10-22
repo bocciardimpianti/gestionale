@@ -443,6 +443,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           }}
           onElimina={() => spostaNelCestino(scheda as Riga)}
           onSposta={(a) => spostaInArchivio(scheda as Riga, a)}
+          onRipristina={async () => { await ripristina(scheda as Riga); setScheda(null); }}
         />
       )}
 
