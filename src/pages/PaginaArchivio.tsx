@@ -10,6 +10,7 @@ import { useAuth } from "../auth";
 import Griglia from "../components/Griglia";
 import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
+import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
 
@@ -63,6 +64,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [menu, setMenu] = useState<"" | "azioni" | "tabella" | "archivi">("");
   const [sceltaColonne, setSceltaColonne] = useState(false);
   const [importaReportOne, setImportaReportOne] = useState(false);
+  const [importaPdf, setImportaPdf] = useState(false);
   const [nascoste, setNascoste] = useState<string[]>(() => leggiNascoste(cfg.sezione));
   const [messaggio, setMessaggio] = useState("");
   const [ricerca, setRicerca] = useState("");
@@ -357,6 +359,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
               <button className={`btn giallo${galleria ? "" : " attivo"}`} onClick={() => setGalleria(false)}>Tabella</button>
             </>
           )}
+          {cfg.sezione === "ddt_acquisto" && !nelCestino && puo(cfg.sezione, "creare") && (
+            <button className="btn blu" onClick={() => setImportaPdf(true)} title="Legge il DDT dal PDF del fornitore">Da PDF</button>
+          )}
           {puo(cfg.sezione, "creare") && !nelCestino && (
             <button className="btn blu" onClick={apriNuovo}>Nuovo</button>
           )}
@@ -448,6 +453,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       )}
 
       {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={carica} />}
+      {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={carica} />}
       {sceltaColonne && (
         <div className="velo" onMouseDown={() => setSceltaColonne(false)}>
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>

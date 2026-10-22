@@ -14,6 +14,7 @@ const TABELLE: { tabella: string; foglio: string; ordine: string }[] = [
   { tabella: "righe_preventivo", foglio: "Righe preventivi", ordine: "id" },
   { tabella: "ddt_acquisto", foglio: "DDT di acquisto", ordine: "id" },
   { tabella: "righe_ddt_acquisto", foglio: "Righe DDT di acquisto", ordine: "id" },
+  { tabella: "abbinamenti_fornitore", foglio: "Abbinamenti codici fornitore", ordine: "id" },
   { tabella: "materiali", foglio: "Materiali", ordine: "id" },
   { tabella: "archivi", foglio: "Archivi", ordine: "id" },
   { tabella: "tipologie_pagamento", foglio: "Tipologie pagamento", ordine: "ordine" },
@@ -36,6 +37,7 @@ const FILE: { archivio: string; tabella: string; colonne: string[] }[] = [
   { archivio: "rapporti", tabella: "rapporti", colonne: ["firma", "foto1", "foto2", "foto3", "foto4"] },
   { archivio: "materiali", tabella: "materiali", colonne: ["foto"] },
   { archivio: "preventivi", tabella: "preventivi", colonne: ["firma"] },
+  { archivio: "ddt_acquisto", tabella: "ddt_acquisto", colonne: ["pdf"] },
 ];
 
 async function leggiTabella(tabella: string, ordine: string) {

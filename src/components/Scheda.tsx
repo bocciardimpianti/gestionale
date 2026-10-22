@@ -224,6 +224,19 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   const campo = (c: Campo, aCapo: boolean) => {
     if (c.tipo === "titolo") return <div key={c.chiave} className={`sezione-scheda ${c.stile ?? "grigio"}`}>{c.etichetta}</div>;
+    if (c.tipo === "pdf")
+      return (
+        <div key={c.chiave} className="campo-pdf" style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
+          <span className="etichetta">{c.etichetta}</span>
+          {typeof dati[c.chiave] === "string" && dati[c.chiave]
+            ? <button type="button" className="btn grigio" onClick={async () => {
+                const finestra = window.open("", "_blank");
+                const url = await urlFirmato(cfg.sezione, String(dati[c.chiave]));
+                if (finestra) finestra.location.href = url;
+              }}>Apri {String(dati[c.chiave]).split("/").pop()}</button>
+            : <span className="piccolo">Nessun PDF (il DDT non è stato caricato da PDF)</span>}
+        </div>
+      );
     if (c.tipo === "foto" || c.tipo === "firma")
       return (
         <div key={c.chiave} style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>

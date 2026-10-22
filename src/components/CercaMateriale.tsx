@@ -41,13 +41,15 @@ function numeroOk(valore: unknown, filtro: string): boolean {
 
 // Finestra per scegliere i materiali da aggiungere alle righe: elenco completo da sfogliare,
 // che si filtra mentre si scrive (prima i materiali la cui descrizione o codice INIZIA con il testo)
-export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota }: {
+export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoIniziale = "", titolo = "Aggiungi materiali" }: {
   onChiudi: () => void;
   onScegli: (m: Materiale) => void;
   onRigaVuota?: () => void;
+  testoIniziale?: string;
+  titolo?: string;
 }) {
   const [materiali, setMateriali] = useState<Materiale[] | null>(inMemoria);
-  const [testo, setTesto] = useState("");
+  const [testo, setTesto] = useState(testoIniziale);
   const [filtri, setFiltri] = useState<Filtri>(FILTRI_VUOTI);
   const [soloConFoto, setSoloConFoto] = useState(false);
   const [soloDisponibili, setSoloDisponibili] = useState(false);
@@ -113,7 +115,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota }: {
   return (
     <div className="velo" onMouseDown={onChiudi}>
       <div className="finestra finestra-materiali" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="finestra-titolo">Aggiungi materiali<button type="button" className="chiudi" onClick={onChiudi}>×</button></div>
+        <div className="finestra-titolo">{titolo}<button type="button" className="chiudi" onClick={onChiudi}>×</button></div>
         <div className="finestra-corpo cerca-materiale">
           <input
             autoFocus

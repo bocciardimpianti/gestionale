@@ -6,7 +6,7 @@ import { COLORI_STATO, euro } from "./components/Griglia";
 export interface Campo {
   chiave: string;
   etichetta: string;
-  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma" | "email";
+  tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma" | "email" | "pdf";
   // Campi a scelta: colore del quadratino accanto a ogni valore (es. stato del documento)
   colori?: Record<string, string>;
   // Campi a scelta: scegliendo un'opzione copia questi valori dalla sua riga (es. importi della tariffa)
@@ -706,6 +706,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "data", etichetta: "Data", tipo: "data", larghezza: 1, obbligatorio: true },
       { chiave: "email", etichetta: "E-Mail", tipo: "email", larghezza: 2, linguetta: "Dettaglio", finisciRiga: true },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4, linguetta: "Dettaglio" },
+      { chiave: "pdf", etichetta: "PDF originale del fornitore", tipo: "pdf", larghezza: 2, linguetta: "Dettaglio", solaLettura: true },
       { chiave: "pagato", etichetta: "Pagato", tipo: "booleano", larghezza: 1, linguetta: "Pagamenti" },
       { chiave: "prezzo", etichetta: "Prezzo", tipo: "euro", larghezza: 1, linguetta: "Pagamenti", finisciRiga: true },
     ],

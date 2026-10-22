@@ -579,3 +579,34 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .opzioni-materiali input[type="checkbox"] { width: auto; margin: 0; }
 .cerca-materiale tbody tr.evidenziata td { background: #fcd9a3; }
 .cerca-materiale .cella-miniatura { padding: 0 2px; }
+
+/* Importa DDT da PDF */
+.finestra-ddt-pdf { width: min(1250px, 100%); }
+.finestra-ddt-pdf .finestra-corpo { max-height: 78vh; overflow: auto; }
+.trascina-pdf { border: 2px dashed #3a7dc0; border-radius: 6px; padding: 34px; text-align: center; cursor: pointer; background: #f4f8fc; }
+.trascina-pdf:hover { background: #e8f1fa; }
+.testata-ddt-pdf { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 8px; }
+.testata-ddt-pdf label { display: flex; flex-direction: column; font-size: 12px; color: #3a7dc0; gap: 2px; }
+.testata-ddt-pdf select, .testata-ddt-pdf input { min-width: 160px; padding: 5px; }
+.tabella-ddt-pdf { margin-top: 8px; }
+.tabella-ddt-pdf td { vertical-align: top; padding: 6px; white-space: normal; }
+.riga-pdf.verde td:first-child { border-left: 5px solid #22b33a; }
+.riga-pdf.giallo td:first-child { border-left: 5px solid #f0b400; }
+.riga-pdf.rosso td:first-child { border-left: 5px solid #d9342b; }
+.riga-pdf.giallo { background: #fffbe6; }
+.riga-pdf.rosso { background: #fdeeee; }
+.etichetta-pdf { display: inline-block; font-size: 11px; font-weight: bold; padding: 1px 6px; border-radius: 3px; color: #fff; margin-bottom: 3px; }
+.etichetta-pdf.verde { background: #22b33a; }
+.etichetta-pdf.giallo { background: #e0a800; }
+.etichetta-pdf.rosso { background: #d9342b; }
+.azioni-riga-pdf { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.btn.piccolo-btn { padding: 2px 8px; font-size: 12px; height: auto; }
+.nuovo-materiale { display: flex; gap: 4px; margin: 3px 0; }
+.nuovo-materiale input { flex: 1; padding: 3px 5px; font-size: 12px; }
+.piede-ddt-pdf { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 4px; font-size: 14px; }
+.avviso { color: #b07800; }
+.nuovo-materiale input.um { flex: 0 0 55px; width: 55px; min-width: 0; }
+.tabella-ddt-pdf td.destra { white-space: nowrap; }
+.campo-pdf { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+.campo-pdf .etichetta { font-size: 11px; color: #3a7dc0; }
+.campo-pdf .btn { align-self: flex-start; }
