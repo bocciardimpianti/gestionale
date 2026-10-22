@@ -526,7 +526,14 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                     {cfg.campi.filter((c) => c.linguetta === linguetta).map((c, i, a) => campo(c, !!a[i - 1]?.finisciRiga))}
                   </div>
                 ) : cfg.figli?.some((f) => f.linguetta === linguetta) ? (
-                  <RecordCollegati figlio={cfg.figli.find((f) => f.linguetta === linguetta)!} id={valori.id as number | undefined} />
+                  <>
+                    {cfg.figli.filter((f) => f.linguetta === linguetta).map((f) => (
+                      <div key={f.tabella} className="blocco-collegati">
+                        {f.titolo && <div className="sezione-scheda grigio">{f.titolo}</div>}
+                        <RecordCollegati figlio={f} id={valori.id as number | undefined} />
+                      </div>
+                    ))}
+                  </>
                 ) : linguetta === "Log Cloud" ? (
                   <LogRecord sezione={cfg.sezione} id={valori.id as number | undefined} />
                 ) : (
@@ -631,7 +638,14 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
     // Le righe di dettaglio (es. righe dei rapporti) non hanno il cestino
     if (!figlio.select) q = q.is("eliminato_il", null);
     q.order(figlio.ordine ?? "id", { ascending: !figlio.ordine || !!figlio.crescente })
-      .then(({ data }) => setRighe((data as unknown as Record<string, unknown>[]) ?? []));
+      .then(({ data }) => {
+        let r = ((data as unknown as Record<string, unknown>[]) ?? []).filter((x) => !figlio.escludi?.(x));
+        if (figlio.recentiPer) {
+          const v = (x: Record<string, unknown>) => String(figlio.recentiPer!.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], x) ?? "");
+          r = [...r].sort((a, b) => v(b).localeCompare(v(a)));
+        }
+        setRighe(r);
+      });
   }, [figlio, id]);
 
   if (!righe) return <p className="vuoto-linguetta">Caricamento…</p>;
@@ -646,7 +660,8 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
               <td key={c.chiave}>{(() => {
                 // Chiavi annidate, es. "rapporto.numero"
                 const v = c.chiave.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], r);
-                return c.tipo === "data" ? dataIt(v) : c.tipo === "euro" ? euro(v) : c.tipo === "booleano" ? (v ? "Sì" : "No") : String(v ?? "");
+                return c.tipo === "data" ? dataIt(v) : c.tipo === "euro" ? euro(v) : c.tipo === "booleano" ? (v ? "Sì" : "No")
+                  : c.tipo === "numero" && v !== null && v !== undefined && v !== "" ? Number(v).toLocaleString("it-IT", { maximumFractionDigits: 4 }) : String(v ?? "");
               })()}</td>
             ))}
           </tr>

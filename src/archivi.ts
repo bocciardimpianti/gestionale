@@ -74,7 +74,12 @@ export interface Archivio {
   // Ricalcola altri campi quando uno cambia (es. data prossimo intervento)
   quandoCambia?: (dati: Record<string, unknown>, chiave: string) => Record<string, unknown> | null;
   // Linguette della scheda che mostrano i record collegati (es. gli impianti di un cliente)
-  figli?: { linguetta: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string; crescente?: boolean; select?: string }[];
+  // Più figli con la stessa linguetta vengono mostrati uno sotto l'altro, ciascuno con il suo "titolo"
+  figli?: {
+    linguetta: string; titolo?: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string; crescente?: boolean; select?: string;
+    // Ordinamento (dal più recente) su un campo collegato, es. "rapporto.data"; esclusione di righe (es. documento nel cestino)
+    recentiPer?: string; escludi?: (r: Record<string, unknown>) => boolean;
+  }[];
   // Ordinamento iniziale della griglia
   ordineIniziale?: { chiave: string; su: boolean };
   // Valori proposti per un nuovo record
@@ -530,14 +535,51 @@ export const ARCHIVI: Record<string, Archivio> = {
     },
     figli: [{
       linguetta: "Storico",
+      titolo: "Rapporti di intervento (materiale usato)",
       tabella: "righe_rapporto",
       campo: "materiale_id",
-      select: "*, rapporto:rapporti(numero, data, cliente:clienti(nome))",
+      select: "*, rapporto:rapporti(numero, data, eliminato_il, cliente:clienti(nome))",
+      recentiPer: "rapporto.data",
+      escludi: (r) => !!(r.rapporto as Record<string, unknown> | null)?.eliminato_il,
       colonne: [
         { chiave: "rapporto.data", titolo: "Data", larghezza: 90, tipo: "data" },
         { chiave: "rapporto.numero", titolo: "Rapporto N.", larghezza: 80 },
         { chiave: "rapporto.cliente.nome", titolo: "Cliente", larghezza: 220 },
         { chiave: "quantita", titolo: "Quantità", larghezza: 70 },
+        { chiave: "totale", titolo: "Totale", larghezza: 90, tipo: "euro" },
+      ],
+    }, {
+      linguetta: "Storico",
+      titolo: "DDT di acquisto (materiale acquistato)",
+      tabella: "righe_ddt_acquisto",
+      campo: "materiale_id",
+      select: "*, ddt:ddt_acquisto(numero_ddt, data, eliminato_il, fornitore:fornitori(nome))",
+      recentiPer: "ddt.data",
+      escludi: (r) => !!(r.ddt as Record<string, unknown> | null)?.eliminato_il,
+      colonne: [
+        { chiave: "ddt.data", titolo: "Data", larghezza: 90, tipo: "data" },
+        { chiave: "ddt.numero_ddt", titolo: "Numero DDT", larghezza: 110 },
+        { chiave: "ddt.fornitore.nome", titolo: "Fornitore", larghezza: 220 },
+        { chiave: "quantita", titolo: "Quantità", larghezza: 70 },
+        { chiave: "costo", titolo: "Costo", larghezza: 80, tipo: "numero" },
+        { chiave: "sconto", titolo: "Sconto %", larghezza: 60 },
+        { chiave: "totale_scontato", titolo: "Totale", larghezza: 90, tipo: "euro" },
+      ],
+    }, {
+      linguetta: "Storico",
+      titolo: "Preventivi (materiale preventivato)",
+      tabella: "righe_preventivo",
+      campo: "materiale_id",
+      select: "*, preventivo:preventivi(numero, data, stato, eliminato_il, cliente:clienti(nome))",
+      recentiPer: "preventivo.data",
+      escludi: (r) => !!(r.preventivo as Record<string, unknown> | null)?.eliminato_il,
+      colonne: [
+        { chiave: "preventivo.data", titolo: "Data", larghezza: 90, tipo: "data" },
+        { chiave: "preventivo.numero", titolo: "Oggetto", larghezza: 200 },
+        { chiave: "preventivo.cliente.nome", titolo: "Cliente", larghezza: 220 },
+        { chiave: "preventivo.stato", titolo: "Stato", larghezza: 90 },
+        { chiave: "quantita", titolo: "Quantità", larghezza: 70 },
+        { chiave: "prezzo", titolo: "Prezzo", larghezza: 80, tipo: "numero" },
         { chiave: "totale", titolo: "Totale", larghezza: 90, tipo: "euro" },
       ],
     }],

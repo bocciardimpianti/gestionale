@@ -612,3 +612,5 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .campo-pdf .etichetta { font-size: 11px; color: #3a7dc0; }
 .campo-pdf .btn { align-self: flex-start; }
 .griglia-piede .somma-colonna { margin-left: 24px; }
+.blocco-collegati + .blocco-collegati { margin-top: 18px; }
+.blocco-collegati .sezione-scheda { margin-bottom: 4px; }
