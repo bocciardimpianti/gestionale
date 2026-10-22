@@ -570,5 +570,12 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 /* Finestra Aggiungi materiali */
 .finestra-materiali { width: min(1000px, 100%); }
 .finestra-materiali .risultati { height: 58vh; max-height: none; }
+.finestra-materiali { width: min(1200px, 100%); }
+.finestra-materiali thead { position: sticky; top: 0; z-index: 2; }
+.finestra-materiali .riga-filtri th { padding: 3px; background: #f3f3f3; }
+.finestra-materiali .riga-filtri input { width: 100%; min-width: 50px; padding: 3px 5px; font-size: 12px; font-weight: normal; box-sizing: border-box; }
+.opzioni-materiali { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; margin: 6px 0; }
+.opzioni-materiali label { display: flex; flex-direction: row; gap: 5px; align-items: center; margin: 0; font-size: 13px; }
+.opzioni-materiali input[type="checkbox"] { width: auto; margin: 0; }
 .cerca-materiale tbody tr.evidenziata td { background: #fcd9a3; }
 .cerca-materiale .cella-miniatura { padding: 0 2px; }
