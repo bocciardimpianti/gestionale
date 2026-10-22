@@ -175,7 +175,7 @@ export function stampaPreventivo(d: Record<string, unknown>, righe: Record<strin
   <div>
     <div class="box" style="grid-template-columns: 1fr 1.4fr 1fr">
       <div><div class="etichetta">Tipo Documento</div><div class="valore grande">Preventivo</div></div>
-      <div><div class="etichetta">Numero</div><div class="valore grande">${esc(d.numero)}</div></div>
+      <div><div class="etichetta">Oggetto</div><div class="valore grande">${esc(d.numero)}</div></div>
       <div><div class="etichetta">Data</div><div class="valore">${dataIt(d.data)}</div></div>
     </div>
     <div class="dest">

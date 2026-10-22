@@ -568,7 +568,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     sezione: "preventivi",
     titolo: "Preventivi",
     titoloNuovo: "Nuovo preventivo",
-    titoloScheda: (v) => `Preventivo ${v.numero ?? ""} del ${String(v.data ?? "").split("-").reverse().join("/")}`,
+    titoloScheda: (v) => `Preventivo "${v.numero ?? ""}" del ${String(v.data ?? "").split("-").reverse().join("/")}`,
     linguette: ["Dettaglio", "Storico", "Log Cloud"],
     tabella: "preventivi",
     select: "*, cliente:clienti(nome)",
@@ -579,7 +579,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     valoriNuovo: async () => ({ data: dataIso(new Date()), stato: "Aperto", sconto: 0, iva: 0 }),
     colonne: [
       { chiave: "data", titolo: "Data", excel: "Data", larghezza: 88, tipo: "data" },
-      { chiave: "numero", titolo: "Numero", excel: "Numero", larghezza: 320 },
+      { chiave: "numero", titolo: "Oggetto", excel: "Numero", larghezza: 320 },
       { chiave: "cliente", titolo: "Nome cliente", excel: "Nome cliente", larghezza: 212, riferimento: { campo: "cliente_id", tabella: "clienti" } },
       { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 95, tipo: "euro" },
       { chiave: "totale", titolo: "Totale", excel: "Totale", larghezza: 105, tipo: "euro" },
@@ -598,7 +598,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     ],
     campi: [
       { chiave: "data", etichetta: "Data", tipo: "data", larghezza: 1, obbligatorio: true },
-      { chiave: "numero", etichetta: "Numero", larghezza: 1, segnaposto: "Auto compilato" },
+      { chiave: "numero", etichetta: "Oggetto", larghezza: 1, segnaposto: "es. Impianto elettrico", obbligatorio: true },
       { chiave: "cliente_id", etichetta: "Nome cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2 },
       { chiave: "email", etichetta: "E-Mail", tipo: "email", larghezza: 2 },
       { chiave: "stato", etichetta: "Stato Documento", tipo: "scelta", opzioniDa: "stati_documento", titoloOpzioni: "Stati documento", colori: COLORI_STATO, larghezza: 1, finisciRiga: true },

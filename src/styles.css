@@ -555,3 +555,15 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .gruppo-piede .voce-piede { border: none; border-top: 1px solid #e3e5e8; grid-column: auto !important; grid-row: auto !important; }
 .gruppo-piede .voce-piede select { border: none; font: inherit; font-size: 13px; padding: 2px 4px; background: #fff; }
 @media (max-width: 760px) { .piede-gruppi { grid-template-columns: 1fr; } }
+
+/* Campo con suggerimenti (clienti, tecnici, fornitori) */
+.autocompleta { position: relative; flex: 1; display: flex; }
+.autocompleta input { flex: 1; min-width: 0; }
+.autocompleta .apri-elenco { border: none; background: none; padding: 0 4px; color: #777; }
+.autocompleta .proposte {
+  position: absolute; top: 100%; left: -5px; right: -5px; z-index: 60; margin: 2px 0 0; padding: 2px 0; list-style: none;
+  background: #fff; border: 1px solid #a9adb3; box-shadow: 0 6px 16px rgba(0,0,0,.2); max-height: 280px; overflow-y: auto;
+}
+.autocompleta .proposte li { padding: 5px 8px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.autocompleta .proposte li.evidenziato { background: #fcd9a3; }
+.cornice:has(.proposte) { z-index: 61; }

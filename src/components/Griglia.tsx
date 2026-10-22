@@ -66,14 +66,25 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
     const parole = ricerca.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const dove = colonne.filter((c) =>
       c.tipo !== "booleano" && c.tipo !== "immagine" && c.tipo !== "miniatura" && (!colonnaRicerca || c.chiave === colonnaRicerca));
+    // Su una colonna precisa si cercano le parole che INIZIANO col testo (es. "F" → Ferdinando, Rossi Franco)
+    const iniziaCon = (v: string, p: string) => v.startsWith(p) || v.split(/[\s.,'()/-]+/).some((w) => w.startsWith(p));
     const filtrate = righe.filter((r) =>
-      parole.every((p) => dove.some((c) => mostra(c, r).toLowerCase().includes(p))) &&
+      parole.every((p) => dove.some((c) => colonnaRicerca ? iniziaCon(mostra(c, r).toLowerCase(), p) : mostra(c, r).toLowerCase().includes(p))) &&
       attivi.every(([k, f]) => {
         const c = colonne.find((c) => c.chiave === k);
         if (c?.tipo === "booleano") return f === "sì" ? !!r[k] : !r[k];
         return (c ? mostra(c, r) : testo(r[k])).toLowerCase().includes(f.trim().toLowerCase());
       }),
     );
+    // Ricerca su una colonna: prima chi inizia esattamente col testo, poi gli altri, in ordine alfabetico
+    if (colonnaRicerca && parole.length) {
+      const c = colonne.find((x) => x.chiave === colonnaRicerca)!;
+      const t = ricerca.trim().toLowerCase();
+      return filtrate.sort((a, b) => {
+        const va = mostra(c, a).toLowerCase(), vb = mostra(c, b).toLowerCase();
+        return Number(!va.startsWith(t)) - Number(!vb.startsWith(t)) || va.localeCompare(vb, "it", { sensitivity: "base", numeric: true });
+      });
+    }
     const segno = ordine.su ? 1 : -1;
     const tipo = colonne.find((c) => c.chiave === ordine.chiave)?.tipo;
     return filtrate.sort((a, b) =>

@@ -8,6 +8,7 @@ import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
 import CampoImmagine, { urlFirmato } from "./CampoImmagine";
 import CercaMateriale from "./CercaMateriale";
+import Autocompleta from "./Autocompleta";
 
 interface Props {
   cfg: Archivio;
@@ -255,10 +256,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     else if (c.suggerimentiDa)
       controllo = (
         <>
-          <input {...props} list={`suggerimenti-${c.chiave}`} />
-          <datalist id={`suggerimenti-${c.chiave}`}>
-            {(elenchiRif[c.chiave] ?? []).map((r) => <option key={r.id} value={r.nome} />)}
-          </datalist>
+          <Autocompleta id={props.id} valore={valore} readOnly={props.readOnly}
+            opzioni={(elenchiRif[c.chiave] ?? []).map((r) => r.nome)} onCambia={(t) => cambia(c.chiave, t)} />
         </>
       );
     else if (c.suggerisciDa)
@@ -284,17 +283,15 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     else if (c.tipo === "riferimento")
       controllo = (
         <>
-          <input
-            {...props}
-            list={`elenco-${c.chiave}`}
-            value={testoRif[c.chiave] ?? ""}
-            className={!vuoto(testoRif[c.chiave]) && vuoto(dati[c.chiave]) ? "non-trovato" : ""}
-            placeholder={modificabile ? "Scrivi per cercare…" : ""}
-            onChange={(e) => cambiaRiferimento(c, e.target.value)}
+          <Autocompleta
+            id={props.id}
+            valore={testoRif[c.chiave] ?? ""}
+            readOnly={props.readOnly}
+            nonTrovato={!vuoto(testoRif[c.chiave]) && vuoto(dati[c.chiave])}
+            placeholder={modificabile ? "Scrivi le prime lettere…" : ""}
+            opzioni={(elenchiRif[c.chiave] ?? []).map((r) => r.nome)}
+            onCambia={(t) => cambiaRiferimento(c, t)}
           />
-          <datalist id={`elenco-${c.chiave}`}>
-            {(elenchiRif[c.chiave] ?? []).map((r) => <option key={r.id} value={r.nome} />)}
-          </datalist>
         </>
       );
     else if (c.tipo === "scelta")
