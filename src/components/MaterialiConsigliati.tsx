@@ -12,7 +12,7 @@ const NON_MATERIALE = /^(ore |foro |manutenzione|imprevist|perdit|material[ei] v
 // Finestra del tasto "Consigliati" nel rapportino: propone i materiali usati di solito insieme a quelli già inseriti
 export default function MaterialiConsigliati({ righe, onAggiungi, onChiudi }: {
   righe: Record<string, unknown>[];
-  onAggiungi: (scelti: { materiale: Materiale; quantita: number }[]) => void;
+  onAggiungi: (scelti: Materiale[]) => void;
   onChiudi: () => void;
 }) {
   const [dati, setDati] = useState<Dati | null>(null);
@@ -90,7 +90,7 @@ export default function MaterialiConsigliati({ righe, onAggiungi, onChiudi }: {
           <button type="button" className="btn grigio" onClick={onChiudi}>Annulla</button>
           <span style={{ flex: 1 }} />
           <button type="button" className="btn blu" disabled={!scelti.length}
-            onClick={() => { onAggiungi(scelti.map((c) => ({ materiale: perId.get(c.materialeId)!, quantita: c.quantita }))); onChiudi(); }}>
+            onClick={() => { onAggiungi(scelti.map((c) => perId.get(c.materialeId)!)); onChiudi(); }}>
             {scelti.length === 1 ? "Aggiungi 1 materiale" : `Aggiungi ${scelti.length} materiali`}
           </button>
         </div>

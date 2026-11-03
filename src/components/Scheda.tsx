@@ -667,7 +667,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       {consigliati && (
         <div onMouseDown={(e) => e.stopPropagation()}>
           <MaterialiConsigliati righe={righe} onChiudi={() => setConsigliati(false)}
-            onAggiungi={(scelti) => scelti.forEach(({ materiale, quantita }) => aggiungiRiga({ ...rigaDaMateriale(materiale), quantita }))} />
+            onAggiungi={(scelti) => scelti.forEach((materiale) => aggiungiRiga({ ...rigaDaMateriale(materiale), quantita: 1 }))} />
         </div>
       )}
       {gestione && (
