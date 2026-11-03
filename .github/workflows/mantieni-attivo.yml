@@ -1,0 +1,36 @@
+name: Mantieni attivo Supabase
+
+# Il piano gratuito di Supabase mette in pausa i progetti inattivi.
+# Ogni 3 giorni questa operazione esegue una lettura sul database per tenerlo attivo.
+# Non legge dati aziendali: usa solo la chiave pubblica, soggetta a Row Level Security.
+# Se Supabase non risponde l'esecuzione fallisce e GitHub avvisa via email.
+
+on:
+  schedule:
+    - cron: "17 6 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  contatta-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lettura sul database
+        run: |
+          set -a; source .env.production; set +a
+          curl --fail --silent --show-error --output /dev/null \
+            --retry 3 --retry-delay 30 --retry-all-errors --max-time 30 \
+            -H "apikey: $VITE_SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $VITE_SUPABASE_ANON_KEY" \
+            "$VITE_SUPABASE_URL/rest/v1/sezioni?select=chiave&limit=1"
+
+      # GitHub sospende le operazioni programmate dopo 60 giorni senza modifiche al repository
+      - name: Rinnova la programmazione
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable mantieni-attivo.yml --repo "$GITHUB_REPOSITORY"
