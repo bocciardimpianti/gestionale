@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -8,6 +8,7 @@ import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
 import CampoImmagine, { urlFirmato } from "./CampoImmagine";
 import CercaMateriale from "./CercaMateriale";
+import MaterialiConsigliati from "./MaterialiConsigliati";
 import { useTelefono } from "../telefono";
 import Autocompleta from "./Autocompleta";
 
@@ -55,6 +56,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [rigaSel, setRigaSel] = useState<number | null>(null);
   const [codice, setCodice] = useState("");
   const [cercaMateriale, setCercaMateriale] = useState(false);
+  const [consigliati, setConsigliati] = useState(false);
   const telefono = useTelefono();
   const [suggerimenti, setSuggerimenti] = useState<Record<string, Record<string, unknown>[]>>({});
   const tuttiCampi = [...cfg.campi, ...(cfg.piede ?? []), ...(cfg.piedeGruppi ?? []).flatMap((g) => g.campi)];
@@ -387,6 +389,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           <div className="barra-righe-telefono">
             <button type="button" className="btn blu" onClick={() => setCercaMateriale(true)}>Aggiungi materiale</button>
             <button type="button" className="btn grigio" onClick={() => aggiungiRiga()}>Riga libera</button>
+            {cfg.sezione === "rapporti" && <button type="button" className="btn verde consigliati" onClick={() => setConsigliati(true)}><Sparkles size={17} /> Materiali consigliati</button>}
           </div>
         )}
         {telefono && (
@@ -446,6 +449,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <button type="button" title="Sposta giù" onClick={() => spostaRiga(1)}><ArrowDown size={22} strokeWidth={2} className="cerchiata" /></button>
             <button type="button" title="Sposta su" onClick={() => spostaRiga(-1)}><ArrowUp size={22} strokeWidth={2} className="cerchiata" /></button>
             <button type="button" title="Aggiungi una riga libera da compilare a mano" onClick={() => aggiungiRiga()}><PencilLine size={22} strokeWidth={2} className="cerchiata" /></button>
+            {cfg.sezione === "rapporti" && <button type="button" className="btn verde consigliati" title="Materiali usati di solito insieme a quelli inseriti" onClick={() => setConsigliati(true)}><Sparkles size={16} /> Materiali consigliati</button>}
           </div>
         )}
         {!telefono && <div className="tabella-righe">
@@ -658,6 +662,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       {cercaMateriale && (
         <div onMouseDown={(e) => e.stopPropagation()}>
           <CercaMateriale onChiudi={() => setCercaMateriale(false)} onScegli={(m) => aggiungiRiga(rigaDaMateriale(m))} onRigaVuota={() => aggiungiRiga()} />
+        </div>
+      )}
+      {consigliati && (
+        <div onMouseDown={(e) => e.stopPropagation()}>
+          <MaterialiConsigliati righe={righe} onChiudi={() => setConsigliati(false)}
+            onAggiungi={(scelti) => scelti.forEach(({ materiale, quantita }) => aggiungiRiga({ ...rigaDaMateriale(materiale), quantita }))} />
         </div>
       )}
       {gestione && (

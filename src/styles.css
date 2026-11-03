@@ -816,6 +816,17 @@ input, select, button { border-radius: 6px; }
 .impegno:hover { background: var(--ottanio-tenue); }
 .giorno-mese.oggi { background: #eef7f8; }
 
+/* Materiali consigliati */
+.finestra-consigli { width: min(640px, 100%); }
+.elenco-consigli p { margin-top: 0; }
+.consiglio { flex-direction: row; align-items: center; gap: 12px; padding: 9px 2px; border-top: 1px solid #e6ecec; cursor: pointer; }
+.consiglio input { flex: none; width: 20px; height: 20px; }
+.consiglio-testi { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.consiglio-prezzo { flex: none; font-weight: 600; }
+.barra-righe .btn.consigliati { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; color: #fff; background: var(--petrolio); margin-left: auto; }
+.barra-righe .btn.consigliati:hover { color: #fff; background: var(--petrolio-chiaro); }
+.btn:disabled { opacity: .55; }
+
 /* =====================================================================
    Telefono. Tutti i controlli sono alti almeno 44 px e il testo dei campi è a 16 px,
    perché con meno iPhone ingrandisce la pagina a ogni tocco.
@@ -963,6 +974,9 @@ input, select, button { border-radius: 6px; }
   .area-righe { margin-top: 14px; gap: 10px; }
   .barra-righe-telefono { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
   .barra-righe-telefono .btn { padding: 0 8px; min-height: 48px; }
+  .barra-righe-telefono .btn.consigliati { grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; gap: 8px; }
+  .consiglio { min-height: 58px; }
+  .consiglio input { width: 24px; height: 24px; }
   .riga-materiale-telefono { background: #f6f8f8; border: 1px solid var(--bordo); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 10px; }
   .riga-materiale-testa { display: flex; align-items: flex-start; gap: 8px; }
   .riga-materiale-testa > b { flex: 1; font-size: 15.5px; padding-top: 10px; }
