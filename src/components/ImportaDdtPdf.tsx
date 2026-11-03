@@ -22,6 +22,25 @@ interface Riga {
 }
 
 const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
+// Identifica l'articolo di una riga: il codice o, se il documento non lo riporta, la descrizione
+const chiaveRiga = (p: RigaPdf) => norm(p.codice) || `descrizione:${norm(p.descrizione)}`;
+const soloCifre = (s: unknown) => String(s ?? "").replace(/\D/g, "");
+// Forma societaria e punteggiatura non aiutano a riconoscere un nome
+const nomeBase = (s: unknown) => norm(s).replace(/\b(s\.?\s?r\.?\s?l\.?s?|s\.?\s?p\.?\s?a\.?|s\.?\s?n\.?\s?c\.?|s\.?\s?a\.?\s?s\.?)(?![a-z])/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+// Fornitore in anagrafica per un DDT senza lettura su misura: prima la partita IVA, poi il nome più lungo trovato nel testo
+function fornitoreDaTesto(forn: Rec[], testo: string, d: DdtPdf) {
+  const cifre = soloCifre(testo);
+  const conPiva = forn.find((f) => {
+    const piva = soloCifre(f.piva);
+    return piva.length === 11 && (piva === d.pivaFornitore || cifre.includes(piva));
+  });
+  if (conPiva) return conPiva;
+  const pulito = ` ${nomeBase(testo)} `;
+  return forn
+    .map((f) => ({ f, nome: nomeBase(f.nome) }))
+    .filter((x) => x.nome.length >= 4 && pulito.includes(` ${x.nome} `))
+    .sort((a, b) => b.nome.length - a.nome.length)[0]?.f ?? null;
+}
 const senzaZeri = (s: unknown) => norm(s).replace(/^0+(?=.)/, "");
 const valido = (s: unknown) => !vuoto(s) && String(s).replace(/[\s/.-]/g, "") !== "";
 // Un campo codice può contenere più codici (es. "90040 - 9000350": vecchio e nuovo codice CLLAT)
@@ -59,6 +78,12 @@ const ETICHETTE: Record<Stato, { testo: string; colore: string }> = {
   libera: { testo: "Riga senza magazzino", colore: "verde" },
 };
 
+async function cercaDoppione(fornitoreId: number, numero: string) {
+  if (!numero.trim()) return "";
+  const { data } = await supabase.from("ddt_acquisto").select("id, data").eq("fornitore_id", fornitoreId).eq("numero_ddt", numero.trim()).is("eliminato_il", null);
+  return data?.length ? `Il DDT n. ${numero.trim()} di questo fornitore è già stato caricato (del ${String(data[0].data).split("-").reverse().join("/")}).` : "";
+}
+
 export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
   onChiudi: () => void;
   onFinito: () => void;
@@ -78,6 +103,8 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
   const [inCorso, setInCorso] = useState(false);
   const [scegliPer, setScegliPer] = useState<number | null>(null);
   const [fatti, setFatti] = useState<string[]>([]);
+  const [materiali, setMateriali] = useState<Rec[]>([]);
+  const [nuovoFornitore, setNuovoFornitore] = useState({ nome: "", piva: "" });
 
   const fornitore = fornitori.find((f) => f.id === fornitoreId) ?? null;
 
@@ -114,27 +141,31 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
     setUrlPdf(URL.createObjectURL(f));
     try {
       setStato(`Lettura di ${f.name}…`);
-      const d = leggiDdt(await scritteDaPdf(f), f.name);
-      if (!d) throw new Error(`Fornitore non riconosciuto. Per ora so leggere i DDT di: ${MODELLI_DISPONIBILI.join(", ")}. Mandami un esempio per aggiungere gli altri.`);
+      const scritte = await scritteDaPdf(f);
+      const d = leggiDdt(scritte, f.name);
+      if (!d) throw new Error("Questo PDF è una scansione e non contiene testo leggibile: inserisci il DDT a mano con \"Nuovo\".");
       setStato("Lettura di fornitori e materiali…");
       const [forn, mats] = await Promise.all([
-        leggiTutto("fornitori", "id, nome, email, tipologia_pagamento", true),
+        leggiTutto("fornitori", "id, nome, piva, email, tipologia_pagamento", true),
         leggiTutto("materiali", "id, codice_interno, descrizione, nome_articolo, codice_barre, fornitore1, codice_fornitore1, fornitore2, codice_fornitore2, unita_misura, prezzo_base, ricarico, giacenza", true),
       ]);
-      const trovati = forn.filter((x) => d.fornitore.test(String(x.nome ?? "")));
+      const trovati = d.generico
+        ? [fornitoreDaTesto(forn, scritte.map((x) => x.s).join(" "), d)].filter((x): x is Rec => !!x)
+        : forn.filter((x) => d.fornitore.test(String(x.nome ?? "")));
       const fid = trovati[0]?.id ?? null;
       let ricordati = new Map<string, number>();
       if (fid) {
         const { data } = await supabase.from("abbinamenti_fornitore").select("codice, materiale_id").eq("fornitore_id", fid);
         ricordati = new Map((data ?? []).map((a) => [norm(a.codice), a.materiale_id as number]));
-        const { data: gia } = await supabase.from("ddt_acquisto").select("id, data").eq("fornitore_id", fid).eq("numero_ddt", d.numeroDdt).is("eliminato_il", null);
-        if (gia?.length) setDoppione(`Il DDT n. ${d.numeroDdt} di questo fornitore è già stato caricato (del ${String(gia[0].data).split("-").reverse().join("/")}).`);
+        setDoppione(await cercaDoppione(fid, d.numeroDdt));
       }
       setFornitori(forn);
+      setMateriali(mats);
+      setNuovoFornitore({ nome: d.nomeFornitore ?? "", piva: d.pivaFornitore ?? "" });
       setFornitoreId(fid);
       setDdt(d);
       setRighe(abbina(d, mats, ricordati));
-      setStato(fid ? "" : "Fornitore non trovato in anagrafica: sceglilo dall'elenco");
+      setStato(fid ? "" : "Fornitore non trovato in anagrafica: sceglilo dall'elenco o crealo");
     } catch (e) {
       setStato("Errore: " + (e as Error).message);
     }
@@ -143,7 +174,36 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
 
   // La scelta fatta su una riga vale anche per le altre righe non confermate con lo stesso codice
   const cambia = (i: number, v: Partial<Riga>) => setRighe((rr) => rr.map((r, j) =>
-    j === i || (v.confermata && !r.confermata && norm(r.pdf.codice) === norm(rr[i].pdf.codice)) ? { ...r, ...v } : r));
+    j === i || (v.confermata && !r.confermata && chiaveRiga(r.pdf) === chiaveRiga(rr[i].pdf)) ? { ...r, ...v } : r));
+
+  // Fornitore scelto a mano: gli abbinamenti ricordati e il controllo dei doppioni dipendono da lui.
+  // Le scelte già fatte sulle righe restano.
+  const applicaFornitore = async (fid: number | null, elenco = fornitori) => {
+    setFornitoreId(fid);
+    setDoppione("");
+    if (!ddt) return;
+    let ricordati = new Map<string, number>();
+    if (fid) {
+      const { data } = await supabase.from("abbinamenti_fornitore").select("codice, materiale_id").eq("fornitore_id", fid);
+      ricordati = new Map((data ?? []).map((a) => [norm(a.codice), a.materiale_id as number]));
+      setDoppione(await cercaDoppione(fid, ddt.numeroDdt));
+    }
+    const nuove = abbina(ddt, materiali, ricordati);
+    setRighe((rr) => nuove.map((n, i) => (rr[i] && ["scelto", "libera"].includes(rr[i].stato) ? rr[i] : n)));
+    setStato(elenco.some((f) => f.id === fid) ? "" : "Fornitore non trovato in anagrafica: sceglilo dall'elenco o crealo");
+  };
+
+  const creaFornitore = async () => {
+    const nome = nuovoFornitore.nome.trim();
+    if (!nome) return;
+    setInCorso(true);
+    const { data, error } = await supabase.from("fornitori").insert({ nome, piva: nuovoFornitore.piva.trim() || null }).select("id, nome, piva, email, tipologia_pagamento").single();
+    setInCorso(false);
+    if (error) return setStato("Errore: fornitore non creato: " + error.message);
+    const elenco = [...fornitori, data as Rec];
+    setFornitori(elenco);
+    await applicaFornitore((data as Rec).id, elenco);
+  };
 
   // Righe come verranno salvate nel DDT (stessi calcoli della scheda)
   const cfg = ARCHIVI.ddt_acquisto;
@@ -161,7 +221,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
   const totali = cfg.calcolaTotali!({}, righeDdt);
 
   const daConfermare = righe.filter((r) => !r.confermata).length;
-  const bloccato = !ddt || ddt.errori.length > 0 || !!doppione || !fornitore || daConfermare > 0;
+  const bloccato = !ddt || ddt.errori.length > 0 || !!doppione || !fornitore || daConfermare > 0 || !ddt.numeroDdt.trim() || !ddt.data;
 
   // Tipologia di pagamento: dalla scheda del fornitore o, se vuota, dall'ultimo DDT dello stesso fornitore
   const tipologiaPagamento = async (f: Rec) => {
@@ -199,13 +259,20 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
     if (!ddt || !fornitore || !file || bloccato) return;
     setInCorso(true);
     try {
+      // Il numero può essere stato appena corretto a mano: ultimo controllo dei doppioni
+      const gia = await cercaDoppione(fornitore.id, ddt.numeroDdt);
+      if (gia) {
+        setDoppione(gia);
+        setInCorso(false);
+        return;
+      }
       const finali = righe.map((r) => ({ ...r }));
       // 1. Nuovi materiali (codice interno progressivo)
       const nuovi = finali.filter((r) => r.stato === "nuovo");
       if (nuovi.length) {
         setStato("Creazione dei nuovi materiali…");
         // Un solo materiale per codice, anche se il codice compare in più righe
-        const unici = [...new Map(nuovi.map((r) => [norm(r.pdf.codice), r])).values()];
+        const unici = [...new Map(nuovi.map((r) => [chiaveRiga(r.pdf), r])).values()];
         // Codice interno: quello del fornitore (CLLAT) oppure il progressivo a 6 cifre
         const dalFornitore = !!ddt.codiceInternoDalFornitore;
         const progressivi = dalFornitore ? [] : await prossimiCodiciInterni(unici.length);
@@ -218,15 +285,16 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
           codice_interno: dalFornitore ? r.pdf.codice : progressivi[k],
           descrizione: r.nuovaDescrizione.trim() || r.pdf.descrizione,
           unita_misura: r.nuovaUm || "Pz",
-          [`fornitore${slot}`]: fornitore.nome, [`codice_fornitore${slot}`]: r.pdf.codice,
+          [`fornitore${slot}`]: fornitore.nome, [`codice_fornitore${slot}`]: r.pdf.codice || null,
           prezzo_base: r.pdf.prezzo, ricarico: 35, prezzo_ricaricato: r4(r.pdf.prezzo * 1.35), giacenza: 0,
         }))).select("*");
         if (error) throw new Error("Nuovi materiali: " + error.message);
-        const creato = new Map(unici.map((r, k) => [norm(r.pdf.codice), data![k] as Rec]));
-        for (const r of nuovi) { r.materiale = creato.get(norm(r.pdf.codice))!; r.stato = "scelto"; }
+        const creato = new Map(unici.map((r, k) => [chiaveRiga(r.pdf), data![k] as Rec]));
+        for (const r of nuovi) { r.materiale = creato.get(chiaveRiga(r.pdf))!; r.stato = "scelto"; }
       }
       // 2. Abbinamenti da ricordare e codice fornitore nei materiali che non lo hanno
-      const daRicordare = finali.filter((r) => r.materiale && ["scelto", "proposta", "multipli", "simili"].includes(r.stato));
+      // Senza codice del fornitore non c'è nulla da ricordare
+      const daRicordare = finali.filter((r) => r.materiale && valido(r.pdf.codice) && ["scelto", "proposta", "multipli", "simili"].includes(r.stato));
       if (daRicordare.length) {
         const { error } = await supabase.from("abbinamenti_fornitore").upsert(
           [...new Map(daRicordare.map((r) => [norm(r.pdf.codice), { fornitore_id: fornitore.id, codice: r.pdf.codice, materiale_id: r.materiale!.id }])).values()],
@@ -265,12 +333,12 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
       }
       // 4. PDF originale conservato con il DDT
       setStato("Archiviazione del PDF…");
-      const percorso = `${nuovo.id}/DDT ${ddt.numeroDdt}.pdf`;
+      const percorso = `${nuovo.id}/DDT ${ddt.numeroDdt.replace(/[/\\]/g, "-")}.pdf`;
       const up = await supabase.storage.from("ddt_acquisto").upload(percorso, file, { contentType: "application/pdf", upsert: true });
       if (!up.error) await supabase.from("ddt_acquisto").update({ pdf: percorso }).eq("id", nuovo.id);
-      await registra("ddt_acquisto_da_pdf", { id: nuovo.id, fornitore: fornitore.nome, numero_ddt: ddt.numeroDdt, righe: righeFinali.length, nuovi_materiali: new Set(nuovi.map((r) => norm(r.pdf.codice))).size });
+      await registra("ddt_acquisto_da_pdf", { id: nuovo.id, fornitore: fornitore.nome, numero_ddt: ddt.numeroDdt, righe: righeFinali.length, nuovi_materiali: new Set(nuovi.map((r) => chiaveRiga(r.pdf))).size });
       const messaggio = `DDT n. ${ddt.numeroDdt} del ${ddt.data.split("-").reverse().join("/")} salvato: ${righeFinali.length} righe, totale ${euro(tot.totale)}` +
-        (nuovi.length ? `, ${new Set(nuovi.map((r) => norm(r.pdf.codice))).size} nuovi materiali` : "") + (up.error ? " (PDF non archiviato: " + up.error.message + ")" : "");
+        (nuovi.length ? `, ${new Set(nuovi.map((r) => chiaveRiga(r.pdf))).size} nuovi materiali` : "") + (up.error ? " (PDF non archiviato: " + up.error.message + ")" : "");
       setFatti((f) => [...f, messaggio]);
       setStato(messaggio);
       onFinito();
@@ -314,7 +382,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
               onClick={() => !inCorso && fileRef.current?.click()}
             >
               <b>Trascina qui il PDF del DDT</b> (anche più di uno) oppure clicca per sceglierlo.
-              <div className="piccolo">Fornitori riconosciuti: {MODELLI_DISPONIBILI.join(", ")}</div>
+              <div className="piccolo">Lettura dedicata: {MODELLI_DISPONIBILI.join(", ")}. Altri fornitori: lettura automatica da controllare. Le scansioni non si possono leggere.</div>
             </div>
           )}
           <input ref={fileRef} type="file" accept=".pdf,application/pdf" multiple hidden onChange={(e) => {
@@ -328,15 +396,34 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
             <>
               <div className="testata-ddt-pdf">
                 <label>Fornitore
-                  <select value={fornitoreId ?? ""} onChange={(e) => setFornitoreId(e.target.value ? Number(e.target.value) : null)}>
+                  <select value={fornitoreId ?? ""} onChange={(e) => applicaFornitore(e.target.value ? Number(e.target.value) : null)}>
                     <option value="">— scegli —</option>
                     {[...fornitori].sort((a, b) => String(a.nome).localeCompare(String(b.nome))).map((f) => <option key={f.id} value={f.id}>{String(f.nome)}</option>)}
                   </select>
                 </label>
-                <label>Numero DDT<input readOnly value={ddt.numeroDdt} /></label>
-                <label>Data<input readOnly value={ddt.data.split("-").reverse().join("/")} /></label>
+                {ddt.generico ? (
+                  <>
+                    <label>Numero DDT<input value={ddt.numeroDdt}
+                      onChange={(e) => setDdt({ ...ddt, numeroDdt: e.target.value })}
+                      onBlur={async () => setDoppione(fornitoreId ? await cercaDoppione(fornitoreId, ddt.numeroDdt) : "")} /></label>
+                    <label>Data<input type="date" value={ddt.data} onChange={(e) => setDdt({ ...ddt, data: e.target.value })} /></label>
+                  </>
+                ) : (
+                  <>
+                    <label>Numero DDT<input readOnly value={ddt.numeroDdt} /></label>
+                    <label>Data<input readOnly value={ddt.data.split("-").reverse().join("/")} /></label>
+                  </>
+                )}
                 <button type="button" className="btn grigio" onClick={() => window.open(urlPdf, "_blank")}>Apri il PDF</button>
               </div>
+              {ddt.generico && !fornitore && (
+                <div className="nuovo-materiale">
+                  <span className="piccolo">Nuovo fornitore:</span>
+                  <input value={nuovoFornitore.nome} placeholder="Ragione sociale" onChange={(e) => setNuovoFornitore({ ...nuovoFornitore, nome: e.target.value })} />
+                  <input value={nuovoFornitore.piva} placeholder="Partita IVA" onChange={(e) => setNuovoFornitore({ ...nuovoFornitore, piva: e.target.value })} />
+                  <button type="button" className="btn verde piccolo-btn" disabled={inCorso || !nuovoFornitore.nome.trim()} onClick={creaFornitore}>Crea fornitore</button>
+                </div>
+              )}
               {ddt.note && <div className="piccolo">Note: {ddt.note.split("\n").join(" · ")}</div>}
               {ddt.errori.map((e) => <p key={e} className="errore">⛔ {e}</p>)}
               {doppione && <p className="errore">⛔ {doppione}</p>}
