@@ -64,7 +64,7 @@ export default function PulsanteVoce() {
   };
 
   return (
-    <div className="voce">
+    <div className="comando-voce">
       {messaggio && <div className="voce-messaggio" role="status">{messaggio}</div>}
       <button type="button" className={`voce-pulsante${ascolto ? " attivo" : ""}`} aria-label={ascolto ? "Smetti di ascoltare" : "Comando vocale"} title="Comando vocale"
         onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={avvia}>

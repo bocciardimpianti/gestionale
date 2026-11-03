@@ -821,7 +821,7 @@ input, select, button { border-radius: 6px; }
 .cornice .whatsapp:hover { color: var(--petrolio); }
 
 /* Comandi vocali */
-.voce { position: fixed; z-index: 95; left: 50%; bottom: 2px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.comando-voce { position: fixed; z-index: 95; left: 50%; bottom: 2px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
 .voce-pulsante { pointer-events: auto; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: var(--petrolio); color: #fff; display: grid; place-items: center; box-shadow: 0 3px 10px rgba(18, 59, 69, .4); }
 .voce-pulsante:hover { background: var(--petrolio-chiaro); }
 .voce-pulsante.attivo { background: var(--ruggine); box-shadow: 0 0 0 5px rgba(181, 67, 31, .28); }
@@ -883,17 +883,17 @@ input, select, button { border-radius: 6px; }
   .velo-menu { inset: 60px 0 0 0; }
   .laterale .voce { height: 46px; font-size: 16px; }
   .laterale .gruppo { min-height: 40px; }
-  .voce { left: auto; right: 12px; bottom: calc(72px + env(safe-area-inset-bottom)); transform: none; align-items: flex-end; }
+  .comando-voce { left: auto; right: 12px; bottom: calc(72px + env(safe-area-inset-bottom)); transform: none; align-items: flex-end; }
   .voce-pulsante { width: 50px; height: 50px; }
   .voce-messaggio { max-width: calc(100vw - 24px); }
   /* Con una finestra aperta il microfono sta nella barra del titolo, senza coprire l'elenco */
-  body:has(.velo) .voce { top: calc(var(--scarto-visibile, 0px) + 4px); bottom: auto; right: 56px; flex-direction: column-reverse; }
+  body:has(.velo) .comando-voce { top: calc(var(--scarto-visibile, 0px) + 4px); bottom: auto; right: 56px; flex-direction: column-reverse; }
   body:has(.velo) .voce-pulsante { width: 44px; height: 44px; background: var(--petrolio-chiaro); box-shadow: none; }
   body:has(.velo) .voce-pulsante.attivo { background: var(--ruggine); }
   .finestra-titolo, .scheda-titolo { padding-right: 8px; }
   .finestra-titolo { padding-left: 12px; }
   .scheda-titolo > span:first-child { max-width: calc(100% - 110px); }
-  body:has(.ricerca-telefono) .voce, body:has(.menu-riga) .voce { display: none; }
+  body:has(.ricerca-telefono) .comando-voce, body:has(.menu-riga) .comando-voce { display: none; }
   /* Tastiera aperta: tutto lo spazio ai risultati */
   .tastiera-aperta .opzioni-materiali, .tastiera-aperta .finestra-materiali .finestra-titolo { display: none; }
   .tastiera-aperta .finestra-materiali .finestra-corpo.cerca-materiale { padding-top: 6px; gap: 4px; }
@@ -901,7 +901,8 @@ input, select, button { border-radius: 6px; }
   .tastiera-aperta .finestra-materiali .finestra-piede { padding: 4px 12px; }
   .tastiera-aperta .finestra-materiali .finestra-piede .btn { min-height: 38px; }
   .tastiera-aperta .finestra-materiali .finestra-piede .ok { display: none; }
-  .tastiera-aperta body:has(.finestra-materiali) .voce { display: none; }
+  body:has(.finestra-materiali) .comando-voce { }
+  .tastiera-aperta:has(.finestra-materiali) .comando-voce { display: none; }
   .filtri-categoria button { min-height: 40px; padding: 4px 12px; font-size: 14px; }
   .filtro-marca select { height: 40px; max-width: 150px; font-size: 14px; }
   .laterale .utente .esci { min-height: 44px; }
