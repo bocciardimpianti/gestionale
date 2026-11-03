@@ -123,7 +123,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   );
   const colonne = useMemo(() => cfg.colonne.filter((c) => !nascoste.includes(c.chiave)), [cfg.colonne, nascoste]);
   const rigaSel = righeVista.find((r) => r.id === selezionata);
-  const nomeDi = (r: Riga) => String(r[cfg.colonne[0].chiave] ?? "");
+  // Nome leggibile nelle conferme: il cliente o la descrizione invece, per esempio, della data
+  const colonnaNome = cfg.colonne.find((c) => /nome|fornitore|cliente|descrizione|impianto/i.test(c.chiave)) ?? cfg.colonne[0];
+  const nomeDi = (r: Riga) => String(r[colonnaNome.chiave] ?? r[cfg.colonne[0].chiave] ?? "");
 
   const aggiorna = async (id: number, campi: Record<string, unknown>, azione: string, nome: string) => {
     const { error } = await supabase.from(cfg.tabella).update(campi).eq("id", id);
@@ -440,6 +442,17 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         ricerca={ricerca}
         colonnaRicerca={colonnaRicerca}
         onSpunta={!nelCestino && puo(cfg.sezione, "modificare") ? spunta : undefined}
+        azioniRiga={(r) => [
+          { testo: "Apri", esegui: () => setScheda(r) },
+          ...(puo(cfg.sezione, "eliminare")
+            ? nelCestino
+              ? [
+                  { testo: "Ripristina", esegui: () => ripristina(r) },
+                  { testo: "Elimina definitivamente", pericolo: true, esegui: () => eliminaDefinitivo(r) },
+                ]
+              : [{ testo: "Elimina", pericolo: true, esegui: () => spostaNelCestino(r) }]
+            : []),
+        ]}
       />
       </div>
 

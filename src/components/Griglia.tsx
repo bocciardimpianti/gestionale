@@ -38,6 +38,8 @@ interface Props {
   colonnaRicerca?: string;
   // Caselle "spuntabili" (es. Pagato): clic sulla casella senza aprire la scheda
   onSpunta?: (riga: Riga, chiave: string, valore: boolean) => void;
+  // Telefono: azioni mostrate tenendo premuto il dito su una riga
+  azioniRiga?: (riga: Riga) => { testo: string; pericolo?: boolean; esegui: () => void }[];
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -49,7 +51,7 @@ const mostra = (c: Colonna, r: Riga) =>
   : c.tipo === "numero" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : Number(r[c.chiave]).toLocaleString("it-IT")) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta }: Props) {
+export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga }: Props) {
   const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
   // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record
@@ -57,6 +59,29 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
   const [finestra, setFinestra] = useState({ alto: 0, altezza: 900 });
   const telefono = useTelefono();
   const [quanti, setQuanti] = useState(60);
+  // Tocco prolungato sul telefono
+  const [menuRiga, setMenuRiga] = useState<Riga | null>(null);
+  const pressione = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const premutoALungo = useRef(false);
+  const fermaPressione = () => {
+    if (pressione.current) clearTimeout(pressione.current.timer);
+    pressione.current = null;
+  };
+  const apriMenuRiga = (r: Riga) => {
+    fermaPressione();
+    premutoALungo.current = true;
+    // Quando il dito si alza il browser può generare un tocco sul menu appena comparso: viene ignorato
+    const fine = () => {
+      window.removeEventListener("pointerup", fine);
+      window.removeEventListener("pointercancel", fine);
+      setTimeout(() => { premutoALungo.current = false; }, 400);
+    };
+    window.addEventListener("pointerup", fine);
+    window.addEventListener("pointercancel", fine);
+    onSeleziona(r.id);
+    setMenuRiga(r);
+    navigator.vibrate?.(30);
+  };
   useEffect(() => {
     const el = scorri.current;
     if (!el) return;
@@ -149,7 +174,29 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
               .slice(0, 3);
             return (
               <div key={r.id} className={`riga-telefono${r.id === selezionata ? " attiva" : ""}`}>
-                <button type="button" className="riga-telefono-apri" onClick={() => { onSeleziona(r.id); onApri(r); }}>
+                <button type="button" className="riga-telefono-apri"
+                  onPointerDown={(e) => {
+                    premutoALungo.current = false;
+                    fermaPressione();
+                    if (azioniRiga) pressione.current = { x: e.clientX, y: e.clientY, timer: window.setTimeout(() => apriMenuRiga(r), 550) };
+                  }}
+                  onPointerMove={(e) => {
+                    // Il dito si sta muovendo: si sta scorrendo l'elenco
+                    const p = pressione.current;
+                    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) fermaPressione();
+                  }}
+                  onPointerUp={fermaPressione}
+                  onPointerCancel={fermaPressione}
+                  onContextMenu={(e) => {
+                    // Android segnala il tocco prolungato anche così: niente menu del browser
+                    e.preventDefault();
+                    if (azioniRiga && !menuRiga) apriMenuRiga(r);
+                  }}
+                  onClick={() => {
+                    if (premutoALungo.current) { premutoALungo.current = false; return; }
+                    onSeleziona(r.id);
+                    onApri(r);
+                  }}>
                   {colFoto && (
                     <span className="riga-telefono-foto">
                       {typeof r[colFoto.chiave] === "string" && r[colFoto.chiave] ? <Miniatura percorso={r[colFoto.chiave] as string} archivio={colFoto.archivio!} /> : <Camera size={22} />}
@@ -179,6 +226,19 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
           })}
           {!visibili.length && <p className="vuoto-linguetta">Nessun elemento trovato.</p>}
         </div>
+        {menuRiga && azioniRiga && (
+          <div className="velo menu-riga-velo"
+            onClickCapture={(e) => { if (premutoALungo.current) { premutoALungo.current = false; e.stopPropagation(); } }}
+            onClick={() => setMenuRiga(null)}>
+            <div className="menu-riga" role="menu" aria-label={colTitolo ? mostra(colTitolo, menuRiga) : "Azioni"} onClick={(e) => e.stopPropagation()}>
+              <div className="menu-riga-titolo">{colTitolo ? mostra(colTitolo, menuRiga) : ""}</div>
+              {azioniRiga(menuRiga).map((a) => (
+                <button type="button" role="menuitem" key={a.testo} className={a.pericolo ? "pericolo" : ""} onClick={() => { setMenuRiga(null); a.esegui(); }}>{a.testo}</button>
+              ))}
+              <button type="button" role="menuitem" onClick={() => setMenuRiga(null)}>Annulla</button>
+            </div>
+          </div>
+        )}
         {colonne.some((c) => c.somma) && (
           <div className="griglia-piede">
             {colonne.filter((c) => c.somma).map((c) => (
