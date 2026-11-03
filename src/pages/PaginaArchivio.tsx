@@ -11,6 +11,7 @@ import Griglia from "../components/Griglia";
 import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
+import { categoriaDa } from "../categorie";
 import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
 
@@ -136,6 +137,31 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     await registra(`${cfg.sezione}_${azione}`, { id, nome });
     await carica();
     return true;
+  };
+
+  // Propone la categoria a tutti i materiali che non ne hanno una: quelle già scelte non cambiano
+  const assegnaCategorie = async () => {
+    const senza = righe.filter((r) => !r.categoria);
+    if (!senza.length) return setMessaggio("Tutti i materiali hanno già una categoria.");
+    if (!confirm(`Assegnare la categoria a ${senza.length} materiali in base alla descrizione?\n\nQuelli incerti finiscono in "Da controllare". Le categorie si possono cambiare in ogni scheda.`)) return;
+    const gruppi = new Map<string, number[]>();
+    for (const r of senza) {
+      const c = categoriaDa(r.descrizione);
+      gruppi.set(c, [...(gruppi.get(c) ?? []), r.id]);
+    }
+    let fatti = 0;
+    for (const [categoria, ids] of gruppi) {
+      for (let i = 0; i < ids.length; i += 200) {
+        const parte = ids.slice(i, i + 200);
+        const { error } = await supabase.from(cfg.tabella).update({ categoria }).in("id", parte);
+        if (error) return setMessaggio(`Errore: ${error.message} (assegnati ${fatti} su ${senza.length})`);
+        fatti += parte.length;
+        setMessaggio(`Assegnazione categorie… ${fatti} di ${senza.length}`);
+      }
+    }
+    await registra("materiali_categorie_assegnate", { quanti: fatti });
+    setMessaggio(`Categorie assegnate a ${fatti} materiali. I dubbi sono in Archivi → Categorie da controllare.`);
+    carica();
   };
 
   const spostaNelCestino = async (r: Riga) => {
@@ -383,6 +409,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
             {(menu === "azioni" || menu === "tabella") && (
               <div className="voci con-icone">
                 {voce(RefreshCw, "#b59b1b", "Aggiorna", carica)}
+                {cfg.sezione === "materiali" && voce(Filter, "#3a7dc0", "Assegna categorie automatiche", assegnaCategorie, profilo?.ruolo === "admin")}
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
                 {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
                 {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}

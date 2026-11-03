@@ -2,6 +2,7 @@ import type { Colonna } from "./components/Griglia";
 import { dataIso, prossimiCodiciInterni, supabase } from "./supabase";
 import { stampaPreventivo, stampaRapporto } from "./stampe";
 import { COLORI_STATO, euro } from "./components/Griglia";
+import { CATEGORIE, DA_CONTROLLARE, categoriaDa } from "./categorie";
 
 export interface Campo {
   chiave: string;
@@ -521,12 +522,19 @@ export const ARCHIVI: Record<string, Archivio> = {
     tabella: "materiali",
     chiaveImport: ["codice_interno", "descrizione"],
     ordineIniziale: { chiave: "codice_interno", su: true },
-    quandoCambia: prezzoRicaricato,
+    // Nuova descrizione senza categoria: viene proposta subito, si può sempre cambiare
+    quandoCambia: (dati, chiave) => ({
+      ...prezzoRicaricato(dati, chiave),
+      ...(chiave === "descrizione" && !dati.categoria ? { categoria: categoriaDa(dati.descrizione) } : {}),
+    }),
     valoriNuovo: async () => ({
       codice_interno: (await prossimiCodiciInterni().catch(() => [""]))[0] || null,
       ricarico: 35, prezzo_base: 0, prezzo_ricaricato: 0, giacenza: 0, giacenza_minima: 0,
     }),
     visteRapide: [{
+      nome: "Categorie da controllare",
+      filtro: (r) => !r.categoria || r.categoria === DA_CONTROLLARE,
+    }, {
       // Le giacenze più negative sono gli articoli più usati in ReportOne
       nome: "Senza foto (più usati prima)",
       filtro: (r) => !r.foto && !/^(ore |foro |manutenzione|imprevist|perdit|material[ei] vari|ferramenta)/i.test(String(r.descrizione ?? "")),
@@ -594,6 +602,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "foto", titolo: "Fotografia", excel: "Fotografia", larghezza: 40, tipo: "miniatura", archivio: "materiali" },
       { chiave: "codice_interno", titolo: "Codice Interno", excel: "Codice Interno", larghezza: 66 },
       { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 550 },
+      { chiave: "categoria", titolo: "Categoria", excel: "Categoria", larghezza: 130 },
       { chiave: "nome_articolo", titolo: "Nome Articolo", excel: "Nome Articolo", larghezza: 69 },
       { chiave: "fornitore1", titolo: "Fornitore 1", excel: "Fornitore 1", larghezza: 65 },
       { chiave: "codice_fornitore1", titolo: "Codice Fornitore 1", excel: "Codice Fornitore 1", larghezza: 162 },
@@ -622,6 +631,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "codice_fornitore1", etichetta: "Codice Fornitore 1", larghezza: 2 },
       { chiave: "fornitore2", etichetta: "Fornitore 2", larghezza: 2, suggerimentiDa: "fornitori" },
       { chiave: "codice_fornitore2", etichetta: "Codice Fornitore 2", larghezza: 2 },
+      { chiave: "categoria", etichetta: "Categoria", tipo: "scelta", opzioniFisse: CATEGORIE, larghezza: 2 },
       { chiave: "unita_misura", etichetta: "UM", tipo: "scelta", opzioniDa: "unita_misura", titoloOpzioni: "Unità di misura", larghezza: 1, finisciRiga: true },
       { chiave: "nome_articolo", etichetta: "Nome Articolo", larghezza: 2 },
       { chiave: "codice_barre", etichetta: "Codice a barre", larghezza: 2 },
