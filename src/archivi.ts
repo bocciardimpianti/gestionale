@@ -413,7 +413,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 131, riferimento: { campo: "tecnico_id", tabella: "tecnici" } },
       { chiave: "tecnico_vecchio", titolo: "Tecnico Vecchio", excel: "Tecnico Vecchio", larghezza: 70 },
       { chiave: "attivita", titolo: "Attività svolte", excel: "Attività svolte", larghezza: 202 },
-      { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 74, tipo: "euro" },
+      { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 74, tipo: "euro", somma: true },
       { chiave: "azzera_imponibile", titolo: "Azzera Imponibile", excel: "Azzera Imponibile", larghezza: 45, tipo: "booleano" },
       { chiave: "fatto_conto", titolo: "Fatto conto", excel: "Fatto conto", larghezza: 45 },
       { chiave: "pagata", titolo: "Pagata", excel: "Pagata", larghezza: 49, tipo: "booleano" },
