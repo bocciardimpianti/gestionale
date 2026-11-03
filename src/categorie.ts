@@ -65,3 +65,23 @@ export function categoriaDa(descrizione: unknown): string {
   if ((trovata === "Tubi" || trovata === "Raccordi") && (SCARICO.test(testo) || (marca === "VALS" && !/PEXAL/.test(testo)))) return "Scarichi";
   return trovata;
 }
+
+// Colore di ogni categoria: scuro abbastanza da reggere il testo bianco sul pulsante attivo
+export const COLORI_CATEGORIA: Record<string, string> = {
+  Tubi: "#1d5fa8",
+  Raccordi: "#0e7c86",
+  Scarichi: "#7a5a2e",
+  "Lavori e servizi": "#5a6c71",
+  "Sicurezza, TV e automazioni": "#7a3fa0",
+  Illuminazione: "#a66a00",
+  "Quadri e interruttori": "#b3261e",
+  "Serie civili": "#b5306e",
+  "Cavi e canaline": "#4d6b1f",
+  "Clima e ventilazione": "#0b7a53",
+  "Riscaldamento e fumi": "#c2410c",
+  "Sanitari e rubinetteria": "#3f51c7",
+  "Valvole, pompe e filtri": "#00687a",
+  "Fissaggio e consumabili": "#6d5f52",
+  [DA_CONTROLLARE]: "#3c4a4f",
+};
+export const coloreCategoria = (categoria: unknown) => COLORI_CATEGORIA[String(categoria ?? "")] ?? "#8a9599";

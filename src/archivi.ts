@@ -602,7 +602,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "foto", titolo: "Fotografia", excel: "Fotografia", larghezza: 40, tipo: "miniatura", archivio: "materiali" },
       { chiave: "codice_interno", titolo: "Codice Interno", excel: "Codice Interno", larghezza: 66 },
       { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 550 },
-      { chiave: "categoria", titolo: "Categoria", excel: "Categoria", larghezza: 130 },
+      { chiave: "categoria", titolo: "Categoria", excel: "Categoria", larghezza: 170, tipo: "categoria" },
       { chiave: "nome_articolo", titolo: "Nome Articolo", excel: "Nome Articolo", larghezza: 69 },
       { chiave: "fornitore1", titolo: "Fornitore 1", excel: "Fornitore 1", larghezza: 65 },
       { chiave: "codice_fornitore1", titolo: "Codice Fornitore 1", excel: "Codice Fornitore 1", larghezza: 162 },

@@ -12,6 +12,7 @@ import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import { categoriaDa } from "../categorie";
+import FiltriCategoria from "../components/FiltriCategoria";
 import { linkWhatsapp } from "../whatsapp";
 import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
@@ -84,6 +85,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   // Colonna in cui cercare ("" = tutte)
   const [colonnaRicerca, setColonnaRicerca] = useState("");
   const [galleria, setGalleria] = useState(false);
+  const [categoriaRapida, setCategoriaRapida] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const carica = useCallback(async () => {
@@ -122,6 +124,20 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         : !r.eliminato_il && (idArchivio === null || r.archivio_id === idArchivio) && (!rapida || rapida.filtro(r)),
     ),
     [righe, nelCestino, idArchivio, rapida],
+  );
+  // Materiali: pulsanti rapidi per categoria (se manca quella salvata vale quella proposta dalla descrizione)
+  const categoriaDiRiga = (r: Riga) => String(r.categoria || categoriaDa(r.descrizione));
+  const conteggiCategorie = useMemo(() => {
+    const conta = new Map<string, number>();
+    if (cfg.sezione === "materiali") for (const r of righeVista) {
+      const c = categoriaDiRiga(r);
+      conta.set(c, (conta.get(c) ?? 0) + 1);
+    }
+    return conta;
+  }, [cfg.sezione, righeVista]);
+  const righeFiltrate = useMemo(
+    () => (categoriaRapida ? righeVista.filter((r) => categoriaDiRiga(r) === categoriaRapida) : righeVista),
+    [righeVista, categoriaRapida],
   );
   const colonne = useMemo(() => cfg.colonne.filter((c) => !nascoste.includes(c.chiave)), [cfg.colonne, nascoste]);
   const rigaSel = righeVista.find((r) => r.id === selezionata);
@@ -454,6 +470,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       }} />
       {messaggio && <p className={messaggio.startsWith("Errore") ? "errore" : "ok"}>{messaggio}</p>}
 
+      {cfg.sezione === "materiali" && <FiltriCategoria valore={categoriaRapida} onCambia={setCategoriaRapida} conteggi={conteggiCategorie} />}
+
       {galleria && cfg.galleria && (
         <Galleria cfg={cfg} righe={visibili} archivio={cfg.sezione} onApri={(r) => setScheda(r)} />
       )}
@@ -461,7 +479,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       <Griglia
         key={vista.tipo + (vista.tipo === "archivio" ? vista.id : vista.tipo === "rapida" ? vista.indice : "")}
         colonne={colonne}
-        righe={righeVista}
+        righe={righeFiltrate}
         selezionata={selezionata}
         onSeleziona={setSelezionata}
         onApri={(r) => setScheda(r)}

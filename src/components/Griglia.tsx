@@ -3,6 +3,7 @@ import { Camera, Filter } from "lucide-react";
 import { dataIt } from "../supabase";
 import { Miniatura } from "./CampoImmagine";
 import { useTelefono } from "../telefono";
+import { coloreCategoria } from "../categorie";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
@@ -13,7 +14,7 @@ export interface Colonna {
   chiave: string;
   titolo: string;
   larghezza: number;
-  tipo?: "data" | "booleano" | "euro" | "immagine" | "miniatura" | "numero" | "percentuale" | "stato";
+  tipo?: "data" | "booleano" | "euro" | "immagine" | "miniatura" | "numero" | "percentuale" | "stato" | "categoria";
   // Per le miniature: archivio file in cui si trova l'immagine
   archivio?: string;
   // Caselle che si possono spuntare direttamente nella griglia (es. Pagato)
@@ -211,7 +212,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
                       {colImporto && <b className="importo">{mostra(colImporto, r)}</b>}
                     </span>
                     {dettagli.map(({ c, v }) => (
-                      <span key={c.chiave} className="riga-telefono-dettaglio">{c.tipo === "numero" || c.tipo === "percentuale" ? `${c.titolo} ${v}` : v}</span>
+                      <span key={c.chiave} className="riga-telefono-dettaglio">{c.tipo === "categoria" && <span className="pallino-categoria" style={{ background: coloreCategoria(v) }} />}{c.tipo === "numero" || c.tipo === "percentuale" ? `${c.titolo} ${v}` : v}</span>
                     ))}
                     {colStato && r[colStato.chiave] ? (
                       <span className="riga-telefono-dettaglio"><span className="quadratino" style={{ background: COLORI_STATO[testo(r[colStato.chiave])] ?? "#999" }} />{testo(r[colStato.chiave])}</span>
@@ -344,6 +345,10 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
                     </td>
                   ) : c.tipo === "immagine" ? (
                     <td key={c.chiave} className="centrata">{r[c.chiave] ? <Camera size={13} color="#8a6d3b" /> : null}</td>
+                  ) : c.tipo === "categoria" ? (
+                    <td key={c.chiave} title={testo(r[c.chiave])}>
+                      {r[c.chiave] ? <><span className="pallino-categoria" style={{ background: coloreCategoria(r[c.chiave]) }} />{testo(r[c.chiave])}</> : null}
+                    </td>
                   ) : c.tipo === "stato" ? (
                     <td key={c.chiave} title={testo(r[c.chiave])}>
                       {r[c.chiave] ? <><span className="quadratino" style={{ background: COLORI_STATO[testo(r[c.chiave])] ?? "#999" }} />{testo(r[c.chiave])}</> : null}

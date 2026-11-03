@@ -833,6 +833,14 @@ input, select, button { border-radius: 6px; }
 .filtri-categoria { display: flex; gap: 6px; overflow-x: auto; flex: none; padding: 2px 0 6px; }
 .filtri-categoria button { flex: none; padding: 4px 10px; border-radius: 99px; font-size: 13px; white-space: nowrap; }
 .filtri-categoria button.attiva { background: var(--petrolio); border-color: var(--petrolio); color: #fff; }
+.filtri-categoria button { display: inline-flex; align-items: center; gap: 6px; background: var(--carta); }
+.filtri-categoria button:hover { background: var(--sfondo); }
+.filtri-categoria button.attiva:hover { filter: brightness(1.1); }
+.pallino-categoria { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.filtri-categoria .pallino-categoria { margin-right: 0; }
+.conteggio-categoria { font-size: 11.5px; opacity: .75; }
+@media (min-width: 761px) { .filtri-categoria { flex-wrap: wrap; overflow: visible; } }
+.pagina-archivio > .filtri-categoria { margin-bottom: 8px; }
 .filtro-marca { flex-direction: row; align-items: center; gap: 6px; }
 .filtro-marca select { max-width: 170px; }
 
@@ -936,6 +944,7 @@ input, select, button { border-radius: 6px; }
   /* Elenchi */
   .elenco-telefono { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .elenco-telefono-barra { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; font-size: 13px; color: var(--tenue); }
+  .elenco-telefono-barra > span, .elenco-telefono-barra label { white-space: nowrap; }
   .elenco-telefono-barra label { margin-left: auto; flex-direction: row; align-items: center; gap: 6px; min-width: 0; }
   .elenco-telefono-barra select { max-width: 145px; height: 40px; font-size: 14px; }
   .elenco-telefono-barra .verso { width: 40px; height: 40px; padding: 0; }

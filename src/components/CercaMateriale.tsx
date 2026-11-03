@@ -3,7 +3,8 @@ import { leggiTutto } from "../supabase";
 import { euro } from "./Griglia";
 import { Miniatura } from "./CampoImmagine";
 import { useTelefono } from "../telefono";
-import { CATEGORIE, categoriaDa, marcaDi } from "../categorie";
+import { categoriaDa, coloreCategoria, marcaDi } from "../categorie";
+import FiltriCategoria from "./FiltriCategoria";
 
 type Materiale = Record<string, unknown> & { id: number };
 
@@ -171,12 +172,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
               else if (e.key === "Enter" && filtrati[evidenziato]) { e.preventDefault(); scegli(filtrati[evidenziato]); }
             }}
           />
-          <div className="filtri-categoria" role="group" aria-label="Categoria">
-            <button type="button" className={categoria ? "" : "attiva"} aria-pressed={!categoria} onClick={() => { setCategoria(""); setMarca(""); }}>Tutte</button>
-            {CATEGORIE.map((c) => (
-              <button type="button" key={c} className={categoria === c ? "attiva" : ""} aria-pressed={categoria === c} onClick={() => { setCategoria(categoria === c ? "" : c); setMarca(""); }}>{c}</button>
-            ))}
-          </div>
+          <FiltriCategoria valore={categoria} onCambia={(c) => { setCategoria(c); setMarca(""); }} />
           <div className="opzioni-materiali">
             <label className="filtro-marca">Marca
               <select value={marca} onChange={(e) => setMarca(e.target.value)}>
@@ -215,6 +211,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
                     <span className="riga-telefono-testi">
                       <b>{String(m.descrizione ?? "")}</b>
                       <span className="riga-telefono-dettaglio">Cod. {String(m.codice_interno ?? "")}</span>
+                      <span className="riga-telefono-dettaglio"><span className="pallino-categoria" style={{ background: coloreCategoria(categoriaDi(m)) }} />{categoriaDi(m)}</span>
                       <span className="riga-telefono-alta">
                         <span className="riga-telefono-dettaglio">Giacenza {Number(m.giacenza ?? 0).toLocaleString("it-IT")} {String(m.unita_misura ?? "")}</span>
                         <b className="importo">{euro(m.prezzo_ricaricato)}</b>
