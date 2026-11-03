@@ -56,7 +56,7 @@ export default function Utenti() {
 
       <table className="griglia">
         <thead>
-          <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Stato</th><th></th></tr>
+          <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Stato</th><th>WhatsApp</th><th></th></tr>
         </thead>
         <tbody>
           {utenti.map((u) => (
@@ -73,6 +73,13 @@ export default function Utenti() {
                 <label className="interruttore">
                   <input type="checkbox" checked={u.attivo} disabled={u.id === io?.id} onChange={(e) => aggiornaProfilo(u, { attivo: e.target.checked })} />
                   {u.attivo ? "Attivo" : "Disattivato"}
+                </label>
+              </td>
+              <td>
+                <label className="interruttore">
+                  <input type="checkbox" checked={u.ruolo === "admin" || !!u.whatsapp} disabled={u.ruolo === "admin"}
+                    onChange={(e) => aggiornaProfilo(u, { whatsapp: e.target.checked })} />
+                  {u.ruolo === "admin" ? "Sempre" : u.whatsapp ? "Sì" : "No"}
                 </label>
               </td>
               <td className="azioni">
@@ -106,12 +113,17 @@ export default function Utenti() {
 
 function NuovoUtente({ onChiudi, onCreato }: { onChiudi: () => void; onCreato: () => void }) {
   const [dati, setDati] = useState({ nome: "", email: "", password: "", ruolo: "standard" });
+  const [whatsapp, setWhatsapp] = useState(false);
   const [errore, setErrore] = useState("");
 
   const invia = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await adminUtenti("crea", dati);
+      const creato = await adminUtenti("crea", dati) as { id?: string } | null;
+      if (whatsapp && dati.ruolo === "standard" && creato?.id) {
+        const { error } = await supabase.from("profili").update({ whatsapp: true }).eq("id", creato.id);
+        if (error) throw new Error(`Utente creato, ma il permesso WhatsApp non è stato salvato: ${error.message}`);
+      }
       onCreato();
     } catch (err) {
       setErrore((err as Error).message);
@@ -137,6 +149,10 @@ function NuovoUtente({ onChiudi, onCreato }: { onChiudi: () => void; onCreato: (
           </select>
         </label>
       </div>
+      <label className="interruttore">
+        <input type="checkbox" checked={dati.ruolo === "admin" || whatsapp} disabled={dati.ruolo === "admin"} onChange={(e) => setWhatsapp(e.target.checked)} />
+        Può scrivere su WhatsApp a clienti e fornitori{dati.ruolo === "admin" ? " (sempre attivo per gli admin)" : ""}
+      </label>
       <p className="piccolo">Al primo accesso l'utente dovrà attivare la verifica in due passaggi.</p>
       {errore && <p className="errore">{errore}</p>}
       <button className="primario">Crea utente</button> <button type="button" onClick={onChiudi}>Annulla</button>

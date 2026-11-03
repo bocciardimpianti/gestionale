@@ -14,6 +14,7 @@ export interface Profilo {
   nome: string | null;
   ruolo: "admin" | "standard";
   attivo: boolean;
+  whatsapp?: boolean;
 }
 
 export interface Sezione {

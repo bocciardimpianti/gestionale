@@ -12,6 +12,7 @@ import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import { categoriaDa } from "../categorie";
+import { linkWhatsapp } from "../whatsapp";
 import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
 
@@ -50,7 +51,7 @@ function leggiNascoste(sezione: string): string[] {
 }
 
 export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
-  const { puo, profilo } = useAuth();
+  const { puo, profilo, puoWhatsapp } = useAuth();
   // Casella spuntata direttamente nella griglia (es. Pagato nello scadenziario): salvataggio immediato
   const spunta = async (r: Riga, chiave: string, valore: boolean) => {
     setRighe((rr) => rr.map((x) => (x.id === r.id ? { ...x, [chiave]: valore } : x)));
@@ -471,6 +472,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         onSpunta={!nelCestino && puo(cfg.sezione, "modificare") ? spunta : undefined}
         azioniRiga={(r) => [
           { testo: "Apri", esegui: () => setScheda(r) },
+          ...(puoWhatsapp && ["clienti", "fornitori"].includes(cfg.sezione) && (linkWhatsapp(r.cellulare) ?? linkWhatsapp(r.telefono))
+            ? [{ testo: "Scrivi su WhatsApp", esegui: () => window.open((linkWhatsapp(r.cellulare) ?? linkWhatsapp(r.telefono))!, "_blank", "noopener") }]
+            : []),
           ...(puo(cfg.sezione, "eliminare")
             ? nelCestino
               ? [

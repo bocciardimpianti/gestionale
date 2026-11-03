@@ -816,6 +816,10 @@ input, select, button { border-radius: 6px; }
 .impegno:hover { background: var(--ottanio-tenue); }
 .giorno-mese.oggi { background: #eef7f8; }
 
+/* WhatsApp nelle schede */
+.cornice .whatsapp { position: absolute; right: 26px; bottom: 6px; color: #128c4b; display: grid; place-items: center; }
+.cornice .whatsapp:hover { color: var(--petrolio); }
+
 /* Comandi vocali */
 .voce { position: fixed; z-index: 95; left: 50%; bottom: 2px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
 .voce-pulsante { pointer-events: auto; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: var(--petrolio); color: #fff; display: grid; place-items: center; box-shadow: 0 3px 10px rgba(18, 59, 69, .4); }
@@ -981,7 +985,10 @@ input, select, button { border-radius: 6px; }
   .cornice:has(textarea) { min-height: 110px; }
   .cornice input[type="date"] { font-size: 16px; }
   .cornice .casella { width: 24px; height: 24px; margin: 4px 0; }
-  .cornice .chiama { bottom: 16px; }
+  .cornice .chiama, .cornice .whatsapp { bottom: 5px; width: 44px; height: 44px; display: grid; place-items: center; color: var(--ottanio-scuro); }
+  .cornice .chiama { right: 2px; }
+  .cornice .whatsapp { right: 48px; color: #128c4b; }
+  .cornice:has(.whatsapp) input { padding-right: 92px; }
   .cornice-immagine { height: auto; min-height: 104px; }
   .comandi-immagine button { width: 44px; height: 44px; }
   .sezione-scheda { height: auto; min-height: 30px; }

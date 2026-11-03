@@ -12,6 +12,7 @@ interface Auth {
   profilo: Profilo | null;
   sezioni: Sezione[];
   puo: (sezione: string, azione: Azione) => boolean;
+  puoWhatsapp: boolean;
   aggiorna: () => Promise<void>;
   esci: () => Promise<void>;
 }
@@ -88,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ stato, sessione, profilo, sezioni, puo, aggiorna, esci }}>
+    <Ctx.Provider value={{ stato, sessione, profilo, sezioni, puo, puoWhatsapp: profilo?.ruolo === "admin" || !!profilo?.whatsapp, aggiorna, esci }}>
       {children}
     </Ctx.Provider>
   );

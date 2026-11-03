@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type FormEvent } from "react";
-import { Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -10,6 +10,7 @@ import CampoImmagine, { urlFirmato } from "./CampoImmagine";
 import CercaMateriale from "./CercaMateriale";
 import MaterialiConsigliati from "./MaterialiConsigliati";
 import { useTelefono } from "../telefono";
+import { linkWhatsapp } from "../whatsapp";
 import Autocompleta from "./Autocompleta";
 
 interface Props {
@@ -26,13 +27,15 @@ interface Props {
 }
 
 // Finestra di dettaglio come nel programma originale: linguette, campi incorniciati, piede con Salva/Azioni/Chiudi
+const WHATSAPP_IN = ["clienti", "fornitori"];
+
 const NUMERI_OBBLIGATORI = new Set([
   "giacenza", "giacenza_minima", "imponibile", "importo", "iva", "iva_totale", "prezzo", "prezzo_base", "prezzo_ricaricato", "prezzo_scontato",
   "ricarico", "sconto", "sconto_totale", "totale", "totale_materiali", "totale_materiali_servizi", "totale_preventivo", "totale_servizi",
 ]);
 
 export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta, onRipristina }: Props) {
-  const { puo, profilo } = useAuth();
+  const { puo, profilo, puoWhatsapp } = useAuth();
   const nuovo = valori.id === undefined;
   const modificabile = !nelCestino && (nuovo ? puo(cfg.sezione, "creare") : puo(cfg.sezione, "modificare"));
   const [gestione, setGestione] = useState<Campo | null>(null);
@@ -373,6 +376,11 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         {c.tipo === "telefono" && (
           <a className="chiama" href={valore ? `tel:${valore.replace(/\s/g, "")}` : undefined} title="Chiama">
             <Phone size={13} strokeWidth={2} />
+          </a>
+        )}
+        {c.tipo === "telefono" && c.chiave !== "fax" && WHATSAPP_IN.includes(cfg.sezione) && puoWhatsapp && linkWhatsapp(valore) && (
+          <a className="whatsapp" href={linkWhatsapp(valore)!} target="_blank" rel="noopener noreferrer" title="Scrivi su WhatsApp" aria-label={`Scrivi su WhatsApp a ${valore}`}>
+            <MessageCircle size={14} strokeWidth={2} />
           </a>
         )}
       </div>
