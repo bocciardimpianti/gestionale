@@ -81,10 +81,10 @@ export default function Dashboard() {
         <div className="riquadro-dash bianco" />
       </div>
       <Note />
-      <div className="cella"><Indicatore titolo="Spesa mensile" valore={valori.spesa} colore="#00ff00" /></div>
+      <div className="cella"><Indicatore titolo="Spesa mensile" valore={valori.spesa} colore="#0e7c86" /></div>
 
-      <div className="cella"><Indicatore titolo="Pagamento mensile" valore={valori.pagamento} colore="#ff0000" /></div>
-      <div className="cella"><Indicatore titolo="Redditività mensile" valore={valori.redditivita} colore="#f08080" /></div>
+      <div className="cella"><Indicatore titolo="Pagamento mensile" valore={valori.pagamento} colore="#b5431f" /></div>
+      <div className="cella"><Indicatore titolo="Redditività mensile" valore={valori.redditivita} colore="#123b45" /></div>
       <div className="cella vuota"><Ingranaggio /></div>
 
       <div className="cella vuota"><Ingranaggio /></div>
