@@ -122,7 +122,10 @@ function AutocompletaTelefono({ id, valore, opzioni, onCambia, readOnly, placeho
             <button type="button" className="btn blu" onClick={chiudi}>Fine</button>
           </div>
           <ul className="ricerca-telefono-elenco"
-            onTouchStart={() => (document.activeElement as HTMLElement | null)?.blur()}
+            onTouchMove={() => {
+              const attivo = document.activeElement as HTMLElement | null;
+              if (attivo?.tagName === "INPUT") attivo.blur();
+            }}
             onScroll={(e) => {
               const el = e.currentTarget;
               if (el.scrollTop + el.clientHeight > el.scrollHeight - 200 && quanti < proposte.length) setQuanti((q) => q + 100);

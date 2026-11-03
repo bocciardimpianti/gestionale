@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useRef, useEffect, useState, type FormEvent } from "react";
 import { ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
@@ -80,6 +80,18 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   const cambiaRiga = (i: number, chiave: string, valore: unknown) =>
     setRighe((rr) => rr.map((r, j) => (j === i ? cfg.righe!.ricalcola({ ...r, [chiave]: valore }, chiave) : r)));
+  // Sul telefono la riga appena aggiunta viene portata in vista
+  const righePrecedenti = useRef(righe.length);
+  useEffect(() => {
+    const aumentate = righe.length > righePrecedenti.current;
+    righePrecedenti.current = righe.length;
+    if (!telefono || !aumentate) return;
+    setTimeout(() => {
+      const elenco = document.querySelectorAll(".riga-materiale-telefono");
+      elenco[elenco.length - 1]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 350);
+  }, [righe.length, telefono]);
+
   const aggiungiRiga = (extra: Record<string, unknown> = {}) => {
     setRighe((rr) => [...rr, cfg.righe!.ricalcola({ quantita: 1, ...extra })]);
     setRigaSel(righe.length);

@@ -112,6 +112,8 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const scegli = (m: Materiale) => {
     onScegli(m);
     setAggiunti((a) => [...a, String(m.descrizione ?? "")]);
+    // Sul telefono il tocco inserisce il materiale e torna subito alla scheda
+    if (telefono) onChiudi();
   };
 
   return (
@@ -144,8 +146,13 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
             {materiali ? `${filtrati.length} materiali${testo || filtriAttivi ? " trovati" : ""} — clicca (o Invio) per aggiungere; puoi aggiungerne più di uno` : "Caricamento dei materiali…"}
           </div>
           {errore && <p className="errore">{errore}</p>}
+          {telefono && !materiali && !errore && <p className="caricamento-materiali">Caricamento dei materiali…</p>}
           <div className="risultati" ref={elenco}
-            onTouchStart={() => { if (telefono) (document.activeElement as HTMLElement | null)?.blur(); }}
+            onTouchMove={() => {
+              // Solo mentre si scorre: chiudere la tastiera al primo tocco sposterebbe la riga sotto il dito e il tocco andrebbe perso
+              const attivo = document.activeElement as HTMLElement | null;
+              if (telefono && attivo?.tagName === "INPUT") attivo.blur();
+            }}
             onScroll={(e) => {
             const el = e.currentTarget;
             if (el.scrollTop + el.clientHeight > el.scrollHeight - 200 && quanti < filtrati.length) setQuanti((q) => q + 150);
@@ -212,7 +219,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
           <span className="ok" style={{ flex: 1, padding: "0 10px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {aggiunti.length ? `Aggiunti ${aggiunti.length}: ${aggiunti.slice(-3).join(", ")}` : ""}
           </span>
-          <button type="button" className="btn blu" onClick={onChiudi}>Fine</button>
+          <button type="button" className="btn blu" onClick={onChiudi}>{telefono ? "Chiudi" : "Fine"}</button>
         </div>
       </div>
     </div>

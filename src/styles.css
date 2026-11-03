@@ -828,13 +828,18 @@ input, select, button { border-radius: 6px; }
 @media (max-width: 760px) {
   :root { font-size: 15px; }
   input, select, textarea, .griglia-dati .filtri input { font-size: 16px; }
-  .app { grid-template-rows: 60px minmax(0, 1fr) calc(62px + env(safe-area-inset-bottom)); }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 60px minmax(0, 1fr) calc(62px + env(safe-area-inset-bottom)); }
+  .barra-alta { min-width: 0; gap: 8px; }
+  .barra-alta .logo { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .barra-alta .icone-alte { flex: none; }
+  .icone-alte .utente-alto { margin-right: 0; padding: 5px 8px !important; }
+  .barra-bassa .gruppo-icone a { min-width: 0; }
   .barra-alta { padding: 0 12px; }
   .apri-menu { height: 44px; }
   .icone-alte button { min-width: 44px; min-height: 44px; }
   .icone-alte .utente-alto { min-height: 44px; }
-  .logo { font-size: 18px; }
-  .etichetta-prova { margin-left: 0; }
+  .logo { font-size: 17px; }
+  .etichetta-prova { margin-left: 0; flex: none; }
 
   /* Menu a tutto schermo */
   .laterale { top: 60px; width: 100%; bottom: 0; }
@@ -963,11 +968,11 @@ input, select, button { border-radius: 6px; }
   .riga-materiale-testa > b { flex: 1; font-size: 15.5px; padding-top: 10px; }
   .togli-riga { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--errore); display: grid; place-items: center; padding: 0; }
   .quantita-telefono { display: flex; align-items: center; gap: 0; }
-  .quantita-telefono span { flex: 1; font-size: 13px; font-weight: 600; color: var(--tenue); }
-  .quantita-telefono button { width: 48px; height: 46px; padding: 0; font-size: 22px; background: var(--carta); }
+  .quantita-telefono span { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--tenue); }
+  .quantita-telefono button { flex: none; width: 48px; height: 46px; padding: 0; font-size: 22px; background: var(--carta); position: relative; z-index: 1; }
   .quantita-telefono button:first-of-type { border-radius: 8px 0 0 8px; }
   .quantita-telefono button:last-of-type { border-radius: 0 8px 8px 0; }
-  .quantita-telefono input { width: 76px; height: 46px; border-radius: 0; border-left: 0; border-right: 0; text-align: center; font-weight: 700; }
+  .quantita-telefono input { flex: none; min-width: 0; width: 76px; height: 46px; border-radius: 0; border-left: 0; border-right: 0; text-align: center; font-weight: 700; }
   .campi-riga { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .campo-riga { font-size: 13px; font-weight: 600; color: var(--tenue); min-width: 0; }
   .campo-riga.largo { flex: 1; }
@@ -1002,6 +1007,7 @@ input, select, button { border-radius: 6px; }
   .materiali-telefono .riga-telefono-foto { width: 46px; height: 46px; }
   .materiali-telefono .riga-telefono-foto .miniatura { width: 46px; height: 46px; }
   .materiali-telefono b { font-size: 15px; }
+  .caricamento-materiali { flex: none; margin: 8px 0; font-weight: 600; }
   .finestra-materiali .finestra-piede .ok { flex-basis: 100% !important; order: -1; font-size: 13px; }
   .finestra-materiali .finestra-piede .ok:empty { display: none; }
   .finestra-materiali .finestra-piede .btn { flex: 1; }
