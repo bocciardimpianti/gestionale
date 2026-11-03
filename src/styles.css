@@ -815,3 +815,215 @@ input, select, button { border-radius: 6px; }
 .impegno { border-color: var(--bordo); border-left-color: var(--ottanio); border-radius: 4px; }
 .impegno:hover { background: var(--ottanio-tenue); }
 .giorno-mese.oggi { background: #eef7f8; }
+
+/* =====================================================================
+   Telefono. Tutti i controlli sono alti almeno 44 px e il testo dei campi è a 16 px,
+   perché con meno iPhone ingrandisce la pagina a ogni tocco.
+   ===================================================================== */
+.gruppo-icone a .etichetta-telefono { display: none; }
+.etichetta-prova { background: var(--ruggine); color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 700; margin-left: 12px; }
+.barra-alta { justify-content: flex-start; }
+.barra-alta .icone-alte { margin-left: auto; }
+
+@media (max-width: 760px) {
+  :root { font-size: 15px; }
+  input, select, textarea, .griglia-dati .filtri input { font-size: 16px; }
+  .app { grid-template-rows: 60px minmax(0, 1fr) calc(62px + env(safe-area-inset-bottom)); }
+  .barra-alta { padding: 0 12px; }
+  .apri-menu { height: 44px; }
+  .icone-alte button { min-width: 44px; min-height: 44px; }
+  .icone-alte .utente-alto { min-height: 44px; }
+  .logo { font-size: 18px; }
+  .etichetta-prova { margin-left: 0; }
+
+  /* Menu a tutto schermo */
+  .laterale { top: 60px; width: 100%; bottom: 0; }
+  .velo-menu { inset: 60px 0 0 0; }
+  .laterale .voce { height: 46px; font-size: 16px; }
+  .laterale .gruppo { min-height: 40px; }
+  .laterale .utente .esci { min-height: 44px; }
+  .azienda { display: none; }
+
+  /* Barra in basso: solo le scorciatoie, con il nome */
+  .barra-bassa { padding: 0 0 env(safe-area-inset-bottom); }
+  .barra-bassa .gruppo-icone:first-child { display: none; }
+  .barra-bassa .gruppo-icone:last-child { width: 100%; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; }
+  .barra-bassa .gruppo-icone a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 62px; color: var(--testo); text-decoration: none; }
+  .gruppo-icone a .etichetta-telefono { display: block; font-size: 12px; }
+
+  /* Pagine */
+  .centro { padding: 12px; }
+  .centro:has(.pagina-archivio), .centro:has(.pagina-agenda) { padding: 10px 12px 0; }
+  .testata { flex-direction: column; align-items: stretch; gap: 10px; margin: 0 0 10px; }
+  .testata h1 { font-size: 21px; margin: 0; }
+  .ricerca { order: 2; flex: none; width: 100%; height: 46px; max-width: none; margin-left: 0; }
+  .ricerca select { display: none; }
+  .ricerca input { font-size: 16px; }
+  .pulsanti { order: 3; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; flex-wrap: nowrap; }
+  .pulsanti .btn, .pulsanti .btn.verde { height: 46px; width: 100%; padding: 0 6px; justify-content: center; gap: 4px; font-size: 14px; }
+  .pulsanti .btn.verde .punta { display: none; }
+  .tendina { min-width: 0; }
+  .tendina .voci {
+    position: fixed; left: 8px; right: 8px; top: auto; bottom: calc(70px + env(safe-area-inset-bottom)); max-height: 62vh; overflow-y: auto;
+  }
+  .tendina .voci button { min-height: 46px; }
+  .voci.sottomenu { position: static; box-shadow: none; border: 0; border-top: 1px solid var(--bordo); border-radius: 0; }
+
+  /* Elenchi */
+  .elenco-telefono { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .elenco-telefono-barra { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; font-size: 13px; color: var(--tenue); }
+  .elenco-telefono-barra label { margin-left: auto; flex-direction: row; align-items: center; gap: 6px; min-width: 0; }
+  .elenco-telefono-barra select { max-width: 145px; height: 40px; font-size: 14px; }
+  .elenco-telefono-barra .verso { width: 40px; height: 40px; padding: 0; }
+  .elenco-telefono-righe { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 12px; -webkit-overflow-scrolling: touch; }
+  .riga-telefono { background: var(--carta); border: 1px solid var(--bordo); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+  .riga-telefono.attiva { border-color: var(--ottanio); }
+  .riga-telefono-apri { width: 100%; display: flex; gap: 12px; align-items: center; text-align: left; border: 0; border-radius: 0; background: none; padding: 10px 12px; min-height: 58px; color: inherit; }
+  .riga-telefono-foto { flex: none; width: 56px; height: 56px; border-radius: 8px; background: #e7eeef; color: var(--tenue); display: grid; place-items: center; overflow: hidden; }
+  .riga-telefono-foto .miniatura { width: 56px; height: 56px; object-fit: cover; }
+  .riga-telefono-testi { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .riga-telefono-alta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .riga-telefono-alta b:first-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15.5px; }
+  .riga-telefono-alta .importo { flex: none; }
+  .riga-telefono-dettaglio { color: var(--tenue); font-size: 13.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .riga-telefono-spunta { flex-direction: row; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-top: 1px solid #e6ecec; }
+  .riga-telefono-spunta input { width: 22px; height: 22px; }
+  .galleria { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+  /* Finestre e schede a tutto schermo, nello spazio lasciato dalla tastiera */
+  .velo { padding: 0; inset: auto 0 auto 0; top: var(--scarto-visibile, 0); height: var(--altezza-visibile, 100dvh); place-items: stretch; }
+  .finestra, .finestra-scheda, .finestra.stretta, .finestra-backup, .finestra-materiali, .finestra-ddt-pdf { width: 100%; height: 100%; max-height: none; border-radius: 0; }
+  .finestra-corpo { flex: 1; min-height: 0; }
+  .finestra-ddt-pdf .finestra-corpo { max-height: none; }
+  .finestra-titolo { min-height: 52px; }
+  .finestra-titolo .chiudi { min-width: 44px; min-height: 44px; }
+  .finestra-piede { flex-wrap: wrap; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
+  .finestra-piede .btn, .btn { min-height: 44px; }
+  .btn.piccolo-btn { min-height: 40px; }
+  .scheda-titolo { min-height: 54px; font-size: 16px; }
+  .scheda-titolo > span:first-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .scheda-titolo .comandi button:not(:last-child) { display: none; }
+  .scheda-titolo .comandi button { min-width: 44px; min-height: 44px; }
+  .scheda-corpo { padding: 0 12px; min-height: 0; }
+  .linguette { flex: none; overflow-x: auto; margin: 0 -12px; padding: 0 4px; position: sticky; top: 0; background: var(--carta); z-index: 3; }
+  .linguette button { flex: none; min-height: 46px; font-size: 15px; }
+  .linguette button.attiva { padding-top: 7px; }
+  .pannello-linguetta { flex: none; min-height: 0; max-height: none; overflow: visible; padding: 12px 0 16px; }
+  .griglia-campi { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .cornice { height: auto; min-height: 62px; padding: 5px 10px 2px; }
+  .cornice label { font-size: 13px; }
+  .cornice input, .cornice select, .cornice textarea { font-size: 16px; min-height: 34px; }
+  .cornice:has(textarea) { min-height: 110px; }
+  .cornice input[type="date"] { font-size: 16px; }
+  .cornice .casella { width: 24px; height: 24px; margin: 4px 0; }
+  .cornice .chiama { bottom: 16px; }
+  .cornice-immagine { height: auto; min-height: 104px; }
+  .comandi-immagine button { width: 44px; height: 44px; }
+  .sezione-scheda { height: auto; min-height: 30px; }
+  .campo-ricerca { flex: 1; min-width: 0; min-height: 36px; border: 0; border-radius: 0; background: none; padding: 0 1px; text-align: left; font-size: 16px; color: var(--testo); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .campo-ricerca.vuoto { color: var(--tenue); }
+  .campo-ricerca.non-trovato { color: var(--errore); }
+  .campo-ricerca:disabled { opacity: 1; }
+  .scheda-piede { flex: none; flex-wrap: wrap; height: auto; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); gap: 4px; }
+  .scheda-piede > span:first-child:empty { display: none; }
+  .scheda-piede > span:first-child:not(:empty) { flex: 1 0 100%; font-size: 14px; }
+  .scheda-piede > span:first-child:not(.errore) { display: none; }
+  .comandi-piede { width: 100%; gap: 8px; }
+  .comandi-piede .link { flex: 1; min-height: 48px; border: 1px solid var(--bordo-forte); border-radius: 8px; background: var(--carta); color: var(--testo); text-decoration: none; font-size: 15px; font-weight: 600; }
+  .comandi-piede .link.blu { flex: 2; background: var(--ottanio); border-color: var(--ottanio); color: #fff; font-size: 16px; font-weight: 700; }
+  .comandi-piede .link:hover { opacity: 1; }
+  .tendina-piede { flex: 1; display: flex; }
+  .tendina-piede .voci { position: fixed; left: 8px; right: 8px; bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .tendina-piede .voci button, .tendina-piede .voci a { min-height: 46px; font-size: 15px; display: flex; align-items: center; }
+
+  /* Tabelle dentro le schede e nelle finestre: una riga diventa un riquadro */
+  .pannello-linguetta .griglia, .finestra-corpo > .griglia, .tabella-ddt-pdf .griglia { display: block; border: 0; background: none; }
+  .pannello-linguetta .griglia thead, .tabella-ddt-pdf .griglia thead { display: none; }
+  .pannello-linguetta .griglia tbody, .tabella-ddt-pdf .griglia tbody { display: block; }
+  .pannello-linguetta .griglia tr, .tabella-ddt-pdf .griglia tr { display: block; background: var(--carta); border: 1px solid var(--bordo); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+  .pannello-linguetta .griglia td, .tabella-ddt-pdf .griglia td { display: block; border: 0; padding: 2px 0; text-align: left; white-space: normal; }
+  .pannello-linguetta .griglia td:empty { display: none; }
+  .riga-pdf td:first-child { border-left: 0 !important; }
+  .riga-pdf.verde { border-left: 5px solid var(--ok) !important; }
+  .riga-pdf.giallo { border-left: 5px solid #c98a00 !important; }
+  .riga-pdf.rosso { border-left: 5px solid var(--errore) !important; }
+  .azioni-riga-pdf .btn { flex: 1 1 auto; }
+  .testata-ddt-pdf label, .testata-ddt-pdf select, .testata-ddt-pdf input, .testata-ddt-pdf .btn { width: 100%; }
+  .testata-ddt-pdf select, .testata-ddt-pdf input { min-height: 44px; }
+  .nuovo-materiale { flex-wrap: wrap; }
+  .nuovo-materiale input { font-size: 16px; min-height: 44px; }
+  .trascina-pdf { padding: 26px 16px; }
+
+  /* Righe materiali */
+  .area-righe { margin-top: 14px; gap: 10px; }
+  .barra-righe-telefono { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+  .barra-righe-telefono .btn { padding: 0 8px; min-height: 48px; }
+  .riga-materiale-telefono { background: #f6f8f8; border: 1px solid var(--bordo); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 10px; }
+  .riga-materiale-testa { display: flex; align-items: flex-start; gap: 8px; }
+  .riga-materiale-testa > b { flex: 1; font-size: 15.5px; padding-top: 10px; }
+  .togli-riga { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--errore); display: grid; place-items: center; padding: 0; }
+  .quantita-telefono { display: flex; align-items: center; gap: 0; }
+  .quantita-telefono span { flex: 1; font-size: 13px; font-weight: 600; color: var(--tenue); }
+  .quantita-telefono button { width: 48px; height: 46px; padding: 0; font-size: 22px; background: var(--carta); }
+  .quantita-telefono button:first-of-type { border-radius: 8px 0 0 8px; }
+  .quantita-telefono button:last-of-type { border-radius: 0 8px 8px 0; }
+  .quantita-telefono input { width: 76px; height: 46px; border-radius: 0; border-left: 0; border-right: 0; text-align: center; font-weight: 700; }
+  .campi-riga { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .campo-riga { font-size: 13px; font-weight: 600; color: var(--tenue); min-width: 0; }
+  .campo-riga.largo { flex: 1; }
+  .campo-riga input { width: 100%; min-height: 44px; font-weight: 400; color: var(--testo); background: var(--carta); }
+  .campo-riga b { min-height: 26px; color: var(--testo); font-size: 15px; }
+  .riga-codice { align-self: stretch; width: auto; height: 46px; }
+  .piede-gruppi, .piede-totali { margin-top: 6px; }
+  .voce-piede { align-items: center; min-height: 44px; }
+  .voce-piede input, .voce-piede select { min-height: 42px; font-size: 16px !important; }
+  .voce-piede input[type="checkbox"] { width: 22px; height: 22px; min-height: 0; }
+  .voce-piede > span { padding: 10px 12px; align-self: stretch; display: flex; align-items: center; }
+
+  /* Ricerche: risultati sempre visibili sopra la tastiera */
+  .ricerca-telefono {
+    position: fixed; left: 0; right: 0; top: var(--scarto-visibile, 0); height: var(--altezza-visibile, 100dvh); z-index: 90;
+    background: var(--carta); display: flex; flex-direction: column;
+  }
+  .ricerca-telefono-testa { flex: none; display: flex; gap: 8px; padding: 8px 12px; background: var(--petrolio); }
+  .ricerca-telefono-testa input { flex: 1; min-width: 0; height: 46px; }
+  .ricerca-telefono-testa .btn { flex: none; height: 46px; padding: 0 14px; background: #fff; color: var(--petrolio); }
+  .ricerca-telefono-elenco { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; -webkit-overflow-scrolling: touch; }
+  .ricerca-telefono-elenco button { width: 100%; min-height: 50px; padding: 8px 14px; border: 0; border-bottom: 1px solid #e6ecec; border-radius: 0; background: none; text-align: left; font-size: 16px; color: var(--testo); }
+  .finestra-materiali { position: relative; }
+  .finestra-materiali .finestra-corpo.cerca-materiale { flex: 1; min-height: 0; padding: 10px 12px; gap: 6px; overflow: hidden; }
+  .cerca-materiale > input { flex: none; font-size: 16px; height: 46px; }
+  .cerca-materiale > .piccolo { display: none; }
+  .opzioni-materiali { flex: none; margin: 0; gap: 12px; }
+  .opzioni-materiali input[type="checkbox"] { width: 20px; height: 20px; }
+  .opzioni-materiali .btn { min-height: 38px; padding: 0 10px; }
+  .finestra-materiali .risultati { flex: 1; min-height: 0; height: auto; max-height: none; overflow-y: auto; }
+  .materiali-telefono button { width: 100%; display: flex; gap: 10px; align-items: center; text-align: left; min-height: 62px; padding: 8px 2px; border: 0; border-bottom: 1px solid #e6ecec; border-radius: 0; background: none; color: inherit; }
+  .materiali-telefono .riga-telefono-foto { width: 46px; height: 46px; }
+  .materiali-telefono .riga-telefono-foto .miniatura { width: 46px; height: 46px; }
+  .materiali-telefono b { font-size: 15px; }
+  .finestra-materiali .finestra-piede .ok { flex-basis: 100% !important; order: -1; font-size: 13px; }
+  .finestra-materiali .finestra-piede .ok:empty { display: none; }
+  .finestra-materiali .finestra-piede .btn { flex: 1; }
+
+  /* Home */
+  .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .cella { min-height: 0; }
+  .cella.vuota, .cella:has(.riquadro-dash.bianco) { display: none; }
+  .cella:has(.note) { grid-column: 1 / -1; order: 5; }
+  .cella:has(.note) .riquadro-dash { min-height: 180px; }
+  .intestazione-chiara { height: 38px; }
+  .indicatore { min-height: 112px; padding: 10px 12px; }
+  .indicatore .titolo { font-size: 14px; }
+  .indicatore .valore { font-size: 28px; }
+  .cella:nth-last-child(n) .indicatore { height: 100%; }
+
+  /* Agenda: una colonna alla volta, si scorre di lato tra i tecnici */
+  .agenda { padding-bottom: 8px; }
+  .agenda-navigazione button { min-height: 42px; min-width: 42px; }
+  .titolo-periodo { flex-basis: 100%; margin: 4px 0 0; }
+  .intestazione-colonna, .colonna-giorno { flex-basis: calc(100vw - 80px); min-width: calc(100vw - 80px); }
+  .impegno { min-height: 40px; }
+  .agenda-sinistra.aperta { left: 8px; right: 8px; width: auto; top: 110px; }
+  .mini-mese td button { width: 38px; height: 38px; }
+}

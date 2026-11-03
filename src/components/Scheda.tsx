@@ -8,6 +8,7 @@ import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
 import CampoImmagine, { urlFirmato } from "./CampoImmagine";
 import CercaMateriale from "./CercaMateriale";
+import { useTelefono } from "../telefono";
 import Autocompleta from "./Autocompleta";
 
 interface Props {
@@ -49,6 +50,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [rigaSel, setRigaSel] = useState<number | null>(null);
   const [codice, setCodice] = useState("");
   const [cercaMateriale, setCercaMateriale] = useState(false);
+  const telefono = useTelefono();
   const [suggerimenti, setSuggerimenti] = useState<Record<string, Record<string, unknown>[]>>({});
   const tuttiCampi = [...cfg.campi, ...(cfg.piede ?? []), ...(cfg.piedeGruppi ?? []).flatMap((g) => g.campi)];
 
@@ -357,7 +359,59 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     const rc = cfg.righe!;
     return (
       <div className="area-righe">
-        {modificabile && (
+        {modificabile && telefono && (
+          <div className="barra-righe-telefono">
+            <button type="button" className="btn blu" onClick={() => setCercaMateriale(true)}>Aggiungi materiale</button>
+            <button type="button" className="btn grigio" onClick={() => aggiungiRiga()}>Riga libera</button>
+          </div>
+        )}
+        {telefono && (
+          <div className="righe-telefono">
+            {righe.map((r, i) => {
+              const quantita = rc.colonne.find((c) => c.chiave === "quantita");
+              const descrizione = rc.colonne.find((c) => c.chiave === "descrizione");
+              const altre = rc.colonne.filter((c) => c !== quantita && c !== descrizione);
+              return (
+                <div key={i} className="riga-materiale-telefono">
+                  <div className="riga-materiale-testa">
+                    {descrizione && modificabile && !descrizione.solaLettura ? (
+                      <label className="campo-riga largo">{descrizione.titolo}
+                        <input value={String(r.descrizione ?? "")} onChange={(e) => cambiaRiga(i, "descrizione", e.target.value)} />
+                      </label>
+                    ) : <b>{String(r.descrizione ?? "")}</b>}
+                    {modificabile && (
+                      <button type="button" className="togli-riga" aria-label="Togli questa riga" onClick={() => setRighe((rr) => rr.filter((_, j) => j !== i))}><CircleMinus size={22} /></button>
+                    )}
+                  </div>
+                  {quantita && modificabile && !quantita.solaLettura ? (
+                    <div className="quantita-telefono" role="group" aria-label={quantita.titolo}>
+                      <span>{quantita.titolo}</span>
+                      <button type="button" aria-label="Diminuisci" onClick={() => cambiaRiga(i, "quantita", Math.max(0, Number(r.quantita ?? 0) - 1))}>−</button>
+                      <input type="number" inputMode="decimal" step="0.01" aria-label={quantita.titolo} value={String(r.quantita ?? "")}
+                        onChange={(e) => cambiaRiga(i, "quantita", e.target.value === "" ? null : Number(e.target.value))} />
+                      <button type="button" aria-label="Aumenta" onClick={() => cambiaRiga(i, "quantita", Number(r.quantita ?? 0) + 1)}>+</button>
+                    </div>
+                  ) : quantita ? <div className="campo-riga">{quantita.titolo}: {String(r.quantita ?? "")}</div> : null}
+                  <div className="campi-riga">
+                    {altre.map((c) => (
+                      <label key={c.chiave} className="campo-riga">{c.titolo}
+                        {c.solaLettura || !modificabile ? (
+                          <b>{c.tipo === "euro" ? euro(r[c.chiave]) : String(r[c.chiave] ?? "")}</b>
+                        ) : (
+                          <input type={c.tipo && c.tipo !== "testo" ? "number" : "text"} inputMode={c.tipo && c.tipo !== "testo" ? "decimal" : undefined} step="0.01"
+                            value={c.tipo === "euro" && r[c.chiave] != null && r[c.chiave] !== "" ? String(Math.round(Number(r[c.chiave]) * 100) / 100) : String(r[c.chiave] ?? "")}
+                            onChange={(e) => cambiaRiga(i, c.chiave, c.tipo && c.tipo !== "testo" ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value)} />
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {!righe.length && <p className="vuoto-linguetta">Nessun materiale aggiunto.</p>}
+          </div>
+        )}
+        {modificabile && !telefono && (
           <div className="barra-righe">
             <button type="button" title="Aggiungi materiali (o riga libera)" onClick={() => setCercaMateriale(true)}><CirclePlus size={30} strokeWidth={1.4} /></button>
             <button type="button" title="Elimina riga" disabled={rigaSel === null} onClick={() => {
@@ -369,7 +423,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <button type="button" title="Aggiungi una riga libera da compilare a mano" onClick={() => aggiungiRiga()}><PencilLine size={22} strokeWidth={2} className="cerchiata" /></button>
           </div>
         )}
-        <div className="tabella-righe">
+        {!telefono && <div className="tabella-righe">
           <table>
             <thead>
               <tr><th style={{ width: 16 }} />{rc.colonne.map((c) => <th key={c.chiave} style={{ width: c.larghezza }}>{c.titolo}</th>)}</tr>
@@ -396,7 +450,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
         {modificabile && (
           <div className="riga-codice">
             <input

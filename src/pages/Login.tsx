@@ -48,7 +48,7 @@ export default function Login() {
       <form className="riquadro" onSubmit={recupero ? recupera : invia}>
         <img src="logo.png" alt="Bocciardi Impianti" className="logo-azienda" />
         <div className="logo-accesso"><Logo /></div>
-        <p className="sottotitolo">Accesso riservato</p>
+        <p className="sottotitolo">{import.meta.env.VITE_PROVA ? "Versione di prova: i dati sono quelli veri" : "Accesso riservato"}</p>
         <label>
           Email
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus />
