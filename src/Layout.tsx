@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "./auth";
 import UscitaBackup from "./components/UscitaBackup";
+import PulsanteVoce from "./components/PulsanteVoce";
 
 // Icone delle voci di menu, come nel programma originale
 export const ICONE: Record<string, LucideIcon> = {
@@ -146,6 +147,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           {scorciatoia("materiali", Wrench, "Materiali")}
         </div>
       </footer>
+      <PulsanteVoce />
       {finestraBackup && (
         <UscitaBackup
           soloBackup={finestraBackup === "backup"}
