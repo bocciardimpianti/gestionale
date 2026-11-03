@@ -12,7 +12,10 @@ import Layout from "./Layout";
 import PaginaArchivio from "./pages/PaginaArchivio";
 import { ARCHIVI } from "./archivi";
 import Agenda from "./pages/Agenda";
+import { seguiTastiera } from "./telefono";
 import "./styles.css";
+
+seguiTastiera();
 
 function App() {
   const { stato, esci } = useAuth();

@@ -67,7 +67,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const scorciatoia = (chiave: string, Icona: LucideIcon, titolo: string) =>
     puo(chiave, "vedere") && (
-      <Link to={percorso(chiave)} title={titolo}><Icona size={20} strokeWidth={1.5} /></Link>
+      <Link to={percorso(chiave)} title={titolo}><Icona size={20} strokeWidth={1.5} /><span className="etichetta-telefono">{titolo}</span></Link>
     );
 
   return (
@@ -78,6 +78,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <span>Menu</span>
         </button>
         <Logo />
+        {import.meta.env.VITE_PROVA && <span className="etichetta-prova">PROVA</span>}
         <div className="icone-alte">
           <button className="utente-alto" title="Esci per cambiare utente" onClick={richiediUscita}>
             <span>{profilo?.nome || profilo?.email}</span>
@@ -140,7 +141,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
         <div className="gruppo-icone">
           {scorciatoia("clienti", User, "Clienti")}
-          {scorciatoia("rapporti", FileText, "Rapporti di intervento")}
+          {scorciatoia("rapporti", FileText, "Rapporti")}
           {scorciatoia("preventivi", ClipboardList, "Preventivi")}
           {scorciatoia("materiali", Wrench, "Materiali")}
         </div>

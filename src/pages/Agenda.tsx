@@ -70,7 +70,7 @@ export default function Agenda() {
   const naviga = useNavigate();
   const { puo } = useAuth();
   const [giorno, setGiorno] = useState(() => new Date());
-  const [vista, setVista] = useState<Vista>(() => leggi("agenda-vista", "giorno"));
+  const [vista, setVista] = useState<Vista>(() => (window.matchMedia("(max-width: 760px)").matches ? "giorno" : leggi("agenda-vista", "giorno")));
   const [tecnici, setTecnici] = useState<Tecnico[]>([]);
   // Tecnici nascosti (scelta ricordata su questo dispositivo); di default si vedono tutti
   const [nascosti, setNascosti] = useState<number[]>(() => leggi("agenda-nascosti", []));

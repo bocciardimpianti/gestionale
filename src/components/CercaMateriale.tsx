@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { leggiTutto } from "../supabase";
 import { euro } from "./Griglia";
 import { Miniatura } from "./CampoImmagine";
+import { useTelefono } from "../telefono";
 
 type Materiale = Record<string, unknown> & { id: number };
 
@@ -59,6 +60,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const [aggiunti, setAggiunti] = useState<string[]>([]);
   const [errore, setErrore] = useState("");
   const elenco = useRef<HTMLDivElement>(null);
+  const telefono = useTelefono();
 
   useEffect(() => {
     leggiTutto("materiali", "id, codice_interno, descrizione, nome_articolo, codice_barre, fornitore1, codice_fornitore1, fornitore2, codice_fornitore2, dettaglio, unita_misura, prezzo_base, ricarico, prezzo_ricaricato, giacenza, foto", true)
@@ -119,7 +121,8 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
         <div className="finestra-corpo cerca-materiale">
           <input
             autoFocus
-            placeholder="Cerca in tutto: descrizione, codice, codice a barre, fornitore…"
+            type={telefono ? "search" : undefined}
+            placeholder={telefono ? "Cerca descrizione o codice" : "Cerca in tutto: descrizione, codice, codice a barre, fornitore…"}
             value={testo}
             onChange={(e) => setTesto(e.target.value)}
             onKeyDown={(e) => {
@@ -141,10 +144,29 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
             {materiali ? `${filtrati.length} materiali${testo || filtriAttivi ? " trovati" : ""} — clicca (o Invio) per aggiungere; puoi aggiungerne più di uno` : "Caricamento dei materiali…"}
           </div>
           {errore && <p className="errore">{errore}</p>}
-          <div className="risultati" ref={elenco} onScroll={(e) => {
+          <div className="risultati" ref={elenco}
+            onTouchStart={() => { if (telefono) (document.activeElement as HTMLElement | null)?.blur(); }}
+            onScroll={(e) => {
             const el = e.currentTarget;
             if (el.scrollTop + el.clientHeight > el.scrollHeight - 200 && quanti < filtrati.length) setQuanti((q) => q + 150);
           }}>
+            {telefono ? (
+              <div className="materiali-telefono">
+                {filtrati.slice(0, quanti).map((m) => (
+                  <button type="button" key={m.id} onClick={() => scegli(m)}>
+                    <span className="riga-telefono-foto">{typeof m.foto === "string" && m.foto ? <Miniatura percorso={m.foto} archivio="materiali" /> : null}</span>
+                    <span className="riga-telefono-testi">
+                      <b>{String(m.descrizione ?? "")}</b>
+                      <span className="riga-telefono-dettaglio">Cod. {String(m.codice_interno ?? "")}</span>
+                      <span className="riga-telefono-alta">
+                        <span className="riga-telefono-dettaglio">Giacenza {Number(m.giacenza ?? 0).toLocaleString("it-IT")} {String(m.unita_misura ?? "")}</span>
+                        <b className="importo">{euro(m.prezzo_ricaricato)}</b>
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
             <table className="griglia">
               <thead>
                 <tr><th style={{ width: 44 }} /><th>Codice</th><th>Descrizione</th><th>Fornitore</th><th>UM</th><th className="destra">Prezzo</th><th className="destra">Giacenza</th></tr>
@@ -177,6 +199,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
                 ))}
               </tbody>
             </table>
+            )}
             {materiali && !filtrati.length && <p className="vuoto-linguetta">Nessun materiale trovato.</p>}
           </div>
         </div>

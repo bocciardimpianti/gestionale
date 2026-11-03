@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Filter } from "lucide-react";
 import { dataIt } from "../supabase";
 import { Miniatura } from "./CampoImmagine";
+import { useTelefono } from "../telefono";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
@@ -54,6 +55,8 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
   // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record
   const scorri = useRef<HTMLDivElement>(null);
   const [finestra, setFinestra] = useState({ alto: 0, altezza: 900 });
+  const telefono = useTelefono();
+  const [quanti, setQuanti] = useState(60);
   useEffect(() => {
     const el = scorri.current;
     if (!el) return;
@@ -65,7 +68,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
       el.removeEventListener("scroll", aggiorna);
       window.removeEventListener("resize", aggiorna);
     };
-  }, []);
+  }, [telefono]);
 
   const visibili = useMemo(() => {
     const attivi = Object.entries(filtri).filter(([, f]) => f.trim());
@@ -102,6 +105,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
 
   useEffect(() => {
     onVisibili?.(visibili);
+    setQuanti(60);
   }, [visibili, onVisibili]);
 
   const ALTEZZA_RIGA = 21;
@@ -110,6 +114,81 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
 
   const ordina = (chiave: string) =>
     setOrdine((o) => ({ chiave, su: o.chiave === chiave ? !o.su : true }));
+
+  if (telefono) {
+    const nascondi = (c: Colonna) => ["immagine", "miniatura", "booleano", "stato", "euro"].includes(c.tipo ?? "");
+    const testuali = colonne.filter((c) => !nascondi(c));
+    // Titolo della riga: il nome o la descrizione, altrimenti la colonna più larga tra le prime tre
+    const colTitolo = testuali.find((c) => /nome|fornitore|cliente|descrizione|impianto/i.test(c.chiave))
+      ?? [...testuali.slice(0, 3)].sort((a, b) => b.larghezza - a.larghezza)[0];
+    const altre = testuali.filter((c) => c !== colTitolo && !/mail/i.test(c.chiave));
+    const colFoto = colonne.find((c) => c.tipo === "miniatura");
+    const colStato = colonne.find((c) => c.tipo === "stato");
+    const colImporto = colonne.find((c) => c.chiave === "totale") ?? colonne.find((c) => c.chiave === "prezzo_ricaricato") ?? colonne.find((c) => c.tipo === "euro");
+    const spunte = onSpunta ? colonne.filter((c) => c.tipo === "booleano" && c.spuntabile) : [];
+    return (
+      <div className="elenco-telefono">
+        <div className="elenco-telefono-barra">
+          <span>{visibili.length} di {righe.length}</span>
+          <label>
+            Ordina per
+            <select value={ordine.chiave} onChange={(e) => setOrdine({ chiave: e.target.value, su: true })}>
+              {colonne.filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura").map((c) => <option key={c.chiave} value={c.chiave}>{c.titolo}</option>)}
+            </select>
+          </label>
+          <button type="button" className="verso" aria-label={ordine.su ? "Ordine crescente: inverti" : "Ordine decrescente: inverti"} onClick={() => setOrdine((o) => ({ ...o, su: !o.su }))}>{ordine.su ? "▲" : "▼"}</button>
+        </div>
+        <div className="elenco-telefono-righe" onScroll={(e) => {
+          const el = e.currentTarget;
+          if (el.scrollTop + el.clientHeight > el.scrollHeight - 400 && quanti < visibili.length) setQuanti((q) => q + 60);
+        }}>
+          {visibili.slice(0, quanti).map((r) => {
+            const dettagli = altre
+              .map((c) => ({ c, v: mostra(c, r).trim() }))
+              .filter((x) => x.v && x.v !== "/")
+              .slice(0, 3);
+            return (
+              <div key={r.id} className={`riga-telefono${r.id === selezionata ? " attiva" : ""}`}>
+                <button type="button" className="riga-telefono-apri" onClick={() => { onSeleziona(r.id); onApri(r); }}>
+                  {colFoto && (
+                    <span className="riga-telefono-foto">
+                      {typeof r[colFoto.chiave] === "string" && r[colFoto.chiave] ? <Miniatura percorso={r[colFoto.chiave] as string} archivio={colFoto.archivio!} /> : <Camera size={22} />}
+                    </span>
+                  )}
+                  <span className="riga-telefono-testi">
+                    <span className="riga-telefono-alta">
+                      <b>{colTitolo ? mostra(colTitolo, r) || "(senza nome)" : ""}</b>
+                      {colImporto && <b className="importo">{mostra(colImporto, r)}</b>}
+                    </span>
+                    {dettagli.map(({ c, v }) => (
+                      <span key={c.chiave} className="riga-telefono-dettaglio">{c.tipo === "numero" || c.tipo === "percentuale" ? `${c.titolo} ${v}` : v}</span>
+                    ))}
+                    {colStato && r[colStato.chiave] ? (
+                      <span className="riga-telefono-dettaglio"><span className="quadratino" style={{ background: COLORI_STATO[testo(r[colStato.chiave])] ?? "#999" }} />{testo(r[colStato.chiave])}</span>
+                    ) : null}
+                  </span>
+                </button>
+                {spunte.map((c) => (
+                  <label key={c.chiave} className="riga-telefono-spunta">
+                    <input type="checkbox" checked={!!r[c.chiave]} onChange={(e) => onSpunta!(r, c.chiave, e.target.checked)} />
+                    {c.titolo}
+                  </label>
+                ))}
+              </div>
+            );
+          })}
+          {!visibili.length && <p className="vuoto-linguetta">Nessun elemento trovato.</p>}
+        </div>
+        {colonne.some((c) => c.somma) && (
+          <div className="griglia-piede">
+            {colonne.filter((c) => c.somma).map((c) => (
+              <span key={c.chiave} className="somma-colonna">{c.titolo}: <b>{euro(visibili.reduce((t, r) => t + (Number(r[c.chiave]) || 0), 0))}</b></span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const larghezze = (
     <colgroup>
