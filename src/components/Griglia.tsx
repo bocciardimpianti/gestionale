@@ -59,6 +59,9 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
   const [finestra, setFinestra] = useState({ alto: 0, altezza: 900 });
   const telefono = useTelefono();
   const [quanti, setQuanti] = useState(60);
+  // Righe spuntate per sommare solo quelle (solo negli elenchi con un totale). Maiusc+clic seleziona un intervallo.
+  const [spuntate, setSpuntate] = useState<Set<number>>(new Set());
+  const ultimaSpunta = useRef<number | null>(null);
   // Tocco prolungato sul telefono
   const [menuRiga, setMenuRiga] = useState<Riga | null>(null);
   const pressione = useRef<{ timer: number; x: number; y: number } | null>(null);
@@ -250,9 +253,36 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
     );
   }
 
+  const conSomma = colonne.some((c) => c.somma);
+  const larghezzaPrima = conSomma ? 26 : 18;
+  const selezionate = conSomma ? visibili.filter((r) => spuntate.has(r.id)) : [];
+  const tutteSpuntate = visibili.length > 0 && selezionate.length === visibili.length;
+  const spunta = (r: Riga, valore: boolean, intervallo: boolean) => {
+    const qui = visibili.findIndex((x) => x.id === r.id);
+    const da = intervallo && ultimaSpunta.current !== null ? visibili.findIndex((x) => x.id === ultimaSpunta.current) : -1;
+    const interessate = da >= 0 ? visibili.slice(Math.min(da, qui), Math.max(da, qui) + 1) : [r];
+    setSpuntate((s) => {
+      const n = new Set(s);
+      for (const x of interessate) {
+        if (valore) n.add(x.id);
+        else n.delete(x.id);
+      }
+      return n;
+    });
+    ultimaSpunta.current = r.id;
+  };
+  const spuntaTutte = (valore: boolean) => setSpuntate((s) => {
+    const n = new Set(s);
+    for (const x of visibili) {
+      if (valore) n.add(x.id);
+      else n.delete(x.id);
+    }
+    return n;
+  });
+
   const larghezze = (
     <colgroup>
-      <col style={{ width: 18 }} />
+      <col style={{ width: larghezzaPrima }} />
       {colonne.map((c) => <col key={c.chiave} style={{ width: c.larghezza }} />)}
     </colgroup>
   );
@@ -260,11 +290,14 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
   return (
     <div className="griglia-dati">
       <div className="griglia-scorri" ref={scorri}>
-        <table style={{ width: 18 + colonne.reduce((t, c) => t + c.larghezza, 0) }}>
+        <table style={{ width: larghezzaPrima + colonne.reduce((t, c) => t + c.larghezza, 0) }}>
           {larghezze}
           <thead>
             <tr className="intestazioni">
-              <th />
+              <th onClick={(e) => e.stopPropagation()}>
+                {conSomma && <input type="checkbox" className="spunta" aria-label="Seleziona tutte le righe visibili" title="Seleziona tutte le righe visibili"
+                  checked={tutteSpuntate} onChange={(e) => spuntaTutte(e.target.checked)} />}
+              </th>
               {colonne.map((c) => (
                 <th key={c.chiave} onClick={() => ordina(c.chiave)}>
                   <span>{c.titolo}</span>
@@ -296,7 +329,14 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
                 onClick={() => onSeleziona(r.id)}
                 onDoubleClick={() => onApri(r)}
               >
-                <td className="indicatore-riga">{r.id === selezionata ? "▸" : ""}</td>
+                <td className="indicatore-riga">
+                  {conSomma ? (
+                    <input type="checkbox" className="spunta" aria-label="Seleziona questa riga" checked={spuntate.has(r.id)}
+                      onClick={(e) => { e.stopPropagation(); spunta(r, e.currentTarget.checked, e.shiftKey); }}
+                      onDoubleClick={(e) => e.stopPropagation()}
+                      onChange={() => {}} />
+                  ) : r.id === selezionata ? "▸" : ""}
+                </td>
                 {colonne.map((c) => (
                   c.tipo === "miniatura" ? (
                     <td key={c.chiave} className="centrata cella-miniatura">
@@ -330,6 +370,15 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
         {colonne.filter((c) => c.somma).map((c) => (
           <span key={c.chiave} className="somma-colonna">{c.titolo}: <b>{euro(visibili.reduce((t, r) => t + (Number(r[c.chiave]) || 0), 0))}</b></span>
         ))}
+        {selezionate.length > 0 && (
+          <span className="somma-selezione">
+            {selezionate.length === 1 ? "1 riga selezionata" : `${selezionate.length} righe selezionate`}
+            {colonne.filter((c) => c.somma).map((c) => (
+              <span key={c.chiave}>{c.titolo}: <b>{euro(selezionate.reduce((t, r) => t + (Number(r[c.chiave]) || 0), 0))}</b></span>
+            ))}
+            <button type="button" onClick={() => setSpuntate(new Set())}>Togli selezione</button>
+          </span>
+        )}
       </div>
     </div>
   );

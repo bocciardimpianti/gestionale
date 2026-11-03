@@ -816,6 +816,12 @@ input, select, button { border-radius: 6px; }
 .impegno:hover { background: var(--ottanio-tenue); }
 .giorno-mese.oggi { background: #eef7f8; }
 
+/* Totale delle righe selezionate */
+.griglia-dati .intestazioni th input.spunta { cursor: pointer; width: 15px; height: 15px; margin: 0; vertical-align: middle; }
+.griglia-dati tbody tr:has(input.spunta:checked) td { background: var(--ottanio-tenue); }
+.somma-selezione { display: inline-flex; align-items: center; gap: 12px; margin-left: 24px; padding: 2px 8px; border-radius: 4px; background: var(--ottanio-tenue); color: var(--petrolio); font-size: 12px; }
+.somma-selezione button { padding: 0 6px; font-size: 11.5px; border-radius: 4px; }
+
 /* Materiali consigliati */
 .finestra-consigli { width: min(640px, 100%); }
 .elenco-consigli p { margin-top: 0; }
