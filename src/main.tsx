@@ -4,6 +4,7 @@ import { HashRouter, Navigate, Route, Routes, useParams } from "react-router-dom
 import { AuthProvider, useAuth } from "./auth";
 import Login from "./pages/Login";
 import DueFattori from "./pages/DueFattori";
+import CambioPassword from "./pages/CambioPassword";
 import Utenti from "./pages/admin/Utenti";
 import Registro from "./pages/admin/Registro";
 import Dashboard from "./pages/Dashboard";
@@ -25,6 +26,8 @@ function App() {
       return <DueFattori attivazione />;
     case "mfa_verifica":
       return <DueFattori attivazione={false} />;
+    case "cambio_password":
+      return <CambioPassword />;
     case "disattivato":
       return (
         <div className="schermo-accesso">

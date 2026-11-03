@@ -23,12 +23,20 @@ Applicazione web: React + Vite, ospitata su **GitHub Pages**. Dati, login e 2FA 
 2. In **Settings → Pages → Source** scegli **GitHub Actions**.
 3. Ogni modifica su `main` viene pubblicata automaticamente.
 
+### 3. Recupero password
+"Password dimenticata?" genera una password provvisoria e la invia via mail agli amministratori attivi; l'utente la sostituisce al primo accesso. Per attivarlo, una volta sola:
+1. In **Supabase → Edge Functions → Secrets** aggiungi `SMTP_HOST`, `SMTP_PORT` (465), `SMTP_USER`, `SMTP_PASS` della casella mittente. Supabase blocca le porte 25 e 587.
+2. Pubblica `supabase/functions/recupera-password/index.ts` come funzione `recupera-password`, con **Verify JWT disattivato**.
+
 ## Sviluppo locale
 ```
 cp .env.example .env   # inserisci URL e chiave anon
 npm install
 npm run dev
 ```
+
+## Mantenimento attivo
+Il piano gratuito di Supabase mette in pausa i progetti inattivi. `.github/workflows/mantieni-attivo.yml` esegue una lettura ogni 3 giorni; se fallisce, GitHub avvisa via email.
 
 ## Script del database (da eseguire in ordine nel SQL Editor di Supabase)
 | Script | Contenuto |

@@ -3,8 +3,8 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase, type Azione, type Permesso, type Profilo, type Sezione } from "./supabase";
 
 // Stato dell'accesso:
-//  caricamento -> anonimo -> (login) -> mfa_attivazione | mfa_verifica -> pronto
-type Stato = "caricamento" | "anonimo" | "mfa_attivazione" | "mfa_verifica" | "pronto" | "disattivato";
+//  caricamento -> anonimo -> (login) -> mfa_attivazione | mfa_verifica -> [cambio_password] -> pronto
+type Stato = "caricamento" | "anonimo" | "mfa_attivazione" | "mfa_verifica" | "cambio_password" | "pronto" | "disattivato";
 
 interface Auth {
   stato: Stato;
@@ -46,6 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.currentLevel !== "aal2") {
       setStato(aal?.nextLevel === "aal2" ? "mfa_verifica" : "mfa_attivazione");
+      return;
+    }
+
+    if (session.user.user_metadata?.password_provvisoria) {
+      setStato("cambio_password");
       return;
     }
 
