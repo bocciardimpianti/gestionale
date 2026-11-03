@@ -27,13 +27,14 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
   };
 
   const salva = async () => {
-    // Modulo caricato solo quando serve (contiene le librerie zip ed Excel)
-    const { creaBackup, nomeBackup, scegliDestinazione } = await import("../backup");
-    const nome = nomeBackup();
-    const destinazione = await scegliDestinazione(nome);
-    if (!destinazione) return; // salvataggio annullato
-    setInCorso(true);
+    setStato("");
     try {
+      // Modulo caricato solo quando serve (contiene le librerie zip ed Excel)
+      const { creaBackup, nomeBackup, scegliDestinazione } = await import("../backup");
+      const nome = nomeBackup();
+      const destinazione = await scegliDestinazione(nome);
+      if (!destinazione) return; // salvataggio annullato
+      setInCorso(true);
       const zip = await creaBackup(setStato, { fotoMateriali });
       setStato("Salvataggio del file…");
       await destinazione.scrivi(zip);

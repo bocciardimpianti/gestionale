@@ -75,8 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const puo = (sezione: string, azione: Azione) =>
     profilo?.ruolo === "admin" || !!permessi.find((p) => p.sezione === sezione)?.[azione];
 
+  // L'uscita deve riuscire sempre: se il server non risponde o l'operazione resta bloccata,
+  // la sessione viene cancellata da questo browser e la pagina ricaricata.
   const esci = async () => {
-    await supabase.auth.signOut();
+    const riuscita = await Promise.race([
+      supabase.auth.signOut().then(({ error }) => !error).catch(() => false),
+      new Promise<boolean>((fine) => setTimeout(() => fine(false), 5000)),
+    ]);
+    if (riuscita) return;
+    Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k));
+    location.reload();
   };
 
   return (
