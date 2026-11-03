@@ -25,6 +25,11 @@ interface Props {
 }
 
 // Finestra di dettaglio come nel programma originale: linguette, campi incorniciati, piede con Salva/Azioni/Chiudi
+const NUMERI_OBBLIGATORI = new Set([
+  "giacenza", "giacenza_minima", "imponibile", "importo", "iva", "iva_totale", "prezzo", "prezzo_base", "prezzo_ricaricato", "prezzo_scontato",
+  "ricarico", "sconto", "sconto_totale", "totale", "totale_materiali", "totale_materiali_servizi", "totale_preventivo", "totale_servizi",
+]);
+
 export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta, onRipristina }: Props) {
   const { puo, profilo } = useAuth();
   const nuovo = valori.id === undefined;
@@ -176,6 +181,13 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     for (const c of tuttiCampi.filter((c) => c.tipo !== "titolo" && !(c.solaLettura && c.chiave in totali))) {
       const v = dati[c.chiave];
       if (c.solaLettura && nuovo && vuoto(v)) continue;
+      // Numero lasciato vuoto su un nuovo documento: vale il valore predefinito del database
+      if (nuovo && vuoto(v) && (c.tipo === "numero" || c.tipo === "euro")) continue;
+      // Su un documento esistente questi numeri non possono restare senza valore nel database
+      if (vuoto(v) && (c.tipo === "numero" || c.tipo === "euro") && NUMERI_OBBLIGATORI.has(c.chiave)) {
+        record[c.chiave] = 0;
+        continue;
+      }
       if ((c.tipo === "foto" || c.tipo === "firma" || c.tipo === "pdf") && v instanceof Blob) continue;
       record[c.chiave] =
         c.tipo === "booleano" ? !!v
@@ -382,11 +394,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             {righe.map((r, i) => {
               const quantita = rc.colonne.find((c) => c.chiave === "quantita");
               const descrizione = rc.colonne.find((c) => c.chiave === "descrizione");
-              const altre = rc.colonne.filter((c) => c !== quantita && c !== descrizione);
+              // Sul telefono solo l'essenziale; gli altri dati della riga restano salvati
+              const altre = rc.colonne.filter((c) => ["prezzo", "ricarico", "costo", "sconto", "iva"].includes(c.chiave));
               return (
                 <div key={i} className="riga-materiale-telefono">
                   <div className="riga-materiale-testa">
-                    {descrizione && modificabile && !descrizione.solaLettura ? (
+                    {descrizione && modificabile && !descrizione.solaLettura && !r.materiale_id ? (
                       <label className="campo-riga largo">{descrizione.titolo}
                         <input value={String(r.descrizione ?? "")} onChange={(e) => cambiaRiga(i, "descrizione", e.target.value)} />
                       </label>
