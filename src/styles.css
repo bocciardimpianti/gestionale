@@ -882,7 +882,22 @@ input, select, button { border-radius: 6px; }
   .voce { left: auto; right: 12px; bottom: calc(72px + env(safe-area-inset-bottom)); transform: none; align-items: flex-end; }
   .voce-pulsante { width: 50px; height: 50px; }
   .voce-messaggio { max-width: calc(100vw - 24px); }
-  .velo ~ .voce, body:has(.velo) .voce { bottom: calc(82px + env(safe-area-inset-bottom)); }
+  /* Con una finestra aperta il microfono sta nella barra del titolo, senza coprire l'elenco */
+  body:has(.velo) .voce { top: calc(var(--scarto-visibile, 0px) + 4px); bottom: auto; right: 56px; flex-direction: column-reverse; }
+  body:has(.velo) .voce-pulsante { width: 44px; height: 44px; background: var(--petrolio-chiaro); box-shadow: none; }
+  body:has(.velo) .voce-pulsante.attivo { background: var(--ruggine); }
+  .finestra-titolo, .scheda-titolo { padding-right: 8px; }
+  .finestra-titolo { padding-left: 12px; }
+  .scheda-titolo > span:first-child { max-width: calc(100% - 110px); }
+  body:has(.ricerca-telefono) .voce, body:has(.menu-riga) .voce { display: none; }
+  /* Tastiera aperta: tutto lo spazio ai risultati */
+  .tastiera-aperta .opzioni-materiali, .tastiera-aperta .finestra-materiali .finestra-titolo { display: none; }
+  .tastiera-aperta .finestra-materiali .finestra-corpo.cerca-materiale { padding-top: 6px; gap: 4px; }
+  .tastiera-aperta .filtri-categoria { padding-bottom: 2px; }
+  .tastiera-aperta .finestra-materiali .finestra-piede { padding: 4px 12px; }
+  .tastiera-aperta .finestra-materiali .finestra-piede .btn { min-height: 38px; }
+  .tastiera-aperta .finestra-materiali .finestra-piede .ok { display: none; }
+  .tastiera-aperta body:has(.finestra-materiali) .voce { display: none; }
   .filtri-categoria button { min-height: 40px; padding: 4px 12px; font-size: 14px; }
   .filtro-marca select { height: 40px; max-width: 150px; font-size: 14px; }
   .laterale .utente .esci { min-height: 44px; }

@@ -3,11 +3,23 @@ import { leggiTutto } from "../supabase";
 import { euro } from "./Griglia";
 import { Miniatura } from "./CampoImmagine";
 import { useTelefono } from "../telefono";
+import { CATEGORIE, categoriaDa, marcaDi } from "../categorie";
 
 type Materiale = Record<string, unknown> & { id: number };
 
 // Elenco dei materiali tenuto in memoria tra un'apertura e l'altra (si aggiorna a ogni apertura)
 let inMemoria: Materiale[] | null = null;
+// Quante volte ogni materiale è stato usato nei rapportini: i più usati vanno in cima
+let usiInMemoria: Map<number, number> | null = null;
+// Categoria di ogni materiale: quella salvata o, se manca, quella proposta dalla descrizione
+const categorieCalcolate = new Map<string, string>();
+const categoriaDi = (m: Materiale) => {
+  if (m.categoria) return String(m.categoria);
+  const d = String(m.descrizione ?? "");
+  let c = categorieCalcolate.get(d);
+  if (c === undefined) categorieCalcolate.set(d, (c = categoriaDa(d)));
+  return c;
+};
 
 const testoDi = (m: Materiale) => `${m.descrizione ?? ""} ${m.nome_articolo ?? ""} ${m.codice_interno ?? ""} ${m.codice_barre ?? ""} ${m.fornitore1 ?? ""} ${m.fornitore2 ?? ""} ${m.codice_fornitore1 ?? ""} ${m.codice_fornitore2 ?? ""}`.toLowerCase();
 
@@ -54,7 +66,10 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const [filtri, setFiltri] = useState<Filtri>(FILTRI_VUOTI);
   const [soloConFoto, setSoloConFoto] = useState(false);
   const [soloDisponibili, setSoloDisponibili] = useState(false);
-  const filtriAttivi = Object.values(filtri).some((v) => v.trim()) || soloConFoto || soloDisponibili;
+  const [categoria, setCategoria] = useState("");
+  const [marca, setMarca] = useState("");
+  const [usi, setUsi] = useState<Map<number, number> | null>(usiInMemoria);
+  const filtriAttivi = Object.values(filtri).some((v) => v.trim()) || soloConFoto || soloDisponibili || !!categoria || !!marca;
   const [quanti, setQuanti] = useState(150);
   const [evidenziato, setEvidenziato] = useState(0);
   const [aggiunti, setAggiunti] = useState<string[]>([]);
@@ -63,24 +78,47 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const telefono = useTelefono();
 
   useEffect(() => {
-    leggiTutto("materiali", "id, codice_interno, descrizione, nome_articolo, codice_barre, fornitore1, codice_fornitore1, fornitore2, codice_fornitore2, dettaglio, unita_misura, prezzo_base, ricarico, prezzo_ricaricato, giacenza, foto", true)
+    leggiTutto("materiali", "*", true)
       .then((m) => {
         inMemoria = m as Materiale[];
         setMateriali(inMemoria);
       })
       .catch((e) => setErrore("Errore nel caricamento dei materiali: " + (e as Error).message));
+    // Se non riesce restano in ordine alfabetico: non è un errore da mostrare
+    leggiTutto("righe_rapporto", "id, materiale_id")
+      .then((righe) => {
+        const conta = new Map<number, number>();
+        for (const r of righe) if (r.materiale_id) conta.set(Number(r.materiale_id), (conta.get(Number(r.materiale_id)) ?? 0) + 1);
+        usiInMemoria = conta;
+        setUsi(conta);
+      })
+      .catch(() => {});
   }, []);
+
+  // Marche presenti nella categoria scelta, dalle più numerose
+  const marche = useMemo(() => {
+    const conta = new Map<string, number>();
+    for (const m of materiali ?? []) {
+      if (categoria && categoriaDi(m) !== categoria) continue;
+      const x = marcaDi(m.descrizione);
+      if (x) conta.set(x, (conta.get(x) ?? 0) + 1);
+    }
+    return [...conta.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([nome]) => nome);
+  }, [materiali, categoria]);
 
   const filtrati = useMemo(() => {
     if (!materiali) return [];
     const parole = testo.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const alfabetico = (a: Materiale, b: Materiale) => String(a.descrizione ?? "").localeCompare(String(b.descrizione ?? ""), "it", { sensitivity: "base" });
+    const alfabetico = (a: Materiale, b: Materiale) => (usi?.get(b.id) ?? 0) - (usi?.get(a.id) ?? 0)
+      || String(a.descrizione ?? "").localeCompare(String(b.descrizione ?? ""), "it", { sensitivity: "base" });
     const paroleColonna = (Object.keys(campiFiltro) as (keyof typeof campiFiltro)[])
       .map((k) => [k, filtri[k].trim().toLowerCase().split(/\s+/).filter(Boolean)] as const)
       .filter(([, p]) => p.length);
     const trovati = materiali.filter((m) => {
       if (soloConFoto && !m.foto) return false;
       if (soloDisponibili && !(Number(m.giacenza ?? 0) > 0)) return false;
+      if (categoria && categoriaDi(m) !== categoria) return false;
+      if (marca && marcaDi(m.descrizione) !== marca) return false;
       if (!numeroOk(m.prezzo_ricaricato, filtri.prezzo) || !numeroOk(m.giacenza, filtri.giacenza)) return false;
       for (const [k, p] of paroleColonna) {
         const t = campiFiltro[k](m).toLowerCase();
@@ -101,13 +139,13 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
       return 2;
     };
     return trovati.sort((a, b) => punteggio(a) - punteggio(b) || alfabetico(a, b));
-  }, [materiali, testo, filtri, soloConFoto, soloDisponibili]);
+  }, [materiali, testo, filtri, soloConFoto, soloDisponibili, categoria, marca, usi]);
 
   useEffect(() => {
     setQuanti(150);
     setEvidenziato(0);
     elenco.current?.scrollTo(0, 0);
-  }, [testo, filtri, soloConFoto, soloDisponibili]);
+  }, [testo, filtri, soloConFoto, soloDisponibili, categoria, marca]);
 
   const scegli = (m: Materiale) => {
     onScegli(m);
@@ -133,11 +171,23 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
               else if (e.key === "Enter" && filtrati[evidenziato]) { e.preventDefault(); scegli(filtrati[evidenziato]); }
             }}
           />
+          <div className="filtri-categoria" role="group" aria-label="Categoria">
+            <button type="button" className={categoria ? "" : "attiva"} aria-pressed={!categoria} onClick={() => { setCategoria(""); setMarca(""); }}>Tutte</button>
+            {CATEGORIE.map((c) => (
+              <button type="button" key={c} className={categoria === c ? "attiva" : ""} aria-pressed={categoria === c} onClick={() => { setCategoria(categoria === c ? "" : c); setMarca(""); }}>{c}</button>
+            ))}
+          </div>
           <div className="opzioni-materiali">
+            <label className="filtro-marca">Marca
+              <select value={marca} onChange={(e) => setMarca(e.target.value)}>
+                <option value="">Tutte</option>
+                {marche.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+            </label>
             <label><input type="checkbox" checked={soloDisponibili} onChange={(e) => setSoloDisponibili(e.target.checked)} /> Solo con giacenza</label>
             <label><input type="checkbox" checked={soloConFoto} onChange={(e) => setSoloConFoto(e.target.checked)} /> Solo con foto</label>
             {(filtriAttivi || testo) && (
-              <button type="button" className="btn grigio" onClick={() => { setFiltri(FILTRI_VUOTI); setSoloConFoto(false); setSoloDisponibili(false); setTesto(""); }}>
+              <button type="button" className="btn grigio" onClick={() => { setFiltri(FILTRI_VUOTI); setSoloConFoto(false); setSoloDisponibili(false); setTesto(""); setCategoria(""); setMarca(""); }}>
                 Azzera filtri
               </button>
             )}

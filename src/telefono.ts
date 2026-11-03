@@ -20,8 +20,18 @@ export function useTelefono() {
 export function seguiTastiera() {
   const radice = document.documentElement;
   const vv = window.visualViewport;
+  // Altezza piena dello schermo: serve a capire quando la tastiera è aperta (si azzera ruotando il telefono)
+  let massima = 0;
+  let larghezza = 0;
   const aggiorna = () => {
-    radice.style.setProperty("--altezza-visibile", `${Math.round(vv?.height ?? window.innerHeight)}px`);
+    const altezza = vv?.height ?? window.innerHeight;
+    if (window.innerWidth !== larghezza) {
+      larghezza = window.innerWidth;
+      massima = 0;
+    }
+    massima = Math.max(massima, altezza);
+    radice.classList.toggle("tastiera-aperta", altezza < massima * 0.75);
+    radice.style.setProperty("--altezza-visibile", `${Math.round(altezza)}px`);
     radice.style.setProperty("--scarto-visibile", `${Math.round(vv?.offsetTop ?? 0)}px`);
   };
   aggiorna();
