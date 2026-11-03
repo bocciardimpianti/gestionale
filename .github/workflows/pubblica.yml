@@ -3,10 +3,6 @@ name: Pubblica su GitHub Pages
 on:
   push:
     branches: [main]
-  # Il ramo di prova viene pubblicato insieme alla versione in uso, nella sottocartella /prova
-  workflow_run:
-    workflows: ["Prova modificata"]
-    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -23,27 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
-      # Un errore sul ramo di prova non deve mai bloccare la versione in uso
-      - name: Prendi il ramo di prova
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: prova
-          path: _prova
-      - name: Compila la versione di prova
-        continue-on-error: true
-        working-directory: _prova
-        env:
-          VITE_PROVA: "1"
-        run: npm ci && npm run build && cp -r dist ../dist/prova
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
