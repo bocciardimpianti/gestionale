@@ -2,6 +2,24 @@ import { useEffect, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { attivaNotifiche, disattivaNotifiche, statoNotifiche, type StatoNotifiche } from "../notifiche";
 
+const android = /android/i.test(navigator.userAgent);
+const iphone = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const app = window.matchMedia("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+
+// Come sbloccare le notifiche, a seconda di dove si usa il gestionale
+function istruzioniSblocco() {
+  if (android && app) return (
+    <>Le notifiche sono bloccate sul telefono. Apri <b>Impostazioni</b> del telefono → <b>App</b> → <b>Gestionale</b> (oppure tieni premuta l'icona del gestionale → <b>Info app</b>) → <b>Notifiche</b> → attivale. Poi torna qui.</>
+  );
+  if (android) return (
+    <>Le notifiche sono bloccate per questo sito. In Chrome tocca <b>⋮</b> → <b>Impostazioni</b> → <b>Impostazioni sito</b> → <b>Notifiche</b> → scegli <b>bocciardimpianti.github.io</b> → <b>Consenti</b>. Poi torna qui.</>
+  );
+  if (iphone) return (
+    <>Le notifiche sono bloccate. Apri <b>Impostazioni</b> dell'iPhone → <b>Notifiche</b> → <b>Gestionale</b> → <b>Consenti notifiche</b>. Poi torna qui.</>
+  );
+  return <>Le notifiche sono bloccate per questo sito: clicca sul lucchetto accanto all'indirizzo → <b>Notifiche</b> → <b>Consenti</b>, poi ricarica la pagina.</>;
+}
+
 // Riquadro per attivare su questo dispositivo gli avvisi delle richieste di intervento
 export default function BannerNotifiche() {
   const [stato, setStato] = useState<StatoNotifiche | null>(null);
@@ -9,7 +27,13 @@ export default function BannerNotifiche() {
   const [inCorso, setInCorso] = useState(false);
 
   const aggiorna = () => statoNotifiche().then(setStato).catch(() => setStato("non-supportate"));
-  useEffect(() => { aggiorna(); }, []);
+  // Tornando dalle impostazioni del telefono lo stato viene ricontrollato da solo
+  useEffect(() => {
+    aggiorna();
+    const torna = () => { if (document.visibilityState === "visible") aggiorna(); };
+    document.addEventListener("visibilitychange", torna);
+    return () => document.removeEventListener("visibilitychange", torna);
+  }, []);
 
   if (!stato || stato === "non-supportate") return null;
 
@@ -41,7 +65,7 @@ export default function BannerNotifiche() {
       {stato === "iphone-da-installare" ? (
         <span>Per ricevere gli avvisi su iPhone aggiungi il gestionale alla schermata Home (tasto <b>Condividi</b> → <b>Aggiungi a Home</b>), aprilo da lì e torna qui.</span>
       ) : stato === "bloccate" ? (
-        <span>Le notifiche sono bloccate per questo sito: consentile dal lucchetto accanto all'indirizzo (Impostazioni sito → Notifiche).</span>
+        <span className="istruzioni-notifiche">{istruzioniSblocco()}</span>
       ) : (
         <>
           <span>Vuoi essere avvisato sul telefono quando arriva una richiesta?</span>
