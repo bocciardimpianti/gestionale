@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.460.0",
     "pdfjs-dist": "^4.10.38",

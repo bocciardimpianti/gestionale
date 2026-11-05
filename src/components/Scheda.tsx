@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useRef, useEffect, useState, type FormEvent } from "react";
 import { MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
@@ -8,6 +8,7 @@ import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
 import CampoImmagine, { urlFirmato } from "./CampoImmagine";
 import CercaMateriale from "./CercaMateriale";
+import LettoreCodice from "./LettoreCodice";
 import MaterialiConsigliati from "./MaterialiConsigliati";
 import { useTelefono } from "../telefono";
 import { linkWhatsapp } from "../whatsapp";
@@ -120,6 +121,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     nome_articolo: m.nome_articolo ?? null,
   });
 
+  // Telefono: codice a barre letto con la fotocamera
+  const [lettore, setLettore] = useState(false);
+  const leggiCodiceRif = useRef<(c: string) => void>(() => {});
+  const codiceLetto = useCallback((c: string) => { setLettore(false); leggiCodiceRif.current(c); }, []);
   const leggiCodice = async (c: string) => {
     let { data } = await supabase.from("materiali").select("*").eq("codice_barre", c).is("eliminato_il", null).limit(1);
     if (!data?.length) ({ data } = await supabase.from("materiali").select("*").eq("codice_interno", c).is("eliminato_il", null).limit(1));
@@ -131,6 +136,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       setStato(`Codice ${c} non trovato tra i materiali: compila la riga a mano`);
     }
   };
+  leggiCodiceRif.current = leggiCodice;
 
   const spostaRiga = (verso: number) => {
     if (rigaSel === null) return;
@@ -491,7 +497,13 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             </tbody>
           </table>
         </div>}
-        {modificabile && (
+        {modificabile && telefono && (
+          <button type="button" className="riga-codice riga-codice-telefono" onClick={() => setLettore(true)}>
+            <span>Codice a barre: tocca per inquadrarlo</span>
+            <Barcode size={22} />
+          </button>
+        )}
+        {modificabile && !telefono && (
           <div className="riga-codice">
             <input
               value={codice}
@@ -670,6 +682,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           </>
         )}
       </form>
+      {lettore && <LettoreCodice onLetto={codiceLetto} onChiudi={() => setLettore(false)} />}
       {cercaMateriale && (
         <div onMouseDown={(e) => e.stopPropagation()}>
           <CercaMateriale onChiudi={() => setCercaMateriale(false)} onScegli={(m) => aggiungiRiga(rigaDaMateriale(m))} onRigaVuota={() => aggiungiRiga()} />

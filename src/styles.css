@@ -1117,3 +1117,20 @@ input, select, button { border-radius: 6px; }
   .agenda-sinistra.aperta { left: 8px; right: 8px; width: auto; top: 110px; }
   .mini-mese td button { width: 38px; height: 38px; }
 }
+
+/* Lettore del codice a barre con la fotocamera (telefono) */
+.riga-codice-telefono { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; font: inherit; color: var(--testo); cursor: pointer; }
+.lettore-codice { position: fixed; inset: 0; z-index: 200; background: #000; display: flex; flex-direction: column; }
+.lettore-titolo { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; color: #fff; font-size: 16px; font-weight: 600; }
+.lettore-titolo button { background: none; border: 0; color: #fff; padding: 6px; display: grid; place-items: center; }
+.lettore-video { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.lettore-video video { width: 100%; height: 100%; object-fit: cover; }
+.lettore-video .mirino {
+  position: absolute; left: 10%; right: 10%; top: 50%; height: 34%; transform: translateY(-50%);
+  border: 3px solid #fff; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,.35);
+}
+.lettore-errore { background: #fff; margin: 0; padding: 10px 14px !important; }
+.lettore-manuale { display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: #111; }
+.lettore-manuale input { flex: 1; min-width: 0; height: 46px; font-size: 16px; }
+.lettore-manuale .btn { min-height: 46px; padding: 0 16px; }
+body:has(.lettore-codice) .comando-voce { display: none; }
