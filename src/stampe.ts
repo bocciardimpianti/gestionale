@@ -56,11 +56,10 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   body { font: 11px Calibri, Arial, sans-serif; color: #222; margin: 0; }
   .alto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; }
   .alto > * { min-width: 0; }
-  /* Intestazione compatta: logo piccolo e dati aziendali accanto */
-  .azienda { display: flex; gap: 10px; align-items: flex-start; }
-  .azienda img { height: 52px; flex: none; }
-  .azienda h1 { color: #1e88e5; font-size: 13.5px; margin: 0 0 2px; }
-  .azienda div { font-size: 9.5px; line-height: 1.3; }
+  /* Intestazione come nel programma originale: logo grande, dati aziendali sotto */
+  .azienda img { height: 95px; margin-top: 6px; display: block; }
+  .azienda h1 { color: #1e88e5; font-size: 17px; margin: 12px 0 4px; }
+  .azienda div { font-size: 11.5px; line-height: 1.35; }
   .box { border: 1.5px solid #1e88e5; }
   .celle { display: grid; }
   .celle > div { border-right: 1px solid #1e88e5; padding: 2px 4px; min-height: 40px; }
@@ -98,8 +97,8 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
 <div class="alto">
   <div class="azienda">
     <img src="${logo()}" alt="">
-    <div><h1>${esc(AZIENDA.nome)}</h1>
-    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)} · Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div></div>
+    <h1>${esc(AZIENDA.nome)}</h1>
+    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)}<br>Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div>
   </div>
   <div>
     <div class="box celle" style="grid-template-columns: 2fr 1fr">
@@ -172,11 +171,10 @@ export function stampaPreventivo(d: Record<string, unknown>, righe: Record<strin
   body { font: 11px Calibri, Arial, sans-serif; color: #222; margin: 0; }
   .alto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; }
   .alto > * { min-width: 0; }
-  /* Intestazione compatta: logo piccolo e dati aziendali accanto */
-  .azienda { display: flex; gap: 10px; align-items: flex-start; }
-  .azienda img { height: 52px; flex: none; }
-  .azienda h1 { color: #1e88e5; font-size: 13.5px; margin: 0 0 2px; }
-  .azienda div { font-size: 9.5px; line-height: 1.3; }
+  /* Intestazione come nel programma originale: logo grande, dati aziendali sotto */
+  .azienda img { height: 95px; margin-top: 6px; display: block; }
+  .azienda h1 { color: #1e88e5; font-size: 17px; margin: 12px 0 4px; }
+  .azienda div { font-size: 11.5px; line-height: 1.35; }
   .box { border: 1.5px solid #1e88e5; display: grid; }
   .box > div { border-right: 1px solid #1e88e5; padding: 2px 4px; min-height: 40px; }
   .box > div:last-child { border-right: none; }
@@ -199,8 +197,8 @@ export function stampaPreventivo(d: Record<string, unknown>, righe: Record<strin
 <div class="alto">
   <div class="azienda">
     <img src="${logo()}" alt="">
-    <div><h1>${esc(AZIENDA.nome)}</h1>
-    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)} · Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div></div>
+    <h1>${esc(AZIENDA.nome)}</h1>
+    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)}<br>Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div>
   </div>
   <div>
     <div class="box" style="grid-template-columns: 1fr 1.4fr 1fr">
