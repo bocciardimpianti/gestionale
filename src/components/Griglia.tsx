@@ -54,7 +54,7 @@ interface Props {
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 export const euro = (v: unknown) =>
   v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
-const mostra = (c: Colonna, r: Riga): string =>
+export const mostra = (c: Colonna, r: Riga): string =>
   c.valore ? testo(c.valore(r))
   : c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave])
   : c.tipo === "percentuale" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : `${Number(r[c.chiave]).toLocaleString("it-IT")}%`)

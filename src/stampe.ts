@@ -10,7 +10,26 @@ export const AZIENDA = {
 };
 
 // Indirizzo completo del logo (la stampa si apre in una finestra nuova)
-const logo = () => new URL("logo.png", location.href).href;
+export const logo = () => new URL("logo.png", location.href).href;
+
+// Stampe interne (elenchi, scadenziario, agenda…): logo, dicitura di riservatezza in testa e in fondo a ogni pagina
+export const DICITURA_RISERVATA = "Documento riservato – ad uso esclusivo interno";
+export const stileRiservato = `
+  .intestazione-riservata { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #123b45; padding-bottom: 6px; margin-bottom: 8px; }
+  .intestazione-riservata img { height: 46px; }
+  .intestazione-riservata .titoli { flex: 1; }
+  .intestazione-riservata h1 { font-size: 16px; margin: 0; }
+  .intestazione-riservata .data { font-size: 10px; color: #555; }
+  .intestazione-riservata .riservato { border: 1.5px solid #b5431f; color: #b5431f; font-weight: 700; font-size: 10px; letter-spacing: .4px; padding: 3px 8px; text-transform: uppercase; }
+  .piede-riservato { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #b5431f; }
+  @media print { body { margin-bottom: 14mm; } }`;
+export const intestazioneRiservata = (titolo: string) => `
+  <div class="intestazione-riservata">
+    <img src="${logo()}" alt="">
+    <div class="titoli"><h1>${titolo}</h1><div class="data">${AZIENDA.nome} · stampato il ${new Date().toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}</div></div>
+    <div class="riservato">${DICITURA_RISERVATA}</div>
+  </div>
+  <div class="piede-riservato">${DICITURA_RISERVATA} – ${AZIENDA.nome}</div>`;
 
 const esc = (v: unknown) =>
   String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);

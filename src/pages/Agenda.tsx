@@ -5,6 +5,7 @@ import { dataIso, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { ARCHIVI } from "../archivi";
 import Scheda from "../components/Scheda";
+import { AZIENDA, DICITURA_RISERVATA, logo } from "../stampe";
 
 // L'Agenda non ha dati propri: mostra a calendario i rapporti di intervento creati dai tecnici
 // (colonna del tecnico, data, ora inizio - ora fine). Cliccando un impegno si apre il rapporto.
@@ -171,6 +172,12 @@ export default function Agenda() {
 
   return (
     <div className="pagina-agenda" onClick={() => menu && setMenu("")}>
+      <div className="solo-stampa intestazione-riservata">
+        <img src={logo()} alt="" />
+        <div className="titoli"><h1>Agenda</h1><div className="data">{AZIENDA.nome} · stampato il {new Date().toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}</div></div>
+        <div className="riservato">{DICITURA_RISERVATA}</div>
+      </div>
+      <div className="solo-stampa piede-riservato">{DICITURA_RISERVATA} – {AZIENDA.nome}</div>
       <div className="testata">
         <h1>Agenda</h1>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>

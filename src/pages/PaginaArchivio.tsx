@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
-import Griglia from "../components/Griglia";
+import Griglia, { mostra as mostraValore } from "../components/Griglia";
 import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
@@ -21,6 +21,7 @@ import { linkWhatsapp } from "../whatsapp";
 import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
 import MicDettatura from "../components/MicDettatura";
+import { intestazioneRiservata, stileRiservato } from "../stampe";
 
 type Riga = Record<string, unknown> & { id: number; archivio_id?: number | null; eliminato_il?: string | null };
 type Vista = { tipo: "tutti" } | { tipo: "archivio"; id: number; nome: string } | { tipo: "cestino" } | { tipo: "rapida"; indice: number };
@@ -287,10 +288,10 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     finestra.document.write(`<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(cfg.titolo)}</title>
       <style>body{font:11px Arial,sans-serif;margin:16px}h1{font-size:16px;margin:0 0 8px}
       table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:3px 5px;text-align:left;vertical-align:top}
-      th{background:#eee}@page{size:landscape;margin:10mm}</style></head><body>
-      <h1>${esc(titoloVista)}</h1><table><thead><tr>${colonne.map((c) => `<th>${esc(c.titolo)}</th>`).join("")}</tr></thead>
-      <tbody>${visibili.map((r) => `<tr>${colonne.map((c) => `<td>${esc(r[c.chiave])}</td>`).join("")}</tr>`).join("")}</tbody></table>
-      <script>window.onload=()=>{window.print()}</script></body></html>`);
+      th{background:#eee}@page{size:landscape;margin:10mm}${stileRiservato}</style></head><body>
+      ${intestazioneRiservata(esc(titoloVista))}<table><thead><tr>${colonne.filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura").map((c) => `<th>${esc(c.titolo)}</th>`).join("")}</tr></thead>
+      <tbody>${visibili.map((r) => `<tr>${colonne.filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura").map((c) => `<td${["euro", "numero", "percentuale"].includes(c.tipo ?? "") ? ' style="text-align:right;white-space:nowrap"' : ""}>${esc(mostraValore(c, r))}</td>`).join("")}</tr>`).join("")}</tbody></table>
+      <script>window.onload=()=>{const i=document.querySelector("img");if(i&&!i.complete){i.onload=i.onerror=()=>window.print()}else window.print()}</script></body></html>`);
     finestra.document.close();
   };
 
