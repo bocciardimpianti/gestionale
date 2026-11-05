@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
 import {
-  ChevronRight, Columns3, Database, Filter, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, RefreshCw,
+  ChevronRight, Columns3, Database, Filter, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, QrCode, RefreshCw,
   RotateCcw, Search, Sheet, Trash2, Undo2,
 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
@@ -12,6 +12,7 @@ import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import { categoriaDa } from "../categorie";
+import { stampaEtichette } from "../etichette";
 import FiltriCategoria from "../components/FiltriCategoria";
 import { linkWhatsapp } from "../whatsapp";
 import { Miniatura } from "../components/CampoImmagine";
@@ -430,6 +431,12 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
                 {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
                 {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}
+                {cfg.sezione === "materiali" && rigaSel && voce(QrCode, "#123b45", `Etichetta QR di "${nomeDi(rigaSel)}"`,
+                  () => stampaEtichette([rigaSel]).catch((e) => setMessaggio("Errore: " + (e as Error).message)))}
+                {cfg.sezione === "materiali" && voce(QrCode, "#123b45", `Etichette QR dei materiali in elenco (${visibili.length})`, () => {
+                  if (visibili.length > 48 && !confirm(`Stampare le etichette di ${visibili.length} materiali (${Math.ceil(visibili.length / 24)} fogli)?\nPer stamparne solo alcuni, filtra prima l'elenco (es. con la ricerca).`)) return;
+                  stampaEtichette(visibili).catch((e) => setMessaggio("Errore: " + (e as Error).message));
+                }, visibili.length > 0)}
                 {!nelCestino && rigaSel && voce(Trash2, "#d9342b", `Elimina "${nomeDi(rigaSel)}"`, () => spostaNelCestino(rigaSel), puo(cfg.sezione, "eliminare"))}
                 {nelCestino && rigaSel && voce(Undo2, "#3a7dc0", "Ripristina", () => ripristina(rigaSel), puo(cfg.sezione, "eliminare"))}
                 {nelCestino && rigaSel && voce(Trash2, "#d9342b", "Elimina definitivamente", () => eliminaDefinitivo(rigaSel), puo(cfg.sezione, "eliminare"))}

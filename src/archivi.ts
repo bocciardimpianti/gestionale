@@ -1,6 +1,7 @@
 import type { Colonna } from "./components/Griglia";
 import { dataIso, prossimiCodiciInterni, supabase } from "./supabase";
 import { stampaPreventivo, stampaRapporto } from "./stampe";
+import { stampaEtichette } from "./etichette";
 import { COLORI_STATO, euro } from "./components/Griglia";
 import { CATEGORIE, DA_CONTROLLARE, categoriaDa } from "./categorie";
 
@@ -109,6 +110,8 @@ export interface Archivio {
   visteRapide?: { nome: string; filtro: (r: Record<string, unknown>) => boolean; ordine?: { chiave: string; su: boolean } }[];
   // Vista Galleria (schede con foto) oltre alla Tabella
   galleria?: { foto: string; titolo: string; dettagli: (r: Record<string, unknown>) => string };
+  // Voci aggiuntive del menu Azioni della scheda (es. etichetta QR del materiale)
+  azioniScheda?: { etichetta: string; esegui: (dati: Record<string, unknown>) => void }[];
   // Documento da stampare dalla scheda (HTML)
   stampa?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => string;
 }
@@ -523,12 +526,17 @@ export const ARCHIVI: Record<string, Archivio> = {
     chiaveImport: ["codice_interno", "descrizione"],
     ordineIniziale: { chiave: "codice_interno", su: true },
     // Nuova descrizione senza categoria: viene proposta subito, si può sempre cambiare
+    // Come in ReportOne il codice a barre (contenuto nel QR dell'etichetta) segue il codice interno,
+    // finché non viene scritto a mano un codice a barre diverso
     quandoCambia: (dati, chiave) => ({
       ...prezzoRicaricato(dati, chiave),
       ...(chiave === "descrizione" && !dati.categoria ? { categoria: categoriaDa(dati.descrizione) } : {}),
+      ...(chiave === "codice_interno" && dati._barre_auto ? { codice_barre: dati.codice_interno } : {}),
+      ...(chiave === "codice_barre" ? { _barre_auto: false } : {}),
     }),
+    azioniScheda: [{ etichetta: "Stampa etichetta QR", esegui: (dati) => { stampaEtichette([dati]).catch((e) => alert((e as Error).message)); } }],
     valoriNuovo: async () => ({
-      codice_interno: (await prossimiCodiciInterni().catch(() => [""]))[0] || null,
+      ...await (async () => { const c = (await prossimiCodiciInterni().catch(() => [""]))[0] || null; return { codice_interno: c, codice_barre: c, _barre_auto: true }; })(),
       ricarico: 35, prezzo_base: 0, prezzo_ricaricato: 0, giacenza: 0, giacenza_minima: 0,
     }),
     visteRapide: [{

@@ -283,6 +283,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
         const slot = dalFornitore ? 1 : 2;
         const { data, error } = await supabase.from("materiali").insert(unici.map((r, k) => ({
           codice_interno: dalFornitore ? r.pdf.codice : progressivi[k],
+          codice_barre: dalFornitore ? r.pdf.codice : progressivi[k],
           descrizione: r.nuovaDescrizione.trim() || r.pdf.descrizione,
           unita_misura: r.nuovaUm || "Pz",
           [`fornitore${slot}`]: fornitore.nome, [`codice_fornitore${slot}`]: r.pdf.codice || null,

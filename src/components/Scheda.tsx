@@ -671,6 +671,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                         {!nelCestino && puo(cfg.sezione, "eliminare") && <button type="button" onClick={onElimina}>Elimina</button>}
                         {nelCestino && onRipristina && puo(cfg.sezione, "eliminare") && <button type="button" onClick={onRipristina}>Ripristina</button>}
                         {cfg.stampa && <button type="button" onClick={stampa}>Stampa</button>}
+                        {cfg.azioniScheda?.map((a) => (
+                          <button type="button" key={a.etichetta} onClick={() => { setMenuAzioni(false); a.esegui({ ...valori, ...dati }); }}>{a.etichetta}</button>
+                        ))}
                         {dati.email ? <a href={`mailto:${dati.email}`}>Invia e-mail</a> : null}
                       </div>
                     )}
