@@ -1134,3 +1134,11 @@ input, select, button { border-radius: 6px; }
 .lettore-manuale input { flex: 1; min-width: 0; height: 46px; font-size: 16px; }
 .lettore-manuale .btn { min-height: 46px; padding: 0 16px; }
 body:has(.lettore-codice) .comando-voce { display: none; }
+
+/* Microfono spostato dall'utente: il pulsante resta dov'è, il messaggio compare sopra o sotto */
+.comando-voce.spostato { position: fixed; display: block; width: 50px; }
+.comando-voce.spostato .voce-pulsante { width: 50px; height: 50px; touch-action: none; }
+.comando-voce.spostato .voce-messaggio { position: absolute; bottom: calc(100% + 6px); left: 0; width: max-content; max-width: min(520px, calc(100vw - 24px)); }
+.comando-voce.spostato.messaggio-a-destra .voce-messaggio { left: auto; right: 0; }
+.comando-voce.spostato.messaggio-sotto .voce-messaggio { bottom: auto; top: calc(100% + 6px); }
+.voce-pulsante { touch-action: none; }
