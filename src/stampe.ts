@@ -54,9 +54,13 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; }
   body { font: 11px Calibri, Arial, sans-serif; color: #222; margin: 0; }
-  .alto { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-  .azienda h1 { color: #1e88e5; font-size: 17px; margin: 12px 0 4px; }
-  .azienda div { font-size: 11.5px; line-height: 1.35; }
+  .alto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; }
+  .alto > * { min-width: 0; }
+  /* Intestazione compatta: logo piccolo e dati aziendali accanto */
+  .azienda { display: flex; gap: 10px; align-items: flex-start; }
+  .azienda img { height: 52px; flex: none; }
+  .azienda h1 { color: #1e88e5; font-size: 13.5px; margin: 0 0 2px; }
+  .azienda div { font-size: 9.5px; line-height: 1.3; }
   .box { border: 1.5px solid #1e88e5; }
   .celle { display: grid; }
   .celle > div { border-right: 1px solid #1e88e5; padding: 2px 4px; min-height: 40px; }
@@ -64,35 +68,38 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   .etichetta { font-size: 9.5px; }
   .valore { font-size: 13px; text-align: center; margin-top: 3px; }
   .grande { font-size: 15px; font-weight: 700; }
-  .dest { background: #dcecfb; border: 1.5px solid #1e88e5; border-top: none; padding: 3px 4px; min-height: 150px; }
-  .dest .nome { color: #1e88e5; font-size: 17px; font-weight: 700; margin: 40px 0 18px; }
+  .dest { background: #dcecfb; border: 1.5px solid #1e88e5; border-top: none; padding: 3px 4px; min-height: 70px; }
+  .dest .nome { color: #1e88e5; font-size: 15px; font-weight: 700; margin: 6px 0 4px; }
   .riga { display: grid; border: 1.5px solid #1e88e5; border-top: none; }
-  .riga > div { border-right: 1px solid #1e88e5; padding: 2px 4px; min-height: 48px; }
+  .riga > div { border-right: 1px solid #1e88e5; padding: 2px 4px; min-height: 36px; }
   .riga > div:last-child { border-right: none; }
-  table.materiali { width: 100%; border-collapse: separate; border-spacing: 4px 0; margin-top: 12px; }
+  table.materiali { width: 100%; border-collapse: separate; border-spacing: 4px 0; margin-top: 8px; table-layout: fixed; }
   table.materiali th { background: #a9d1f5; font-size: 10px; padding: 2px; }
   table.materiali td { background: #dcecfb; padding: 3px 4px; vertical-align: top; }
   table.materiali td:nth-child(2) { background: #e9f3fd; }
-  table.materiali tr.riempi td { height: ${Math.max(40, 300 - righe.length * 18)}px; }
+  table.materiali tr.riempi td { height: ${Math.max(14, 180 - righe.length * 18)}px; }
   .tariffe { display: grid; grid-template-columns: repeat(6, 1fr); border: 1.5px solid #1e88e5; margin-top: 8px; }
   .tariffe > div { border-right: 1px solid #1e88e5; padding: 2px 4px; min-height: 40px; }
   .tariffe > div:last-child { border-right: none; }
   .tariffe .valore { text-align: right; }
   .totali { width: 36%; margin-left: auto; margin-top: 6px; }
-  .totali > div { background: #e9f3fd; padding: 3px 4px; margin-bottom: 3px; min-height: 44px; }
-  .totali .vuoto { background: #b9dbf8; }
+  .totali > div { background: #e9f3fd; padding: 2px 4px; margin-bottom: 2px; min-height: 30px; }
+  .totali .vuoto { background: #b9dbf8; min-height: 10px; }
   .totali .valore { text-align: right; font-size: 13px; }
   .totali .documento { background: #1e88e5; color: #fff; }
   .totali .documento .valore { font-weight: 700; font-size: 16px; }
-  .annotazioni { background: #e9f3fd; padding: 3px 4px; min-height: 34px; margin-top: 8px; }
-  .firma { width: 36%; margin-left: auto; margin-top: 12px; min-height: 60px; }
-  .pagina { text-align: center; margin-top: 30px; }
+  .annotazioni { background: #e9f3fd; padding: 3px 4px; min-height: 30px; margin-top: 6px; }
+  .firma { width: 36%; margin-left: auto; margin-top: 6px; min-height: 50px; }
+  .pagina { text-align: center; margin-top: 6px; font-size: 9px; }
+  /* Righe dei materiali che non si spezzano a metà tra due pagine */
+  table.materiali tr { break-inside: avoid; }
+  .tariffe, .totali, .firma { break-inside: avoid; }
 </style></head><body>
 <div class="alto">
   <div class="azienda">
-    <img src="${logo()}" alt="" style="height: 95px; margin-top: 6px">
-    <h1>${esc(AZIENDA.nome)}</h1>
-    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)}<br>Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div>
+    <img src="${logo()}" alt="">
+    <div><h1>${esc(AZIENDA.nome)}</h1>
+    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)} · Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div></div>
   </div>
   <div>
     <div class="box celle" style="grid-template-columns: 2fr 1fr">
@@ -106,7 +113,7 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
       <div><div class="etichetta">Totale ore</div><div class="valore">${num(d.totale_ore)}</div></div>
       <div><div class="etichetta">KM percorsi</div><div class="valore">${d.km_percorsi ? num(d.km_percorsi) : ""}</div></div>
     </div>
-    <div class="dest" style="margin-top: 12px; border-top: 1.5px solid #1e88e5">
+    <div class="dest" style="margin-top: 6px; border-top: 1.5px solid #1e88e5">
       <div class="etichetta">Destinatario</div>
       <div class="nome">${esc(d.cliente)}</div>
       <div>P.Iva/C.F.: ${esc(d.cliente_piva)}</div>
@@ -163,17 +170,21 @@ export function stampaPreventivo(d: Record<string, unknown>, righe: Record<strin
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; }
   body { font: 11px Calibri, Arial, sans-serif; color: #222; margin: 0; }
-  .alto { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-  .azienda h1 { color: #1e88e5; font-size: 17px; margin: 12px 0 4px; }
-  .azienda div { font-size: 11.5px; line-height: 1.35; }
+  .alto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; }
+  .alto > * { min-width: 0; }
+  /* Intestazione compatta: logo piccolo e dati aziendali accanto */
+  .azienda { display: flex; gap: 10px; align-items: flex-start; }
+  .azienda img { height: 52px; flex: none; }
+  .azienda h1 { color: #1e88e5; font-size: 13.5px; margin: 0 0 2px; }
+  .azienda div { font-size: 9.5px; line-height: 1.3; }
   .box { border: 1.5px solid #1e88e5; display: grid; }
   .box > div { border-right: 1px solid #1e88e5; padding: 2px 4px; min-height: 40px; }
   .box > div:last-child { border-right: none; }
   .etichetta { font-size: 9.5px; }
   .valore { font-size: 13px; text-align: center; margin-top: 3px; }
   .grande { font-size: 15px; font-weight: 700; }
-  .dest { background: #dcecfb; border: 1.5px solid #1e88e5; padding: 3px 4px; min-height: 130px; margin-top: 12px; }
-  .dest .nome { color: #1e88e5; font-size: 17px; font-weight: 700; margin: 30px 0 14px; }
+  .dest { background: #dcecfb; border: 1.5px solid #1e88e5; padding: 3px 4px; min-height: 70px; margin-top: 6px; }
+  .dest .nome { color: #1e88e5; font-size: 15px; font-weight: 700; margin: 6px 0 4px; }
   table.righe { width: 100%; border-collapse: separate; border-spacing: 4px 0; margin-top: 14px; }
   table.righe th { background: #a9d1f5; font-size: 10px; padding: 2px; }
   table.righe td { background: #dcecfb; padding: 3px 4px; vertical-align: top; }
@@ -187,9 +198,9 @@ export function stampaPreventivo(d: Record<string, unknown>, righe: Record<strin
 </style></head><body>
 <div class="alto">
   <div class="azienda">
-    <img src="${logo()}" alt="" style="height: 95px; margin-top: 6px">
-    <h1>${esc(AZIENDA.nome)}</h1>
-    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)}<br>Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div>
+    <img src="${logo()}" alt="">
+    <div><h1>${esc(AZIENDA.nome)}</h1>
+    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)} · Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div></div>
   </div>
   <div>
     <div class="box" style="grid-template-columns: 1fr 1.4fr 1fr">
