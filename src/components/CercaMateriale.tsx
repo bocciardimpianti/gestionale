@@ -163,12 +163,15 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
           <input
             autoFocus
             type={telefono ? "search" : undefined}
+            enterKeyHint={telefono ? "search" : undefined}
             placeholder={telefono ? "Cerca descrizione o codice" : "Cerca in tutto: descrizione, codice, codice a barre, fornitore…"}
             value={testo}
             onChange={(e) => setTesto(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") { e.preventDefault(); setEvidenziato((i) => Math.min(i + 1, filtrati.length - 1)); }
               else if (e.key === "ArrowUp") { e.preventDefault(); setEvidenziato((i) => Math.max(i - 1, 0)); }
+              // Sul telefono il tasto di ricerca della tastiera chiude solo la tastiera: il materiale si aggiunge toccandolo
+              else if (e.key === "Enter" && telefono) { e.preventDefault(); e.currentTarget.blur(); }
               else if (e.key === "Enter" && filtrati[evidenziato]) { e.preventDefault(); scegli(filtrati[evidenziato]); }
             }}
           />
