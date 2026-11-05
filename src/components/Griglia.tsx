@@ -41,6 +41,10 @@ interface Props {
   onSpunta?: (riga: Riga, chiave: string, valore: boolean) => void;
   // Telefono: azioni mostrate tenendo premuto il dito su una riga
   azioniRiga?: (riga: Riga) => { testo: string; pericolo?: boolean; esegui: () => void }[];
+  // Caselle per selezionare più righe anche senza colonne da sommare (es. materiali per le etichette)
+  selezionabile?: boolean;
+  // Riceve le righe spuntate (visibili), es. per stampare le etichette dei materiali scelti
+  onSelezionate?: (righe: Riga[]) => void;
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -52,7 +56,7 @@ const mostra = (c: Colonna, r: Riga) =>
   : c.tipo === "numero" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : Number(r[c.chiave]).toLocaleString("it-IT")) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga }: Props) {
+export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga, selezionabile = false, onSelezionate }: Props) {
   const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
   // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record
@@ -143,6 +147,14 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
 
   const ordina = (chiave: string) =>
     setOrdine((o) => ({ chiave, su: o.chiave === chiave ? !o.su : true }));
+
+  // Righe spuntate comunicate alla pagina (prima delle uscite anticipate: gli hook restano sempre nello stesso ordine)
+  // Con "selezionabile" le spunte restano anche cambiando ricerca o filtri (si scelgono i materiali uno dopo l'altro)
+  const spuntateTutte = (selezionabile ? righe : visibili).filter((r) => spuntate.has(r.id));
+  const chiaveSelezione = spuntateTutte.map((r) => r.id).join(",");
+  useEffect(() => {
+    onSelezionate?.(spuntateTutte);
+  }, [chiaveSelezione]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (telefono) {
     const nascondi = (c: Colonna) => ["immagine", "miniatura", "booleano", "stato", "euro"].includes(c.tipo ?? "");
@@ -254,10 +266,10 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
     );
   }
 
-  const conSomma = colonne.some((c) => c.somma);
+  const conSomma = colonne.some((c) => c.somma) || selezionabile;
   const larghezzaPrima = conSomma ? 26 : 18;
-  const selezionate = conSomma ? visibili.filter((r) => spuntate.has(r.id)) : [];
-  const tutteSpuntate = visibili.length > 0 && selezionate.length === visibili.length;
+  const selezionate = !conSomma ? [] : selezionabile ? spuntateTutte : visibili.filter((r) => spuntate.has(r.id));
+  const tutteSpuntate = visibili.length > 0 && visibili.every((r) => spuntate.has(r.id));
   const spunta = (r: Riga, valore: boolean, intervallo: boolean) => {
     const qui = visibili.findIndex((x) => x.id === r.id);
     const da = intervallo && ultimaSpunta.current !== null ? visibili.findIndex((x) => x.id === ultimaSpunta.current) : -1;

@@ -76,6 +76,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [vista, setVista] = useState<Vista>({ tipo: "tutti" });
   const [selezionata, setSelezionata] = useState<number | null>(null);
   const [scheda, setScheda] = useState<Record<string, unknown> | null>(null);
+  // Righe spuntate nella griglia (es. materiali di cui stampare le etichette)
+  const [selezionate, setSelezionate] = useState<Riga[]>([]);
   const [menu, setMenu] = useState<"" | "azioni" | "tabella" | "archivi">("");
   const [sceltaColonne, setSceltaColonne] = useState(false);
   const [importaReportOne, setImportaReportOne] = useState(false);
@@ -431,7 +433,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
                 {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
                 {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}
-                {cfg.sezione === "materiali" && rigaSel && voce(QrCode, "#123b45", `Etichetta QR di "${nomeDi(rigaSel)}"`,
+                {cfg.sezione === "materiali" && selezionate.length > 0 && voce(QrCode, "#123b45", `Etichette QR dei materiali spuntati (${selezionate.length})`,
+                  () => stampaEtichette(selezionate).catch((e) => setMessaggio("Errore: " + (e as Error).message)))}
+                {cfg.sezione === "materiali" && !selezionate.length && rigaSel && voce(QrCode, "#123b45", `Etichetta QR di "${nomeDi(rigaSel)}"`,
                   () => stampaEtichette([rigaSel]).catch((e) => setMessaggio("Errore: " + (e as Error).message)))}
                 {cfg.sezione === "materiali" && voce(QrCode, "#123b45", `Etichette QR dei materiali in elenco (${visibili.length})`, () => {
                   if (visibili.length > 48 && !confirm(`Stampare le etichette di ${visibili.length} materiali (${Math.ceil(visibili.length / 24)} fogli)?\nPer stamparne solo alcuni, filtra prima l'elenco (es. con la ricerca).`)) return;
@@ -495,6 +499,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         ricerca={ricerca}
         colonnaRicerca={colonnaRicerca}
         onSpunta={!nelCestino && puo(cfg.sezione, "modificare") ? spunta : undefined}
+        selezionabile={cfg.sezione === "materiali"}
+        onSelezionate={setSelezionate}
         azioniRiga={(r) => [
           { testo: "Apri", esegui: () => setScheda(r) },
           ...(puoWhatsapp && ["clienti", "fornitori"].includes(cfg.sezione) && (linkWhatsapp(r.cellulare) ?? linkWhatsapp(r.telefono))
