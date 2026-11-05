@@ -19,8 +19,11 @@ interface Auth {
 
 const Ctx = createContext<Auth>(null as unknown as Auth);
 
-// Dopo 48 ore dall'accesso (password + codice 2FA) si rientra, su PC e telefono
+// Se il gestionale non viene usato per 48 ore su questo dispositivo si rientra (PC e telefono)
 export const DURATA_ACCESSO_ORE = 48;
+const CHIAVE_ATTIVITA = "gestionale-ultima-attivita";
+const leggiAttivita = () => { try { return Number(localStorage.getItem(CHIAVE_ATTIVITA)) || 0; } catch { return 0; } };
+const segnaAttivita = () => { try { localStorage.setItem(CHIAVE_ATTIVITA, String(Date.now())); } catch { /* non disponibile */ } };
 export const CHIAVE_SCADUTO = "gestionale-accesso-scaduto";
 
 // Momento dell'accesso: dai metodi registrati nel "biglietto" di Supabase (password, codice 2FA)
@@ -36,9 +39,13 @@ function oraAccesso(session: Session): number | null {
   const ultimo = session.user.last_sign_in_at ? Date.parse(session.user.last_sign_in_at) : NaN;
   return Number.isFinite(ultimo) ? ultimo : null;
 }
+// Ultimo utilizzo: l'ultima attività registrata, oppure l'accesso stesso se è più recente (appena entrati)
+// (su un dispositivo senza attività registrata, es. al primo avvio di questa versione, il conteggio parte da adesso)
 const accessoScaduto = (session: Session) => {
-  const da = oraAccesso(session);
-  return da !== null && Date.now() - da > DURATA_ACCESSO_ORE * 3600 * 1000;
+  const registrata = leggiAttivita();
+  if (!registrata) { segnaAttivita(); return false; }
+  const ultimo = Math.max(registrata, oraAccesso(session) ?? 0);
+  return Date.now() - ultimo > DURATA_ACCESSO_ORE * 3600 * 1000;
 };
 export const useAuth = () => useContext(Ctx);
 
@@ -124,12 +131,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session && accessoScaduto(session)) aggiorna();
     };
     const ogniCinqueMinuti = window.setInterval(controlla, 5 * 60 * 1000);
-    const alRitorno = () => { if (document.visibilityState === "visible") controlla(); };
+    // Tornando sull'app prima si controlla (dopo 48 ore ferme si esce), poi l'uso conta come attività
+    const alRitorno = () => { if (document.visibilityState === "visible") controlla().then(() => attivita()); };
+    // Ogni tocco, clic o tasto conta come utilizzo (registrato al massimo una volta al minuto)
+    let ultimaSegnata = 0;
+    const attivita = async () => {
+      if (Date.now() - ultimaSegnata < 60_000) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || accessoScaduto(session)) return;
+      ultimaSegnata = Date.now();
+      segnaAttivita();
+    };
     document.addEventListener("visibilitychange", alRitorno);
+    window.addEventListener("pointerdown", attivita, { passive: true });
+    window.addEventListener("keydown", attivita);
     return () => {
       subscription.unsubscribe();
       clearInterval(ogniCinqueMinuti);
       document.removeEventListener("visibilitychange", alRitorno);
+      window.removeEventListener("pointerdown", attivita);
+      window.removeEventListener("keydown", attivita);
     };
   }, [aggiorna]);
 

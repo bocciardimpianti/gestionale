@@ -21,7 +21,7 @@ export default function Login() {
     try {
       if (!sessionStorage.getItem(CHIAVE_SCADUTO)) return "";
       sessionStorage.removeItem(CHIAVE_SCADUTO);
-      return `Per sicurezza l'accesso dura ${DURATA_ACCESSO_ORE} ore: entra di nuovo con email, password e codice.`;
+      return `Per sicurezza, dopo ${DURATA_ACCESSO_ORE} ore senza usare il gestionale va rifatto l'accesso con email, password e codice.`;
     } catch { return ""; }
   });
 
