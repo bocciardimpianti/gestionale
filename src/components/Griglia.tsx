@@ -4,6 +4,7 @@ import { dataIt } from "../supabase";
 import { Miniatura } from "./CampoImmagine";
 import { useTelefono } from "../telefono";
 import { coloreCategoria } from "../categorie";
+import { pulisciRicerca } from "../testo";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
@@ -105,7 +106,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
 
   const visibili = useMemo(() => {
     const attivi = Object.entries(filtri).filter(([, f]) => f.trim());
-    const parole = ricerca.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const parole = pulisciRicerca(ricerca).split(/\s+/).filter(Boolean);
     const dove = colonne.filter((c) =>
       c.tipo !== "booleano" && c.tipo !== "immagine" && c.tipo !== "miniatura" && (!colonnaRicerca || c.chiave === colonnaRicerca));
     // Su una colonna precisa si cercano le parole che INIZIANO col testo (es. "F" → Ferdinando, Rossi Franco)
@@ -121,7 +122,7 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
     // Ricerca su una colonna: prima chi inizia esattamente col testo, poi gli altri, in ordine alfabetico
     if (colonnaRicerca && parole.length) {
       const c = colonne.find((x) => x.chiave === colonnaRicerca)!;
-      const t = ricerca.trim().toLowerCase();
+      const t = pulisciRicerca(ricerca);
       return filtrate.sort((a, b) => {
         const va = mostra(c, a).toLowerCase(), vb = mostra(c, b).toLowerCase();
         return Number(!va.startsWith(t)) - Number(!vb.startsWith(t)) || va.localeCompare(vb, "it", { sensitivity: "base", numeric: true });

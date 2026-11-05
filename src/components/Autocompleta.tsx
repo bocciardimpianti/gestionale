@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTelefono } from "../telefono";
+import { pulisciRicerca } from "../testo";
 
 // Campo con elenco di suggerimenti: scrivendo le prime lettere compaiono prima i nomi che INIZIANO così
 // (in ordine alfabetico), poi quelli in cui un'altra parola inizia così (es. "Ing. BELLAGAMBA" con "bel").
 export function ordinaPerInizio<T>(elenco: T[], testo: string, nome: (x: T) => string, max = Infinity): T[] {
-  const t = testo.trim().toLowerCase();
+  const t = pulisciRicerca(testo);
   const alfabetico = (a: T, b: T) => nome(a).localeCompare(nome(b), "it", { sensitivity: "base" });
   if (!t) return [...elenco].sort(alfabetico).slice(0, max);
   const inizio: T[] = [];

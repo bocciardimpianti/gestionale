@@ -5,6 +5,7 @@ import { Miniatura } from "./CampoImmagine";
 import { useTelefono } from "../telefono";
 import { categoriaDa, coloreCategoria, marcaDi } from "../categorie";
 import FiltriCategoria from "./FiltriCategoria";
+import { pulisciRicerca } from "../testo";
 
 type Materiale = Record<string, unknown> & { id: number };
 
@@ -112,11 +113,11 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
 
   const filtrati = useMemo(() => {
     if (!materiali) return [];
-    const parole = testo.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const parole = pulisciRicerca(testo).split(/\s+/).filter(Boolean);
     const alfabetico = (a: Materiale, b: Materiale) => (usi?.get(b.id) ?? 0) - (usi?.get(a.id) ?? 0)
       || String(a.descrizione ?? "").localeCompare(String(b.descrizione ?? ""), "it", { sensitivity: "base" });
     const paroleColonna = (Object.keys(campiFiltro) as (keyof typeof campiFiltro)[])
-      .map((k) => [k, filtri[k].trim().toLowerCase().split(/\s+/).filter(Boolean)] as const)
+      .map((k) => [k, pulisciRicerca(filtri[k]).split(/\s+/).filter(Boolean)] as const)
       .filter(([, p]) => p.length);
     const trovati = materiali.filter((m) => {
       if (soloConFoto && !m.foto) return false;
@@ -133,7 +134,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
       return parole.every((p) => t.includes(p));
     });
     // Senza testo generale: ordine alfabetico, ma chi INIZIA con il filtro della descrizione va in cima
-    const primo = parole[0] ?? filtri.descrizione.trim().toLowerCase().split(/\s+/)[0] ?? "";
+    const primo = parole[0] ?? pulisciRicerca(filtri.descrizione).split(/\s+/)[0] ?? "";
     if (!primo) return trovati.sort(alfabetico);
     // Prima chi inizia con il testo (descrizione o codice), poi chi ha una parola che inizia così, poi gli altri
     const punteggio = (m: Materiale) => {
