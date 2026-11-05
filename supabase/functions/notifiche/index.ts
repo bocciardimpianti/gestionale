@@ -28,10 +28,12 @@ Deno.serve(async (req) => {
   const servizio = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   // Chiavi di invio: create alla prima richiesta
-  let { data: chiavi } = await servizio.from("chiavi_notifiche").select("pubblica, privata").eq("id", 1).maybeSingle();
+  let { data: chiavi, error: errChiavi } = await servizio.from("chiavi_notifiche").select("pubblica, privata").eq("id", 1).maybeSingle();
+  if (errChiavi) return risposta({ errore: `Esegui su Supabase lo script 0022_notifiche.sql (${errChiavi.message})` }, 500);
   if (!chiavi) {
     const nuove = webpush.generateVAPIDKeys();
-    await servizio.from("chiavi_notifiche").insert({ id: 1, pubblica: nuove.publicKey, privata: nuove.privateKey });
+    const { error: errNuove } = await servizio.from("chiavi_notifiche").insert({ id: 1, pubblica: nuove.publicKey, privata: nuove.privateKey });
+    if (errNuove && !/duplicate/i.test(errNuove.message)) return risposta({ errore: `Chiavi non salvate: ${errNuove.message}` }, 500);
     ({ data: chiavi } = await servizio.from("chiavi_notifiche").select("pubblica, privata").eq("id", 1).single());
   }
   webpush.setVapidDetails(SITO, chiavi!.pubblica, chiavi!.privata);

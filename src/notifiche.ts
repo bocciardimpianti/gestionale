@@ -32,6 +32,18 @@ const nomeDispositivo = () => {
   return /android/i.test(ua) ? "Android" : iPhone() ? "iPhone/iPad" : /windows/i.test(ua) ? "PC Windows" : /mac/i.test(ua) ? "Mac" : "Dispositivo";
 };
 
+// Motivo leggibile quando la funzione server "notifiche" non risponde come dovrebbe
+async function motivoErrore(error: unknown) {
+  const risposta = (error as { context?: Response }).context;
+  const codice = risposta?.status;
+  let dettaglio = "";
+  try { dettaglio = (await risposta?.clone().json())?.errore ?? ""; } catch { /* risposta non in formato JSON */ }
+  if (codice === 401 || codice === 403) return `La funzione "notifiche" rifiuta l'accesso (${codice}): su Supabase apri la funzione e disattiva "Verify JWT"${dettaglio ? ` (${dettaglio})` : ""}`;
+  if (codice === 404) return `Funzione "notifiche" non trovata (404): su Supabase deve chiamarsi esattamente notifiche`;
+  if (codice) return `La funzione "notifiche" ha dato un errore (${codice})${dettaglio ? `: ${dettaglio}` : ""}`;
+  return `Funzione "notifiche" non raggiungibile: ${(error as Error)?.message ?? "nessuna risposta"}`;
+}
+
 // Da chiamare con un tocco dell'utente (il browser chiede il permesso)
 export async function attivaNotifiche() {
   const permesso = await Notification.requestPermission();
@@ -41,7 +53,8 @@ export async function attivaNotifiche() {
   let iscrizione = await reg.pushManager.getSubscription();
   if (!iscrizione) {
     const { data, error } = await supabase.functions.invoke("notifiche", { body: { azione: "chiave" } });
-    if (error || !data?.chiave) throw new Error("Funzione \"notifiche\" non raggiungibile: va pubblicata su Supabase");
+    if (error) throw new Error(await motivoErrore(error));
+    if (!data?.chiave) throw new Error(`La funzione "notifiche" non ha restituito la chiave${data?.errore ? `: ${data.errore}` : ""}`);
     iscrizione = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64InByte(data.chiave) });
   }
   await salvaIscrizione(iscrizione);
@@ -77,7 +90,7 @@ export async function ricollegaNotifiche() {
 // Avvisa chi deve sapere della richiesta (tecnico assegnato, oppure tutti i tecnici); restituisce un messaggio per l'utente
 export async function avvisaRichiesta(id: number): Promise<string> {
   const { data, error } = await supabase.functions.invoke("notifiche", { body: { azione: "richiesta", id } });
-  if (error) return "Avviso ai tecnici non inviato (funzione \"notifiche\" non disponibile)";
+  if (error) return "Avviso ai tecnici non inviato. " + (await motivoErrore(error));
   if (data?.motivo) return "";
   const nomi: string[] = data?.destinatari ?? [];
   if (!nomi.length) return "Nessun tecnico da avvisare: collega gli utenti ai tecnici e attiva le notifiche sui loro telefoni";
