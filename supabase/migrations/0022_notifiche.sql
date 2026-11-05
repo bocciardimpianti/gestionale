@@ -3,9 +3,10 @@
 -- - Ogni telefono/PC che attiva le notifiche registra qui la sua "iscrizione"
 -- - Le chiavi di invio sono create dalla funzione server "notifiche" e restano solo sul server
 -- - Ogni richiesta ricorda a chi è già stata notificata, per non mandare doppioni
+-- Si può eseguire anche più volte: le parti già create vengono saltate.
 -- =====================================================================
 
-create table public.push_iscrizioni (
+create table if not exists public.push_iscrizioni (
   id            bigint generated always as identity primary key,
   utente_id     uuid not null references public.profili(id) on delete cascade,
   endpoint      text not null unique,
@@ -17,7 +18,9 @@ create table public.push_iscrizioni (
 );
 
 alter table public.push_iscrizioni enable row level security;
+drop policy if exists push_iscrizioni_mie on public.push_iscrizioni;
 create policy push_iscrizioni_mie on public.push_iscrizioni for select using (utente_id = auth.uid());
+drop policy if exists push_iscrizioni_elimina_mie on public.push_iscrizioni;
 create policy push_iscrizioni_elimina_mie on public.push_iscrizioni for delete using (utente_id = auth.uid());
 
 -- Iscrizione del dispositivo all'utente collegato (se il telefono passa a un altro utente, l'iscrizione lo segue)
@@ -39,15 +42,17 @@ grant execute on function public.iscrivi_notifiche(text, text, text, text) to au
 grant execute on function public.disiscrivi_notifiche(text) to authenticated;
 
 -- Chiavi di invio (VAPID): nessun accesso dal browser, solo dalla funzione server
-create table public.chiavi_notifiche (
+create table if not exists public.chiavi_notifiche (
   id        int primary key default 1 check (id = 1),
   pubblica  text not null,
   privata   text not null,
   creato_il timestamptz not null default now()
 );
 alter table public.chiavi_notifiche enable row level security;
+grant select, insert on public.chiavi_notifiche to service_role;
+grant select, insert, update, delete on public.push_iscrizioni to service_role;
 
--- A chi è già stata notificata la richiesta
+-- A chi è già stata notificata la richiesta (serve lo script 0021 delle richieste)
 alter table public.richieste
   add column if not exists notificata_il timestamptz,
   add column if not exists notificato_tecnico_id bigint;
