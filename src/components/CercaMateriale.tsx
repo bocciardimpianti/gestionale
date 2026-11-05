@@ -55,6 +55,9 @@ function numeroOk(valore: unknown, filtro: string): boolean {
 
 // Finestra per scegliere i materiali da aggiungere alle righe: elenco completo da sfogliare,
 // che si filtra mentre si scrive (prima i materiali la cui descrizione o codice INIZIA con il testo)
+// Schermo touch senza mouse (telefono o tablet, anche in orizzontale)
+const schermoTouch = () => window.matchMedia("(pointer: coarse)").matches && !window.matchMedia("(pointer: fine)").matches;
+
 export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoIniziale = "", titolo = "Aggiungi materiali" }: {
   onChiudi: () => void;
   onScegli: (m: Materiale) => void;
@@ -170,8 +173,9 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") { e.preventDefault(); setEvidenziato((i) => Math.min(i + 1, filtrati.length - 1)); }
               else if (e.key === "ArrowUp") { e.preventDefault(); setEvidenziato((i) => Math.max(i - 1, 0)); }
-              // Sul telefono il tasto di ricerca della tastiera chiude solo la tastiera: il materiale si aggiunge toccandolo
-              else if (e.key === "Enter" && telefono) { e.preventDefault(); e.currentTarget.blur(); }
+              // Su telefono/tablet (schermo touch, a qualsiasi larghezza) il tasto di ricerca della tastiera chiude solo la tastiera:
+              // il materiale si aggiunge toccandolo
+              else if (e.key === "Enter" && (telefono || schermoTouch() || e.nativeEvent.isComposing)) { e.preventDefault(); e.currentTarget.blur(); }
               else if (e.key === "Enter" && filtrati[evidenziato]) { e.preventDefault(); scegli(filtrati[evidenziato]); }
             }}
           />
