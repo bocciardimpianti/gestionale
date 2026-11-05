@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
   LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
@@ -38,6 +38,7 @@ export function Logo() {
 export default function Layout({ children }: { children: ReactNode }) {
   const { profilo, sezioni, puo, esci } = useAuth();
   const naviga = useNavigate();
+  const inHome = useLocation().pathname === "/";
   const admin = profilo?.ruolo === "admin";
   const [chiusi, setChiusi] = useState<Record<string, boolean>>({});
   // Sul cellulare il menu laterale si apre e chiude con il pulsante ☰
@@ -147,7 +148,8 @@ export default function Layout({ children }: { children: ReactNode }) {
           {scorciatoia("materiali", Wrench, "Materiali")}
         </div>
       </footer>
-      <PulsanteVoce />
+      {/* Microfono mobile dei comandi vocali solo nella Home; le ricerche hanno il loro microfono fisso */}
+      {inHome && <PulsanteVoce />}
       {finestraBackup && (
         <UscitaBackup
           soloBackup={finestraBackup === "backup"}
