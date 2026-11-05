@@ -1155,3 +1155,22 @@ body:has(.lettore-codice) .comando-voce { display: none; }
 @media (max-width: 760px) { .mic-dettatura { width: 46px; min-height: 46px; } .ricerca .mic-dettatura { width: 44px; } }
 /* Dove la ricerca ha il suo microfono fisso, il microfono mobile non serve */
 body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comando-voce { display: none; }
+
+/* Quantità chiesta scegliendo un materiale */
+.chiedi-quantita-velo { z-index: 120; }
+.chiedi-quantita { width: min(420px, 100%); }
+.chiedi-quantita .finestra-corpo { display: flex; flex-direction: column; gap: 6px; }
+.chiedi-quantita-nome { font-size: 15px; }
+.chiedi-quantita-campo { display: flex; align-items: center; gap: 0; margin-top: 8px; }
+.chiedi-quantita-campo button { width: 52px; height: 50px; font-size: 24px; padding: 0; background: var(--carta); border: 1px solid var(--bordo); }
+.chiedi-quantita-campo button:first-child { border-radius: 8px 0 0 8px; }
+.chiedi-quantita-campo button:nth-of-type(2) { border-radius: 0 8px 8px 0; }
+.chiedi-quantita-campo input { width: 96px; height: 50px; text-align: center; font-size: 22px; font-weight: 700; border-radius: 0; border-left: 0; border-right: 0; }
+.chiedi-quantita-campo .um { margin-left: 10px; color: var(--tenue); font-weight: 600; }
+.chiedi-quantita .finestra-piede .btn { min-height: 46px; padding: 0 22px; }
+@media (max-width: 760px) {
+  /* In alto nella parte visibile, così la tastiera numerica non copre il pulsante Aggiungi */
+  .velo.chiedi-quantita-velo { padding: 40px 12px 0; place-items: start stretch; }
+  .finestra.chiedi-quantita { width: 100%; height: auto; max-height: none; border-radius: 12px; overflow: hidden; }
+  .chiedi-quantita .finestra-corpo { flex: none; }
+}

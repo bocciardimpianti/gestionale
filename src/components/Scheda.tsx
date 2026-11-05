@@ -688,7 +688,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       {lettore && <LettoreCodice onLetto={codiceLetto} onChiudi={() => setLettore(false)} />}
       {cercaMateriale && (
         <div onMouseDown={(e) => e.stopPropagation()}>
-          <CercaMateriale onChiudi={() => setCercaMateriale(false)} onScegli={(m) => aggiungiRiga(rigaDaMateriale(m))} onRigaVuota={() => aggiungiRiga()} />
+          <CercaMateriale chiediQuantita onChiudi={() => setCercaMateriale(false)}
+            onScegli={(m, q) => aggiungiRiga({ ...rigaDaMateriale(m), ...(q !== undefined ? { quantita: q } : {}) })} onRigaVuota={() => aggiungiRiga()} />
         </div>
       )}
       {consigliati && (

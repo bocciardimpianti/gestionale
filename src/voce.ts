@@ -185,7 +185,15 @@ function primo() {
 }
 
 function quantita(valore: number) {
-  const telefono = [...document.querySelectorAll<HTMLInputElement>(".quantita-telefono input")].filter(visibile);
+  // Finestra "Quantità" aperta scegliendo un materiale: si compila e si conferma
+  const richiesta = document.querySelector<HTMLFormElement>("form.chiedi-quantita");
+  if (richiesta) {
+    const c = richiesta.querySelector<HTMLInputElement>("input");
+    if (c) imposta(c, String(valore));
+    setTimeout(() => richiesta.requestSubmit(), 50);
+    return `Quantità: ${valore}`;
+  }
+  const telefono = [...document.querySelectorAll<HTMLInputElement>(".quantita-riga input, .quantita-telefono input")].filter(visibile);
   let campo: HTMLInputElement | undefined = telefono[telefono.length - 1];
   if (!campo) {
     const tab = document.querySelector(".tabella-righe table");

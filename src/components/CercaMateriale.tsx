@@ -60,9 +60,11 @@ function numeroOk(valore: unknown, filtro: string): boolean {
 // Schermo touch senza mouse (telefono o tablet, anche in orizzontale)
 const schermoTouch = () => window.matchMedia("(pointer: coarse)").matches && !window.matchMedia("(pointer: fine)").matches;
 
-export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoIniziale = "", titolo = "Aggiungi materiali" }: {
+export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoIniziale = "", titolo = "Aggiungi materiali", chiediQuantita = false }: {
   onChiudi: () => void;
-  onScegli: (m: Materiale) => void;
+  onScegli: (m: Materiale, quantita?: number) => void;
+  // Scegliendo un materiale chiede subito la quantità, poi lo aggiunge e lascia aperta la ricerca per aggiungerne altri
+  chiediQuantita?: boolean;
   onRigaVuota?: () => void;
   testoIniziale?: string;
   titolo?: string;
@@ -153,11 +155,27 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
     elenco.current?.scrollTo(0, 0);
   }, [testo, filtri, soloConFoto, soloDisponibili, categoria, marca]);
 
+  const [perQuantita, setPerQuantita] = useState<Materiale | null>(null);
+  const [quantita, setQuantita] = useState("1");
+  const aggiungi = (m: Materiale, q?: number) => {
+    onScegli(m, q);
+    setAggiunti((a) => [...a, `${q !== undefined ? `${q.toLocaleString("it-IT")} × ` : ""}${String(m.descrizione ?? "")}`]);
+  };
   const scegli = (m: Materiale) => {
-    onScegli(m);
-    setAggiunti((a) => [...a, String(m.descrizione ?? "")]);
+    if (chiediQuantita) {
+      setQuantita("1");
+      setPerQuantita(m);
+      return;
+    }
+    aggiungi(m);
     // Sul telefono il tocco inserisce il materiale e torna subito alla scheda
     if (telefono) onChiudi();
+  };
+  const confermaQuantita = () => {
+    const q = Number(quantita.replace(",", "."));
+    if (!perQuantita || !(q > 0)) return;
+    aggiungi(perQuantita, q);
+    setPerQuantita(null);
   };
 
   return (
@@ -281,6 +299,29 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
           <button type="button" className="btn blu" onClick={onChiudi}>{telefono ? "Chiudi" : "Fine"}</button>
         </div>
       </div>
+      {perQuantita && (
+        <div className="velo chiedi-quantita-velo" onMouseDown={(e) => { e.stopPropagation(); setPerQuantita(null); }}>
+          <form className="finestra chiedi-quantita" onMouseDown={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); confermaQuantita(); }}>
+            <div className="finestra-titolo">Quantità<button type="button" className="chiudi" onClick={() => setPerQuantita(null)}>×</button></div>
+            <div className="finestra-corpo">
+              <b className="chiedi-quantita-nome">{String(perQuantita.descrizione ?? "")}</b>
+              <div className="piccolo">Cod. {String(perQuantita.codice_interno ?? "")}{perQuantita.unita_misura ? ` · ${String(perQuantita.unita_misura)}` : ""}</div>
+              <div className="chiedi-quantita-campo">
+                <button type="button" aria-label="Diminuisci" onClick={() => setQuantita((v) => String(Math.max(1, (Number(v.replace(",", ".")) || 1) - 1)))}>−</button>
+                <input autoFocus type="text" inputMode="decimal" autoComplete="off" aria-label="Quantità" value={quantita}
+                  onFocus={(e) => e.currentTarget.select()} onChange={(e) => setQuantita(e.target.value.replace(/[^0-9.,]/g, ""))} enterKeyHint="done" />
+                <button type="button" aria-label="Aumenta" onClick={() => setQuantita((v) => String((Number(v.replace(",", ".")) || 0) + 1))}>+</button>
+                <span className="um">{String(perQuantita.unita_misura ?? "")}</span>
+              </div>
+            </div>
+            <div className="finestra-piede">
+              <button type="button" className="btn grigio" onClick={() => setPerQuantita(null)}>Annulla</button>
+              <span style={{ flex: 1 }} />
+              <button type="submit" className="btn blu" disabled={!(Number(quantita.replace(",", ".")) > 0)}>Aggiungi</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
