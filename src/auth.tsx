@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, type Azione, type Permesso, type Profilo, type Sezione } from "./supabase";
 
@@ -26,6 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profilo, setProfilo] = useState<Profilo | null>(null);
   const [sezioni, setSezioni] = useState<Sezione[]>([]);
   const [permessi, setPermessi] = useState<Permesso[]>([]);
+  // Ultimo stato raggiunto: se si era già dentro, un problema momentaneo del server non deve far uscire
+  const statoAttuale = useRef<Stato>("caricamento");
+  useEffect(() => { statoAttuale.current = stato; }, [stato]);
+  const riprova = useRef(0);
 
   const aggiorna = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -35,8 +39,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStato("anonimo");
       return;
     }
+    const giaDentro = statoAttuale.current === "pronto";
+    // Server momentaneamente non raggiungibile: si resta dentro e si ricontrolla tra poco
+    const problemaServer = () => {
+      if (!giaDentro) return false;
+      clearTimeout(riprova.current);
+      riprova.current = window.setTimeout(() => aggiornaRif.current(), 15000);
+      return true;
+    };
 
-    const { data: prof } = await supabase.from("profili").select("*").eq("id", session.user.id).single();
+    const { data: prof, error: errProf } = await supabase.from("profili").select("*").eq("id", session.user.id).single();
+    if (errProf && problemaServer()) return;
     setProfilo(prof);
     if (prof && !prof.attivo) {
       setStato("disattivato");
@@ -44,7 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // 2FA obbligatoria: se non configurata va attivata, se configurata va verificata
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const { data: aal, error: errAal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if ((errAal || !aal) && problemaServer()) return;
     if (aal?.currentLevel !== "aal2") {
       setStato(aal?.nextLevel === "aal2" ? "mfa_verifica" : "mfa_attivazione");
       return;
@@ -55,15 +69,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const [{ data: sez }, { data: per }] = await Promise.all([
+    const [{ data: sez, error: errSez }, { data: per, error: errPer }] = await Promise.all([
       supabase.from("sezioni").select("*").order("ordine"),
       supabase.from("permessi").select("*").eq("utente_id", session.user.id),
     ]);
+    if ((errSez || errPer) && problemaServer()) return;
     // "Start Tecnici" non viene usato: non compare nel menu né nei permessi
     setSezioni((sez ?? []).filter((s) => s.chiave !== "start_tecnici"));
     setPermessi(per ?? []);
     setStato("pronto");
   }, []);
+  const aggiornaRif = useRef(aggiorna);
+  aggiornaRif.current = aggiorna;
 
   useEffect(() => {
     aggiorna();
