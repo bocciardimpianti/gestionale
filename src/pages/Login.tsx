@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { supabase } from "../supabase";
 import { Logo } from "../Layout";
+import { CHIAVE_SCADUTO, DURATA_ACCESSO_ORE } from "../auth";
 
 // Distingue le credenziali errate dai problemi del servizio (es. progetto Supabase in pausa)
 function messaggioErrore(stato?: number) {
@@ -15,7 +16,14 @@ export default function Login() {
   const [errore, setErrore] = useState("");
   const [attesa, setAttesa] = useState(false);
   const [recupero, setRecupero] = useState(false);
-  const [avviso, setAvviso] = useState("");
+  // Accesso scaduto dopo 48 ore: lo si spiega una volta
+  const [avviso, setAvviso] = useState(() => {
+    try {
+      if (!sessionStorage.getItem(CHIAVE_SCADUTO)) return "";
+      sessionStorage.removeItem(CHIAVE_SCADUTO);
+      return `Per sicurezza l'accesso dura ${DURATA_ACCESSO_ORE} ore: entra di nuovo con email, password e codice.`;
+    } catch { return ""; }
+  });
 
   const invia = async (e: FormEvent) => {
     e.preventDefault();

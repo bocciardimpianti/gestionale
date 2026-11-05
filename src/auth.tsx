@@ -18,6 +18,28 @@ interface Auth {
 }
 
 const Ctx = createContext<Auth>(null as unknown as Auth);
+
+// Dopo 48 ore dall'accesso (password + codice 2FA) si rientra, su PC e telefono
+export const DURATA_ACCESSO_ORE = 48;
+export const CHIAVE_SCADUTO = "gestionale-accesso-scaduto";
+
+// Momento dell'accesso: dai metodi registrati nel "biglietto" di Supabase (password, codice 2FA)
+function oraAccesso(session: Session): number | null {
+  try {
+    const parte = session.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const dati = JSON.parse(atob(parte + "=".repeat((4 - (parte.length % 4)) % 4)));
+    const tempi = ((dati.amr ?? []) as { method: string; timestamp: number }[])
+      .filter((a) => ["password", "otp", "totp", "mfa/totp"].includes(a.method) || a.method.includes("totp"))
+      .map((a) => a.timestamp * 1000);
+    if (tempi.length) return Math.min(...tempi);
+  } catch { /* biglietto non leggibile: si usa l'ultimo accesso */ }
+  const ultimo = session.user.last_sign_in_at ? Date.parse(session.user.last_sign_in_at) : NaN;
+  return Number.isFinite(ultimo) ? ultimo : null;
+}
+const accessoScaduto = (session: Session) => {
+  const da = oraAccesso(session);
+  return da !== null && Date.now() - da > DURATA_ACCESSO_ORE * 3600 * 1000;
+};
 export const useAuth = () => useContext(Ctx);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -35,6 +57,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { session } } = await supabase.auth.getSession();
     setSessione(session);
     if (!session) {
+      setProfilo(null);
+      setStato("anonimo");
+      return;
+    }
+    if (accessoScaduto(session)) {
+      try { sessionStorage.setItem(CHIAVE_SCADUTO, "1"); } catch { /* non disponibile */ }
+      await supabase.auth.signOut().catch(() => {});
+      Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k));
+      setSessione(null);
       setProfilo(null);
       setStato("anonimo");
       return;
@@ -87,7 +118,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((evento) => {
       if (evento === "SIGNED_OUT" || evento === "SIGNED_IN") setTimeout(aggiorna, 0);
     });
-    return () => subscription.unsubscribe();
+    // Scadenza dell'accesso controllata anche a gestionale aperto e quando si torna sull'app
+    const controlla = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && accessoScaduto(session)) aggiorna();
+    };
+    const ogniCinqueMinuti = window.setInterval(controlla, 5 * 60 * 1000);
+    const alRitorno = () => { if (document.visibilityState === "visible") controlla(); };
+    document.addEventListener("visibilitychange", alRitorno);
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(ogniCinqueMinuti);
+      document.removeEventListener("visibilitychange", alRitorno);
+    };
   }, [aggiorna]);
 
   const puo = (sezione: string, azione: Azione) =>
