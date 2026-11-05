@@ -1,6 +1,7 @@
 // Etichette QR dei materiali, come in ReportOne: il QR contiene il codice a barre del materiale
 // (di solito uguale al codice interno), che si legge con la fotocamera nei rapportini.
 // Foglio A4 con 3 × 8 etichette da 70 × 37 mm (fogli adesivi standard); si può partire da una posizione qualsiasi.
+// Margine interno di 5 mm: le stampanti laser non stampano vicino al bordo del foglio.
 
 type Materiale = Record<string, unknown>;
 
@@ -48,12 +49,12 @@ export async function stampaEtichette(materiali: Materiale[]) {
       body { margin: 0; font-family: Arial, sans-serif; }
       .foglio { width: 210mm; height: 297mm; display: grid; grid-template-columns: repeat(3, 70mm); grid-template-rows: repeat(8, 37.125mm); page-break-after: always; overflow: hidden; }
       .foglio:last-child { page-break-after: auto; }
-      .etichetta { display: flex; align-items: center; gap: 2.5mm; padding: 3mm; overflow: hidden; }
-      .qr { flex: none; width: 28mm; height: 28mm; }
+      .etichetta { display: flex; align-items: center; gap: 2.5mm; padding: 5mm 5mm; overflow: hidden; }
+      .qr { flex: none; width: 26mm; height: 26mm; }
       .qr svg { width: 100%; height: 100%; display: block; }
       .testi { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1mm; }
       .codice { font-size: 15pt; font-weight: 700; letter-spacing: .3pt; }
-      .descrizione { font-size: 7.5pt; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+      .descrizione { font-size: 7.5pt; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
       .barre { font-size: 7pt; color: #444; }
       .comandi { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; padding: 10px 16px; background: #123b45; color: #fff; font-size: 14px; }
       .comandi input { width: 64px; font-size: 16px; padding: 4px 6px; }
