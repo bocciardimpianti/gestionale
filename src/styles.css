@@ -402,7 +402,7 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 
 /* Ricerca materiali dal rapporto */
 .cerca-materiale { display: flex; flex-direction: column; gap: 10px; }
-.cerca-materiale > input { font-size: 15px; padding: 8px 10px; }
+.cerca-materiale .riga-cerca > input { font-size: 15px; padding: 8px 10px; flex: 1; min-width: 0; }
 .cerca-materiale .risultati { max-height: 55vh; overflow: auto; }
 .cerca-materiale tbody tr { cursor: pointer; }
 .cerca-materiale tbody tr:hover td { background: #fcd9a3; }
@@ -902,6 +902,7 @@ input, select, button { border-radius: 6px; }
   .finestra-titolo { padding-left: 12px; }
   .scheda-titolo > span:first-child { max-width: calc(100% - 110px); }
   body:has(.ricerca-telefono) .comando-voce, body:has(.menu-riga) .comando-voce { display: none; }
+
   /* Tastiera aperta: tutto lo spazio ai risultati */
   .tastiera-aperta .opzioni-materiali, .tastiera-aperta .finestra-materiali .finestra-titolo { display: none; }
   .tastiera-aperta .finestra-materiali .finestra-corpo.cerca-materiale { padding-top: 6px; gap: 4px; }
@@ -909,8 +910,6 @@ input, select, button { border-radius: 6px; }
   .tastiera-aperta .finestra-materiali .finestra-piede { padding: 4px 12px; }
   .tastiera-aperta .finestra-materiali .finestra-piede .btn { min-height: 38px; }
   .tastiera-aperta .finestra-materiali .finestra-piede .ok { display: none; }
-  body:has(.finestra-materiali) .comando-voce { }
-  .tastiera-aperta:has(.finestra-materiali) .comando-voce { display: none; }
   .filtri-categoria button { min-height: 40px; padding: 4px 12px; font-size: 14px; }
   .filtro-marca select { height: 40px; max-width: 150px; font-size: 14px; }
   .laterale .utente .esci { min-height: 44px; }
@@ -1081,7 +1080,7 @@ input, select, button { border-radius: 6px; }
   .ricerca-telefono-elenco button { width: 100%; min-height: 50px; padding: 8px 14px; border: 0; border-bottom: 1px solid #e6ecec; border-radius: 0; background: none; text-align: left; font-size: 16px; color: var(--testo); }
   .finestra-materiali { position: relative; }
   .finestra-materiali .finestra-corpo.cerca-materiale { flex: 1; min-height: 0; padding: 10px 12px; gap: 6px; overflow: hidden; }
-  .cerca-materiale > input { flex: none; font-size: 16px; height: 46px; }
+  .cerca-materiale .riga-cerca > input { font-size: 16px; height: 46px; }
   .cerca-materiale > .piccolo { display: none; }
   .opzioni-materiali { flex: none; margin: 0; gap: 12px; }
   .opzioni-materiali input[type="checkbox"] { width: 20px; height: 20px; }
@@ -1142,3 +1141,17 @@ body:has(.lettore-codice) .comando-voce { display: none; }
 .comando-voce.spostato.messaggio-a-destra .voce-messaggio { left: auto; right: 0; }
 .comando-voce.spostato.messaggio-sotto .voce-messaggio { bottom: auto; top: calc(100% + 6px); }
 .voce-pulsante { touch-action: none; }
+
+/* Microfono fisso accanto alle barre di ricerca */
+.riga-cerca { display: flex; gap: 6px; align-items: stretch; }
+.mic-dettatura {
+  flex: none; width: 40px; min-height: 34px; padding: 0; border: 0; border-radius: 8px;
+  background: var(--petrolio); color: #fff; display: grid; place-items: center; cursor: pointer;
+}
+.mic-dettatura:hover { background: var(--petrolio-chiaro); }
+.mic-dettatura.attivo { background: var(--ruggine); box-shadow: 0 0 0 4px rgba(181, 67, 31, .25); }
+.ricerca .mic-dettatura { border-radius: 0; min-height: 0; width: 36px; }
+.ricerca-telefono-testa .mic-dettatura { width: 46px; }
+@media (max-width: 760px) { .mic-dettatura { width: 46px; min-height: 46px; } .ricerca .mic-dettatura { width: 44px; } }
+/* Dove la ricerca ha il suo microfono fisso, il microfono mobile non serve */
+body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comando-voce { display: none; }

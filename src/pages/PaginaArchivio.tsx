@@ -17,6 +17,7 @@ import FiltriCategoria from "../components/FiltriCategoria";
 import { linkWhatsapp } from "../whatsapp";
 import { Miniatura } from "../components/CampoImmagine";
 import type { Archivio } from "../archivi";
+import MicDettatura from "../components/MicDettatura";
 
 type Riga = Record<string, unknown> & { id: number; archivio_id?: number | null; eliminato_il?: string | null };
 type Vista = { tipo: "tutti" } | { tipo: "archivio"; id: number; nome: string } | { tipo: "cestino" } | { tipo: "rapida"; indice: number };
@@ -410,6 +411,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
               onChange={(e) => setRicerca(e.target.value)}
             />
           </label>
+          <MicDettatura onTesto={setRicerca} />
         </div>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>
           {cfg.galleria && (

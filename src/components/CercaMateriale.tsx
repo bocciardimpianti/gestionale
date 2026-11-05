@@ -6,6 +6,7 @@ import { useTelefono } from "../telefono";
 import { categoriaDa, coloreCategoria, marcaDi } from "../categorie";
 import FiltriCategoria from "./FiltriCategoria";
 import { pulisciRicerca } from "../testo";
+import MicDettatura from "./MicDettatura";
 
 type Materiale = Record<string, unknown> & { id: number };
 
@@ -164,22 +165,25 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
       <div className="finestra finestra-materiali" onMouseDown={(e) => e.stopPropagation()}>
         <div className="finestra-titolo">{titolo}<button type="button" className="chiudi" onClick={onChiudi}>×</button></div>
         <div className="finestra-corpo cerca-materiale">
-          <input
-            autoFocus
-            type={telefono ? "search" : undefined}
-            enterKeyHint={telefono ? "search" : undefined}
-            placeholder={telefono ? "Cerca descrizione o codice" : "Cerca in tutto: descrizione, codice, codice a barre, fornitore…"}
-            value={testo}
-            onChange={(e) => setTesto(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown") { e.preventDefault(); setEvidenziato((i) => Math.min(i + 1, filtrati.length - 1)); }
-              else if (e.key === "ArrowUp") { e.preventDefault(); setEvidenziato((i) => Math.max(i - 1, 0)); }
-              // Su telefono/tablet (schermo touch, a qualsiasi larghezza) il tasto di ricerca della tastiera chiude solo la tastiera:
-              // il materiale si aggiunge toccandolo
-              else if (e.key === "Enter" && (telefono || schermoTouch() || e.nativeEvent.isComposing)) { e.preventDefault(); e.currentTarget.blur(); }
-              else if (e.key === "Enter" && filtrati[evidenziato]) { e.preventDefault(); scegli(filtrati[evidenziato]); }
-            }}
-          />
+          <div className="riga-cerca">
+            <input
+              autoFocus
+              type={telefono ? "search" : undefined}
+              enterKeyHint={telefono ? "search" : undefined}
+              placeholder={telefono ? "Cerca descrizione o codice" : "Cerca in tutto: descrizione, codice, codice a barre, fornitore…"}
+              value={testo}
+              onChange={(e) => setTesto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") { e.preventDefault(); setEvidenziato((i) => Math.min(i + 1, filtrati.length - 1)); }
+                else if (e.key === "ArrowUp") { e.preventDefault(); setEvidenziato((i) => Math.max(i - 1, 0)); }
+                // Su telefono/tablet (schermo touch, a qualsiasi larghezza) il tasto di ricerca della tastiera chiude solo la tastiera:
+                // il materiale si aggiunge toccandolo
+                else if (e.key === "Enter" && (telefono || schermoTouch() || e.nativeEvent.isComposing)) { e.preventDefault(); e.currentTarget.blur(); }
+                else if (e.key === "Enter" && filtrati[evidenziato]) { e.preventDefault(); scegli(filtrati[evidenziato]); }
+              }}
+            />
+            <MicDettatura onTesto={setTesto} />
+          </div>
           <FiltriCategoria valore={categoria} onCambia={(c) => { setCategoria(c); setMarca(""); }} />
           <div className="opzioni-materiali">
             <label className="filtro-marca">Marca

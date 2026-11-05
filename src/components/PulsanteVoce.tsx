@@ -33,11 +33,18 @@ const leggiPosizione = (): Posizione | null => {
 const salvaPosizione = (p: Posizione | null) => {
   try { if (p) localStorage.setItem(CHIAVE, JSON.stringify(p)); else localStorage.removeItem(CHIAVE); } catch { /* non disponibile */ }
 };
-// Angolo in alto a sinistra del pulsante, sempre tutto dentro lo schermo
-const inPixel = (p: Posizione) => ({
-  left: Math.round(Math.min(Math.max(4, p.x * window.innerWidth - LATO / 2), window.innerWidth - LATO - 4)),
-  top: Math.round(Math.min(Math.max(4, p.y * window.innerHeight - LATO / 2), window.innerHeight - LATO - 4)),
-});
+// Angolo in alto a sinistra del pulsante, sempre tutto dentro la parte visibile dello schermo
+// (con la tastiera aperta la parte visibile è più bassa: il pulsante resta sopra la tastiera)
+const inPixel = (p: Posizione) => {
+  const vv = window.visualViewport;
+  const larghezza = vv?.width ?? window.innerWidth;
+  const altezza = vv?.height ?? window.innerHeight;
+  const sopra = vv?.offsetTop ?? 0;
+  return {
+    left: Math.round(Math.min(Math.max(4, p.x * larghezza - LATO / 2), larghezza - LATO - 4)),
+    top: Math.round(sopra + Math.min(Math.max(4, p.y * altezza - LATO / 2), altezza - LATO - 4)),
+  };
+};
 
 export default function PulsanteVoce() {
   const Classe = (window as Finestra).SpeechRecognition ?? (window as Finestra).webkitSpeechRecognition;
@@ -52,7 +59,13 @@ export default function PulsanteVoce() {
   useEffect(() => {
     const aggiorna = () => setDimensioni((n) => n + 1);
     window.addEventListener("resize", aggiorna);
-    return () => window.removeEventListener("resize", aggiorna);
+    window.visualViewport?.addEventListener("resize", aggiorna);
+    window.visualViewport?.addEventListener("scroll", aggiorna);
+    return () => {
+      window.removeEventListener("resize", aggiorna);
+      window.visualViewport?.removeEventListener("resize", aggiorna);
+      window.visualViewport?.removeEventListener("scroll", aggiorna);
+    };
   }, []);
 
   const mostra = (m: string, durata = 5000) => {
@@ -108,7 +121,8 @@ export default function PulsanteVoce() {
     if (!t.mosso && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8) return;
     t.mosso = true;
     clearTimeout(t.premuto);
-    setPosizione({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
+    const vv = window.visualViewport;
+    setPosizione({ x: e.clientX / (vv?.width ?? window.innerWidth), y: (e.clientY - (vv?.offsetTop ?? 0)) / (vv?.height ?? window.innerHeight) });
   };
   const su = () => {
     const t = trascina.current;

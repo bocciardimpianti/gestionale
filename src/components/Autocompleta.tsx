@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTelefono } from "../telefono";
 import { pulisciRicerca } from "../testo";
+import MicDettatura from "./MicDettatura";
 
 // Campo con elenco di suggerimenti: scrivendo le prime lettere compaiono prima i nomi che INIZIANO così
 // (in ordine alfabetico), poi quelli in cui un'altra parola inizia così (es. "Ing. BELLAGAMBA" con "bel").
@@ -120,6 +121,7 @@ function AutocompletaTelefono({ id, valore, opzioni, onCambia, readOnly, placeho
             <input ref={campo} type="search" enterKeyHint="done" autoComplete="off" value={valore} placeholder={placeholder ?? "Scrivi le prime lettere…"}
               onChange={(e) => { onCambia(e.target.value); setQuanti(100); }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); chiudi(); } }} />
+            <MicDettatura onTesto={(t) => { onCambia(t); setQuanti(100); }} />
             <button type="button" className="btn blu" onClick={chiudi}>Fine</button>
           </div>
           <ul className="ricerca-telefono-elenco"

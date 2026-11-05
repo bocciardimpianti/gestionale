@@ -157,18 +157,18 @@ function scriviNelCampo(testo: string) {
 
 function campoRicerca() {
   const radice = primoPiano();
-  return radice.querySelector<HTMLInputElement>(".ricerca-telefono input, .cerca-materiale > input")
+  return radice.querySelector<HTMLInputElement>(".ricerca-telefono input, .cerca-materiale .riga-cerca > input")
     ?? (radice === document.body ? document.querySelector<HTMLInputElement>(".ricerca input") : null);
 }
 
 async function aggiungi(testo: string) {
-  let campo = document.querySelector<HTMLInputElement>(".cerca-materiale > input");
+  let campo = document.querySelector<HTMLInputElement>(".cerca-materiale .riga-cerca > input");
   if (!campo) {
     const b = bottone("Aggiungi materiale") ?? primoPiano().querySelector<HTMLElement>('button[title^="Aggiungi materiali"]');
     if (!b) return "Apri prima un rapportino";
     b.click();
     await pausa(250);
-    campo = document.querySelector<HTMLInputElement>(".cerca-materiale > input");
+    campo = document.querySelector<HTMLInputElement>(".cerca-materiale .riga-cerca > input");
   }
   if (!campo) return "Non riesco ad aprire la ricerca materiali";
   if (testo) imposta(campo, testo);
