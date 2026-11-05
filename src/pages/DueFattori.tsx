@@ -8,6 +8,8 @@ export default function DueFattori({ attivazione }: { attivazione: boolean }) {
   const [fattoreId, setFattoreId] = useState("");
   const [qr, setQr] = useState("");
   const [segreto, setSegreto] = useState("");
+  const [indirizzoApp, setIndirizzoApp] = useState("");
+  const [copiata, setCopiata] = useState(false);
   const [codice, setCodice] = useState("");
   const [errore, setErrore] = useState("");
   const [attesa, setAttesa] = useState(false);
@@ -26,6 +28,8 @@ export default function DueFattori({ attivazione }: { attivazione: boolean }) {
         setFattoreId(data.id);
         setQr(data.totp.qr_code);
         setSegreto(data.totp.secret);
+        // Indirizzo "otpauth://": sullo stesso telefono apre l'app Authenticator e aggiunge l'account senza inquadrare il QR
+        setIndirizzoApp(data.totp.uri);
       } else {
         const { data } = await supabase.auth.mfa.listFactors();
         setFattoreId(data?.totp[0]?.id ?? "");
@@ -58,10 +62,20 @@ export default function DueFattori({ attivazione }: { attivazione: boolean }) {
               Authenticator (Google Authenticator, Microsoft Authenticator, Authy…).
             </p>
             {qr && <img className="qr" src={qr} alt="Codice QR per l'app Authenticator" />}
+            {indirizzoApp && (
+              <div className="due-fattori-telefono">
+                <p className="piccolo"><b>Stai usando lo stesso telefono?</b> Non serve inquadrare il codice: installa un'app Authenticator e tocca qui.</p>
+                <a className="btn blu" href={indirizzoApp}>Aggiungi all'app Authenticator</a>
+              </div>
+            )}
             {segreto && (
-              <p className="piccolo">
-                Oppure inserisci a mano la chiave: <code>{segreto}</code>
-              </p>
+              <div className="due-fattori-chiave">
+                <p className="piccolo">Se il pulsante non apre l'app: nell'app Authenticator scegli "Inserisci una chiave" e copia questa chiave (tipo: in base all'ora).</p>
+                <code>{segreto.match(/.{1,4}/g)?.join(" ")}</code>
+                <button type="button" className="btn grigio" onClick={async () => {
+                  try { await navigator.clipboard.writeText(segreto); setCopiata(true); } catch { setCopiata(false); }
+                }}>{copiata ? "Chiave copiata" : "Copia chiave"}</button>
+              </div>
             )}
           </>
         ) : (
