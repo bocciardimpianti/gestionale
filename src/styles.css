@@ -1043,21 +1043,25 @@ input, select, button { border-radius: 6px; }
   .barra-righe-telefono .btn.consigliati { grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; gap: 8px; }
   .consiglio { min-height: 58px; }
   .consiglio input { width: 24px; height: 24px; }
-  .riga-materiale-telefono { background: #f6f8f8; border: 1px solid var(--bordo); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 10px; }
-  .riga-materiale-testa { display: flex; align-items: flex-start; gap: 8px; }
-  .riga-materiale-testa > b { flex: 1; font-size: 15.5px; padding-top: 10px; }
-  .togli-riga { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--errore); display: grid; place-items: center; padding: 0; }
-  .quantita-telefono { display: flex; align-items: center; gap: 0; }
-  .quantita-telefono span { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--tenue); }
-  .quantita-telefono button { flex: none; width: 48px; height: 46px; padding: 0; font-size: 22px; background: var(--carta); position: relative; z-index: 1; }
-  .quantita-telefono button:first-of-type { border-radius: 8px 0 0 8px; }
-  .quantita-telefono button:last-of-type { border-radius: 0 8px 8px 0; }
-  .quantita-telefono input { flex: none; min-width: 0; width: 76px; height: 46px; border-radius: 0; border-left: 0; border-right: 0; text-align: center; font-weight: 700; }
-  .campi-riga { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .campo-riga { font-size: 13px; font-weight: 600; color: var(--tenue); min-width: 0; }
-  .campo-riga.largo { flex: 1; }
-  .campo-riga input { width: 100%; min-height: 44px; font-weight: 400; color: var(--testo); background: var(--carta); }
-  .campo-riga b { min-height: 26px; color: var(--testo); font-size: 15px; }
+  /* Una riga per materiale: descrizione | quantità | prezzo | ricarico | togli */
+  .riga-materiale-telefono {
+    display: grid; grid-template-columns: minmax(0, 1fr) 40px 68px 40px 24px; gap: 3px; align-items: center;
+    background: #f6f8f8; border: 1px solid var(--bordo); border-radius: 8px; padding: 3px 2px 3px 7px; margin-bottom: 4px; min-height: 44px;
+  }
+  .riga-materiale-telefono.una-altra { grid-template-columns: minmax(0, 1fr) 40px 68px 24px; }
+  .riga-materiale-telefono.senza-altre { grid-template-columns: minmax(0, 1fr) 40px 24px; }
+  .riga-materiale-telefono.intestazione { background: none; border: 0; min-height: 0; padding: 0 2px 0 7px; margin-bottom: 2px; font-size: 11.5px; font-weight: 600; color: var(--tenue); }
+  .riga-materiale-telefono.intestazione span:not(:first-child) { text-align: center; }
+  .riga-materiale-telefono input { width: 100%; min-width: 0; height: 38px; min-height: 0; padding: 0 2px; text-align: center; font-size: 16px; background: var(--carta); }
+  .riga-materiale-telefono .quantita-riga input { font-weight: 700; }
+  .riga-materiale-telefono .valore-riga { display: block; text-align: right; font-size: 13.5px; white-space: nowrap; }
+  .descrizione-riga {
+    min-width: 0; border: 0; background: none; padding: 0; text-align: left; font: inherit; font-size: 14px; font-weight: 600; color: var(--testo);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; height: 38px;
+  }
+  .descrizione-riga.aperta { white-space: normal; overflow: visible; height: auto; padding: 4px 0; }
+  input.descrizione-riga { text-align: left !important; font-weight: 400; }
+  .togli-riga { flex: none; width: 24px; height: 38px; border: 0; background: none; color: var(--errore); display: grid; place-items: center; padding: 0; }
   .riga-codice { align-self: stretch; width: auto; height: 46px; }
   .piede-gruppi, .piede-totali { margin-top: 6px; }
   .voce-piede { align-items: center; min-height: 44px; }
