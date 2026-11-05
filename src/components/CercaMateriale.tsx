@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { leggiTutto } from "../supabase";
 import { euro } from "./Griglia";
 import { Miniatura } from "./CampoImmagine";
-import { useTelefono } from "../telefono";
+import { useIndietroChiude, useTelefono } from "../telefono";
 import { categoriaDa, coloreCategoria, marcaDi } from "../categorie";
 import FiltriCategoria from "./FiltriCategoria";
 import { pulisciRicerca } from "../testo";
@@ -84,6 +84,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const [errore, setErrore] = useState("");
   const elenco = useRef<HTMLDivElement>(null);
   const telefono = useTelefono();
+  useIndietroChiude(true, onChiudi);
 
   useEffect(() => {
     leggiTutto("materiali", "*", true)
@@ -156,6 +157,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   }, [testo, filtri, soloConFoto, soloDisponibili, categoria, marca]);
 
   const [perQuantita, setPerQuantita] = useState<Materiale | null>(null);
+  useIndietroChiude(!!perQuantita, () => setPerQuantita(null));
   const [quantita, setQuantita] = useState("1");
   const aggiungi = (m: Materiale, q?: number) => {
     onScegli(m, q);

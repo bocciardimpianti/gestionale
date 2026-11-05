@@ -9,6 +9,7 @@ import { useAuth } from "./auth";
 import UscitaBackup from "./components/UscitaBackup";
 import PulsanteVoce from "./components/PulsanteVoce";
 import { ricollegaNotifiche } from "./notifiche";
+import { useIndietroChiude } from "./telefono";
 
 // Icone delle voci di menu, come nel programma originale
 export const ICONE: Record<string, LucideIcon> = {
@@ -44,6 +45,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [chiusi, setChiusi] = useState<Record<string, boolean>>({});
   // Sul cellulare il menu laterale si apre e chiude con il pulsante ☰
   const [menuAperto, setMenuAperto] = useState(false);
+  useIndietroChiude(menuAperto, () => setMenuAperto(false));
   // All'uscita l'admin che usa un PC (mouse) può salvare il backup completo
   const [finestraBackup, setFinestraBackup] = useState<"" | "uscita" | "backup">("");
   const daPc = typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches;

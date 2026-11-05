@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { leggiTutto } from "../supabase";
 import { calcolaConsigli, parolaChiave, type RigaStorico } from "../consigli";
 import { euro } from "./Griglia";
+import { useIndietroChiude } from "../telefono";
 
 type Materiale = Record<string, unknown> & { id: number };
 type Dati = { storico: RigaStorico[]; materiali: Materiale[] };
@@ -18,6 +19,7 @@ export default function MaterialiConsigliati({ righe, onAggiungi, onChiudi }: {
   const [dati, setDati] = useState<Dati | null>(null);
   const [errore, setErrore] = useState("");
   const [tolti, setTolti] = useState<Set<number>>(new Set());
+  useIndietroChiude(true, onChiudi);
 
   // Si rilegge a ogni apertura: così contano anche i rapportini appena salvati
   useEffect(() => {

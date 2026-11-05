@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Schermi da telefono: elenchi a righe grandi, schede e ricerche a tutto schermo
 const QUERY = "(max-width: 760px)";
@@ -44,4 +44,36 @@ export function seguiTastiera() {
     if (el.closest(".ricerca-telefono, .finestra-materiali")) return;
     setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
   });
+}
+
+// Tasto "indietro" del telefono (o del browser): con una scheda/finestra aperta la chiude invece di cambiare pagina.
+// All'apertura si aggiunge un passo nella cronologia; chiudendo con i pulsanti il passo viene tolto.
+export function useIndietroChiude(attivo: boolean, chiudi: () => void) {
+  const rif = useRef(chiudi);
+  rif.current = chiudi;
+  useEffect(() => {
+    if (!attivo) return;
+    const id = Math.random().toString(36).slice(2);
+    // Nella cronologia si tiene la pila delle finestre aperte (una sopra l'altra)
+    const aperte = () => ((history.state as { finestre?: string[] } | null)?.finestre ?? []);
+    history.pushState({ ...(history.state ?? {}), finestre: [...aperte(), id] }, "");
+    let chiusaDaIndietro = false;
+    const indietro = () => {
+      // Ancora nella pila: è stata tolta una finestra sopra questa
+      if (aperte().includes(id) || chiusaDaIndietro) return;
+      chiusaDaIndietro = true;
+      window.removeEventListener("popstate", indietro);
+      rif.current();
+    };
+    window.addEventListener("popstate", indietro);
+    return () => {
+      window.removeEventListener("popstate", indietro);
+      // Chiusa con un pulsante: si toglie il passo aggiunto, solo se subito dopo è ancora in cima
+      // (non dopo un cambio pagina, né se nel frattempo si è aperta un'altra finestra)
+      if (!chiusaDaIndietro) setTimeout(() => {
+        const pila = aperte();
+        if (pila[pila.length - 1] === id) history.back();
+      }, 0);
+    };
+  }, [attivo]);
 }

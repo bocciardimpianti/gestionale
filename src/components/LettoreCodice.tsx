@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { useIndietroChiude } from "../telefono";
 
 // Lettura del codice a barre con la fotocamera del telefono.
 // Usa il lettore integrato del browser quando c'è (Android/Chrome), altrimenti la libreria ZXing (anche iPhone).
@@ -15,6 +16,7 @@ export default function LettoreCodice({ onLetto, onChiudi }: { onLetto: (codice:
   const [errore, setErrore] = useState("");
   const [manuale, setManuale] = useState("");
   const letto = useRef(false);
+  useIndietroChiude(true, onChiudi);
 
   useEffect(() => {
     let attivo = true;

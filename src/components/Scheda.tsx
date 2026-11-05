@@ -11,7 +11,7 @@ import CercaMateriale from "./CercaMateriale";
 import LettoreCodice from "./LettoreCodice";
 import MicDettatura from "./MicDettatura";
 import MaterialiConsigliati from "./MaterialiConsigliati";
-import { useTelefono } from "../telefono";
+import { useIndietroChiude, useTelefono } from "../telefono";
 import { linkWhatsapp } from "../whatsapp";
 import Autocompleta from "./Autocompleta";
 
@@ -63,6 +63,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [cercaMateriale, setCercaMateriale] = useState(false);
   const [consigliati, setConsigliati] = useState(false);
   const telefono = useTelefono();
+  // Indietro del telefono: chiude la scheda e resta nell'elenco
+  useIndietroChiude(true, onChiudi);
   // Dettatura nei campi: testo già scritto prima di iniziare a parlare (il dettato si aggiunge in fondo)
   const baseDettatura = useRef<Record<string, string>>({});
   // Telefono: descrizione del materiale mostrata per intero toccandola

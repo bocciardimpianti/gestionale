@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useTelefono } from "../telefono";
+import { useIndietroChiude, useTelefono } from "../telefono";
 import { pulisciRicerca } from "../testo";
 import MicDettatura from "./MicDettatura";
 
@@ -34,6 +34,8 @@ export default function Autocompleta({ id, valore, opzioni, onCambia, readOnly, 
   const [evidenziato, setEvidenziato] = useState(0);
   const [quanti, setQuanti] = useState(100);
   const [tutti, setTutti] = useState(false); // aperto con la freccia: elenco completo anche se il campo è già compilato
+  // Ricerca a tutto schermo del telefono: indietro la chiude
+  useIndietroChiude(telefono && aperto, () => setAperto(false));
   // Senza testo l'elenco contiene tutti i nomi; se ne disegnano 100 alla volta mentre si scorre
   const proposte = useMemo(() => (aperto ? ordinaPerInizio(opzioni, tutti ? "" : valore, (x) => x) : []), [aperto, opzioni, valore, tutti]);
 
