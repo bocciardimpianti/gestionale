@@ -9,6 +9,8 @@ export interface Campo {
   chiave: string;
   etichetta: string;
   tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma" | "email" | "pdf";
+  // Microfono nel campo per dettare il testo (si aggiunge a quello già scritto)
+  dettatura?: boolean;
   // Campi a scelta: colore del quadratino accanto a ogni valore (es. stato del documento)
   colori?: Record<string, string>;
   // Campi a scelta: scegliendo un'opzione copia questi valori dalla sua riga (es. importi della tariffa)
@@ -911,7 +913,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "nominativo", etichetta: "Nominativo (se non è in anagrafica)", larghezza: 2, segnaposto: "es. Giorgio, cliente nuovo" },
       { chiave: "telefono", etichetta: "Telefono", tipo: "telefono", larghezza: 1 },
       { chiave: "indirizzo", etichetta: "Indirizzo", larghezza: 1, finisciRiga: true },
-      { chiave: "descrizione", etichetta: "Descrizione richiesta", tipo: "area", larghezza: 4, obbligatorio: true },
+      { chiave: "descrizione", etichetta: "Descrizione richiesta", tipo: "area", larghezza: 4, obbligatorio: true, dettatura: true },
       { chiave: "tecnico_id", etichetta: "Tecnico assegnato", tipo: "riferimento", riferimentoA: "tecnici", larghezza: 2 },
       { chiave: "stato", etichetta: "Stato", tipo: "scelta", opzioniFisse: ["Da assegnare", "Assegnata", "In carico", "Completata", "Annullata"], colori: COLORI_STATO, larghezza: 1, finisciRiga: true },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4, linguetta: "Dettaglio" },

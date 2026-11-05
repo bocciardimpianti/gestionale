@@ -1182,3 +1182,15 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .comandi-piede:has(.azione-evidenza) { flex-wrap: wrap; }
   .comandi-piede .btn.azione-evidenza { flex: 1 1 100%; order: -1; min-height: 46px; margin: 0 0 6px; font-size: 16px; }
 }
+
+/* Riquadro per attivare le notifiche delle richieste */
+.banner-notifiche { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 12px; margin-bottom: 8px; border-radius: 8px; background: #fdf3e3; border: 1px solid #f0c98a; font-size: 13.5px; }
+.banner-notifiche.attive { background: #eaf6ec; border-color: #a9d8b2; }
+.banner-notifiche .btn { min-height: 34px; padding: 0 14px; }
+.banner-notifiche .link { background: none; border: 0; color: var(--petrolio); text-decoration: underline; padding: 0; cursor: pointer; }
+.banner-notifiche .piccolo { flex-basis: 100%; }
+
+/* Microfono dentro un campo della scheda (es. descrizione della richiesta) */
+.cornice:has(.mic-campo) { padding-right: 50px; }
+.cornice .mic-dettatura.mic-campo { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 38px; min-height: 0; height: 38px; border-radius: 50%; }
+@media (max-width: 760px) { .cornice .mic-dettatura.mic-campo { width: 44px; height: 44px; } .cornice:has(.mic-campo) { padding-right: 56px; } }

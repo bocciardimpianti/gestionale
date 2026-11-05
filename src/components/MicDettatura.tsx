@@ -15,7 +15,11 @@ type Finestra = Window & { SpeechRecognition?: new () => Riconoscitore; webkitSp
 
 const pulisci = (s: string) => s.replace(/[.,;:!?…]+(?=\s|$)/g, " ").replace(/\s+/g, " ").trim();
 
-export default function MicDettatura({ onTesto, className = "" }: { onTesto: (testo: string) => void; className?: string }) {
+// Con "testoLibero" (es. descrizioni) il testo dettato resta com'è; altrimenti viene pulito per la ricerca.
+// "onInizio" segnala l'inizio della dettatura (es. per aggiungere il testo a quello già scritto).
+export default function MicDettatura({ onTesto, onInizio, testoLibero = false, className = "" }: {
+  onTesto: (testo: string) => void; onInizio?: () => void; testoLibero?: boolean; className?: string;
+}) {
   const Classe = (window as Finestra).SpeechRecognition ?? (window as Finestra).webkitSpeechRecognition;
   const [ascolto, setAscolto] = useState(false);
   const [errore, setErrore] = useState("");
@@ -33,13 +37,14 @@ export default function MicDettatura({ onTesto, className = "" }: { onTesto: (te
     r.continuous = false;
     r.onresult = (e) => {
       const risultato = e.results[e.results.length - 1];
-      onTesto(pulisci(risultato[0].transcript));
+      onTesto(testoLibero ? risultato[0].transcript.trim() : pulisci(risultato[0].transcript));
     };
     r.onerror = (e) => setErrore(e.error === "not-allowed" || e.error === "service-not-allowed"
       ? "Microfono bloccato: consentilo nelle impostazioni del browser" : e.error === "no-speech" ? "Non ho sentito nulla" : "");
     r.onend = () => setAscolto(false);
     rec.current = r;
     try {
+      onInizio?.();
       r.start();
       setAscolto(true);
     } catch {

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
@@ -8,6 +8,7 @@ import {
 import { useAuth } from "./auth";
 import UscitaBackup from "./components/UscitaBackup";
 import PulsanteVoce from "./components/PulsanteVoce";
+import { ricollegaNotifiche } from "./notifiche";
 
 // Icone delle voci di menu, come nel programma originale
 export const ICONE: Record<string, LucideIcon> = {
@@ -47,6 +48,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [finestraBackup, setFinestraBackup] = useState<"" | "uscita" | "backup">("");
   const daPc = typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches;
   const richiediUscita = () => (admin && daPc ? setFinestraBackup("uscita") : esci());
+  // Notifiche: il dispositivo resta collegato all'utente entrato; toccando una notifica si apre la richiesta
+  useEffect(() => { if (profilo?.id) ricollegaNotifiche(); }, [profilo?.id]);
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const apri = (e: MessageEvent) => {
+      if (e.data?.tipo !== "apri" || typeof e.data.url !== "string") return;
+      const hash = e.data.url.split("#")[1];
+      if (hash) location.hash = hash;
+    };
+    navigator.serviceWorker.addEventListener("message", apri);
+    return () => navigator.serviceWorker.removeEventListener("message", apri);
+  }, []);
 
   // Raggruppa le sezioni visibili mantenendo l'ordine
   const gruppi: { nome: string; voci: typeof sezioni }[] = [];

@@ -14,6 +14,8 @@ import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import { categoriaDa } from "../categorie";
 import { stampaEtichette } from "../etichette";
 import { prendiInCarico } from "../archivi";
+import BannerNotifiche from "../components/BannerNotifiche";
+import { avvisaRichiesta } from "../notifiche";
 import FiltriCategoria from "../components/FiltriCategoria";
 import { linkWhatsapp } from "../whatsapp";
 import { Miniatura } from "../components/CampoImmagine";
@@ -109,6 +111,25 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   useEffect(() => {
     carica();
   }, [carica]);
+
+  // Indirizzo con "?apri=ID" (es. toccando una notifica): si apre la scheda di quel record
+  useEffect(() => {
+    const apriDaIndirizzo = () => {
+      const [percorso, query] = location.hash.split("?");
+      const id = new URLSearchParams(query ?? "").get("apri");
+      if (!id) return;
+      history.replaceState(null, "", location.pathname + location.search + percorso);
+      supabase.from(cfg.tabella).select(cfg.select ?? "*").eq("id", Number(id)).maybeSingle().then(({ data }) => {
+        if (!data) return setMessaggio("Il documento non è più disponibile");
+        const r = { ...(data as unknown as Record<string, unknown>) };
+        for (const [k, v] of Object.entries(r)) if (v && typeof v === "object" && "nome" in v) r[k] = (v as { nome: unknown }).nome;
+        setScheda(r);
+      });
+    };
+    apriDaIndirizzo();
+    window.addEventListener("hashchange", apriDaIndirizzo);
+    return () => window.removeEventListener("hashchange", apriDaIndirizzo);
+  }, [cfg.tabella, cfg.select]);
 
   // Arrivo dalle richieste di intervento: nuovo rapportino già compilato, oppure il rapportino collegato
   useEffect(() => {
@@ -505,6 +526,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       }} />
       {messaggio && <p className={messaggio.startsWith("Errore") ? "errore" : "ok"}>{messaggio}</p>}
 
+      {cfg.sezione === "richieste" && <BannerNotifiche />}
       {cfg.sezione === "materiali" && <FiltriCategoria valore={categoriaRapida} onCambia={setCategoriaRapida} conteggi={conteggiCategorie} />}
 
       {galleria && cfg.galleria && (
@@ -553,6 +575,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           nelCestino={nelCestino}
           onChiudi={() => setScheda(null)}
           onSalvato={(id) => {
+            // Richiesta salvata: avviso sul telefono al tecnico scelto, o a tutti i tecnici se non è assegnata
+            if (cfg.sezione === "richieste") avvisaRichiesta(id).then((m) => { if (m) setMessaggio(m); });
             // Rapportino creato da una richiesta di intervento: la richiesta diventa "Completata"
             if (scheda?._richiesta_id && scheda.id === undefined) {
               supabase.rpc("completa_richiesta", { p_richiesta: scheda._richiesta_id, p_rapporto: id })
