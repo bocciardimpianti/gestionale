@@ -222,12 +222,12 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       }
     }
     await registra("materiali_categorie_assegnate", { quanti: fatti });
-    setMessaggio(`Categorie assegnate a ${fatti} materiali. I dubbi sono in Archivi → Categorie da controllare.`);
+    setMessaggio(`Categorie assegnate a ${fatti} materiali. I dubbi sono in Filtri → Categorie da controllare.`);
     carica();
   };
 
   const spostaNelCestino = async (r: Riga) => {
-    if (!confirm(`Eliminare "${nomeDi(r)}"?\n\nVerrà spostato nel Cestino (Archivi → Cestino), da dove si può ripristinare. ` +
+    if (!confirm(`Eliminare "${nomeDi(r)}"?\n\nVerrà spostato nel Cestino (Azioni → Cestino), da dove si può ripristinare. ` +
       "I documenti già fatti (es. rapporti di intervento) restano invariati e non verrà più proposto nelle nuove schede.")) return;
     if (await aggiorna(r.id, { eliminato_il: new Date().toISOString() }, "eliminato", nomeDi(r))) {
       setSelezionata(null);
@@ -489,6 +489,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {!nelCestino && rigaSel && voce(Trash2, "#d9342b", `Elimina "${nomeDi(rigaSel)}"`, () => spostaNelCestino(rigaSel), puo(cfg.sezione, "eliminare"))}
                 {nelCestino && rigaSel && voce(Undo2, "#3a7dc0", "Ripristina", () => ripristina(rigaSel), puo(cfg.sezione, "eliminare"))}
                 {nelCestino && rigaSel && voce(Trash2, "#d9342b", "Elimina definitivamente", () => eliminaDefinitivo(rigaSel), puo(cfg.sezione, "eliminare"))}
+                {nelCestino
+                  ? voce(Undo2, "#666", "Esci dal Cestino", () => setVista({ tipo: "tutti" }))
+                  : voce(Trash2, "#666", "Cestino", () => setVista({ tipo: "cestino" }), puo(cfg.sezione, "eliminare"))}
                 {menu === "tabella" && (
                   <div className="voci con-icone sottomenu" onClick={(e) => e.stopPropagation()}>
                     {voce(Columns3, "#3a7dc0", "Scegli colonne", () => setSceltaColonne(true))}
@@ -503,7 +506,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
             )}
           </div>
           <div className="tendina">
-            <button className="btn verde" onClick={() => setMenu(menu === "archivi" ? "" : "archivi")}>Archivi <span className="punta">⌵</span></button>
+            <button className="btn verde" onClick={() => setMenu(menu === "archivi" ? "" : "archivi")}>Filtri <span className="punta">⌵</span></button>
             {menu === "archivi" && (
               <div className="voci con-icone">
                 {voce(Folder, "#f5a623", "Elenco completo", () => setVista({ tipo: "tutti" }))}
@@ -512,7 +515,6 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(FolderPlus, "#3a7dc0", "Nuovo Archivio", nuovoArchivio, puo(cfg.sezione, "modificare"))}
                 {vista.tipo === "archivio" &&
                   voce(Trash2, "#d9342b", `Elimina archivio "${vista.nome}"`, () => eliminaArchivio(vista), puo(cfg.sezione, "eliminare"))}
-                {voce(Trash2, "#666", "Cestino", () => setVista({ tipo: "cestino" }), puo(cfg.sezione, "eliminare"))}
               </div>
             )}
           </div>

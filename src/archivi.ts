@@ -108,7 +108,7 @@ export interface Archivio {
   piedeGruppi?: { titolo: string; campi: Campo[] }[];
   // Campi calcolati al salvataggio e mostrati nel piede (es. imponibile e totale)
   calcolaTotali?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => Record<string, number>;
-  // Viste rapide nel menu Archivi (es. materiali senza foto)
+  // Viste rapide nel menu Filtri (es. materiali senza foto)
   visteRapide?: { nome: string; filtro: (r: Record<string, unknown>) => boolean; ordine?: { chiave: string; su: boolean } }[];
   // Vista Galleria (schede con foto) oltre alla Tabella
   galleria?: { foto: string; titolo: string; dettagli: (r: Record<string, unknown>) => string };
