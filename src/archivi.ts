@@ -1,5 +1,5 @@
 import type { Colonna } from "./components/Griglia";
-import { dataIso, prossimiCodiciInterni, supabase } from "./supabase";
+import { dataIso, dataIt, prossimiCodiciInterni, supabase } from "./supabase";
 import { stampaPreventivo, stampaRapporto } from "./stampe";
 import { stampaEtichette } from "./etichette";
 import { COLORI_STATO, euro } from "./components/Griglia";
@@ -111,7 +111,15 @@ export interface Archivio {
   // Vista Galleria (schede con foto) oltre alla Tabella
   galleria?: { foto: string; titolo: string; dettagli: (r: Record<string, unknown>) => string };
   // Voci aggiuntive del menu Azioni della scheda (es. etichetta QR del materiale)
-  azioniScheda?: { etichetta: string; esegui: (dati: Record<string, unknown>) => void }[];
+  azioniScheda?: {
+    etichetta: string | ((dati: Record<string, unknown>) => string);
+    // Quando mostrare la voce (es. "Prendi in carico" solo se la richiesta non è chiusa)
+    mostra?: (dati: Record<string, unknown>) => boolean;
+    // Mostrata anche come pulsante in fondo alla scheda, accanto a Salva
+    inEvidenza?: boolean;
+    // "aggiorna" ricarica l'elenco e chiude la scheda (dopo un'azione che cambia il record)
+    esegui: (dati: Record<string, unknown>, ctx: { aggiorna: () => void }) => void;
+  }[];
   // Documento da stampare dalla scheda (HTML)
   stampa?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => string;
 }
@@ -208,6 +216,26 @@ function prossimoIntervento(dati: Record<string, unknown>, chiave: string) {
   const [a, m, g] = ultimo.split("-").map(Number);
   const d = new Date(a, m - 1 + mesi, g);
   return { data_prossimo: dataIso(d) };
+}
+
+// Richieste di intervento: presa in carico (il tecnico è quello collegato all'utente) e rapportino precompilato
+export async function prendiInCarico(r: Record<string, unknown>) {
+  const assegnato = String(r.tecnico ?? "");
+  if (r.stato === "Assegnata" && assegnato && !confirm(`La richiesta è assegnata a ${assegnato}. Prenderla in carico tu?`)) return false;
+  const { data, error } = await supabase.rpc("prendi_in_carico", { p_richiesta: r.id });
+  if (error) { alert(error.message); return false; }
+  alert(`Richiesta presa in carico da ${data}`);
+  return true;
+}
+export function creaRapportinoDa(r: Record<string, unknown>) {
+  const righe = [r.descrizione, r.indirizzo ? `Indirizzo: ${r.indirizzo}` : "", r.telefono ? `Tel. ${r.telefono}` : "", !r.cliente_id && r.nominativo ? `Cliente: ${r.nominativo}` : ""];
+  sessionStorage.setItem("nuovo-rapporto", JSON.stringify({
+    _richiesta_id: r.id,
+    cliente_id: r.cliente_id ?? null, cliente: r.cliente ?? "",
+    ...(r.tecnico_id ? { tecnico_id: r.tecnico_id, tecnico: r.tecnico ?? "" } : {}),
+    note: righe.filter(Boolean).join("\n"),
+  }));
+  location.hash = "#/s/rapporti";
 }
 
 // Configurazione delle sezioni a griglia, colonne nello stesso ordine e con gli stessi titoli dell'originale
@@ -847,6 +875,82 @@ export const ARCHIVI: Record<string, Archivio> = {
           { chiave: "totale", etichetta: "Totale Documento", tipo: "euro", solaLettura: true },
         ],
       },
+    ],
+  },
+  richieste: {
+    sezione: "richieste",
+    titolo: "Richieste di Intervento",
+    titoloNuovo: "Nuova richiesta di intervento",
+    titoloScheda: (v) => `Richiesta di ${String(v.cliente || v.nominativo || "intervento")} del ${dataIt(v.data_richiesta)}`,
+    linguette: ["Dettaglio", "Log Cloud"],
+    tabella: "richieste",
+    select: "*, cliente:clienti(nome), tecnico:tecnici(nome)",
+    chiaveImport: ["data_richiesta", "nominativo", "descrizione"],
+    ordineIniziale: { chiave: "data_richiesta", su: false },
+    valoriNuovo: async () => ({ data_richiesta: dataIso(new Date()), stato: "Da assegnare", urgente: false }),
+    // Assegnando un tecnico la richiesta diventa "Assegnata" (lo stato vero lo decide anche il database)
+    quandoCambia: (dati, chiave) =>
+      chiave === "tecnico_id" && dati.tecnico_id && (!dati.stato || dati.stato === "Da assegnare") ? { stato: "Assegnata" }
+      : chiave === "tecnico_id" && !dati.tecnico_id && ["Assegnata", "In carico"].includes(String(dati.stato)) ? { stato: "Da assegnare" }
+      : null,
+    colonne: [
+      { chiave: "data_richiesta", titolo: "Data", excel: "Data richiesta", larghezza: 90, tipo: "data" },
+      { chiave: "cliente", titolo: "Cliente", excel: "Cliente", larghezza: 200, riferimento: { campo: "cliente_id", tabella: "clienti" },
+        valore: (r) => r.cliente || r.nominativo },
+      { chiave: "descrizione", titolo: "Descrizione richiesta", excel: "Descrizione richiesta", larghezza: 420 },
+      { chiave: "urgente", titolo: "Urgente", excel: "Urgente", larghezza: 70, tipo: "booleano" },
+      { chiave: "stato", titolo: "Stato", excel: "Stato", larghezza: 120, tipo: "stato" },
+      { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 150, riferimento: { campo: "tecnico_id", tabella: "tecnici" } },
+      { chiave: "presa_in_carico_il", titolo: "Presa in carico", excel: "Presa in carico", larghezza: 100, tipo: "data" },
+      { chiave: "telefono", titolo: "Telefono", excel: "Telefono", larghezza: 120 },
+    ],
+    campi: [
+      { chiave: "data_richiesta", etichetta: "Data richiesta", tipo: "data", larghezza: 1, obbligatorio: true },
+      { chiave: "cliente_id", etichetta: "Cliente (in anagrafica)", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2 },
+      { chiave: "urgente", etichetta: "Urgente", tipo: "booleano", larghezza: 1, finisciRiga: true },
+      { chiave: "nominativo", etichetta: "Nominativo (se non è in anagrafica)", larghezza: 2, segnaposto: "es. Giorgio, cliente nuovo" },
+      { chiave: "telefono", etichetta: "Telefono", tipo: "telefono", larghezza: 1 },
+      { chiave: "indirizzo", etichetta: "Indirizzo", larghezza: 1, finisciRiga: true },
+      { chiave: "descrizione", etichetta: "Descrizione richiesta", tipo: "area", larghezza: 4, obbligatorio: true },
+      { chiave: "tecnico_id", etichetta: "Tecnico assegnato", tipo: "riferimento", riferimentoA: "tecnici", larghezza: 2 },
+      { chiave: "stato", etichetta: "Stato", tipo: "scelta", opzioniFisse: ["Da assegnare", "Assegnata", "In carico", "Completata", "Annullata"], colori: COLORI_STATO, larghezza: 1, finisciRiga: true },
+      { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4, linguetta: "Dettaglio" },
+    ],
+    azioniScheda: [
+      {
+        etichetta: "Prendi in carico",
+        inEvidenza: true,
+        mostra: (d) => !!d.id && !["Completata", "Annullata", "In carico"].includes(String(d.stato)),
+        esegui: (d, { aggiorna }) => { prendiInCarico(d).then((ok) => ok && aggiorna()); },
+      },
+      {
+        etichetta: "Rilascia (togli la presa in carico)",
+        mostra: (d) => !!d.id && d.stato === "In carico",
+        esegui: (d, { aggiorna }) => {
+          if (!confirm("Rilasciare la richiesta? Torna \"Assegnata\" allo stesso tecnico.")) return;
+          supabase.rpc("rilascia_richiesta", { p_richiesta: d.id }).then(({ error }) => (error ? alert(error.message) : aggiorna()));
+        },
+      },
+      {
+        etichetta: "Crea rapportino da questa richiesta",
+        mostra: (d) => !!d.id && !["Completata", "Annullata"].includes(String(d.stato)),
+        esegui: (d) => creaRapportinoDa(d),
+      },
+      {
+        etichetta: "Apri il rapportino collegato",
+        mostra: (d) => !!d.rapporto_id,
+        esegui: (d) => {
+          sessionStorage.setItem("apri-rapporto", String(d.rapporto_id));
+          location.hash = "#/s/rapporti";
+        },
+      },
+    ],
+    visteRapide: [
+      { nome: "Da assegnare", filtro: (r) => r.stato === "Da assegnare" },
+      { nome: "Aperte (non completate)", filtro: (r) => !["Completata", "Annullata"].includes(String(r.stato)) },
+      { nome: "Urgenti aperte", filtro: (r) => !!r.urgente && !["Completata", "Annullata"].includes(String(r.stato)) },
+      { nome: "In carico", filtro: (r) => r.stato === "In carico" },
+      { nome: "Completate", filtro: (r) => r.stato === "Completata" },
     ],
   },
   scadenziario: {

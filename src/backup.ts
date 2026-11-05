@@ -16,6 +16,7 @@ const TABELLE: { tabella: string; foglio: string; ordine: string }[] = [
   { tabella: "righe_ddt_acquisto", foglio: "Righe DDT di acquisto", ordine: "id" },
   { tabella: "abbinamenti_fornitore", foglio: "Abbinamenti codici fornitore", ordine: "id" },
   { tabella: "scadenziario", foglio: "Scadenziario", ordine: "id" },
+  { tabella: "richieste", foglio: "Richieste di intervento", ordine: "id" },
   { tabella: "materiali", foglio: "Materiali", ordine: "id" },
   { tabella: "archivi", foglio: "Archivi", ordine: "id" },
   { tabella: "tipologie_pagamento", foglio: "Tipologie pagamento", ordine: "ordine" },

@@ -1174,3 +1174,11 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .finestra.chiedi-quantita { width: 100%; height: auto; max-height: none; border-radius: 12px; overflow: hidden; }
   .chiedi-quantita .finestra-corpo { flex: none; }
 }
+
+/* Pulsante d'azione in evidenza nel piede della scheda (es. Prendi in carico) */
+.comandi-piede .btn.azione-evidenza { background: #8e44ad; color: #fff; border: 0; border-radius: 6px; padding: 0 14px; min-height: 32px; font-weight: 600; margin-right: 6px; }
+.comandi-piede .btn.azione-evidenza:hover { background: #7a3895; }
+@media (max-width: 760px) {
+  .comandi-piede:has(.azione-evidenza) { flex-wrap: wrap; }
+  .comandi-piede .btn.azione-evidenza { flex: 1 1 100%; order: -1; min-height: 46px; margin: 0 0 6px; font-size: 16px; }
+}

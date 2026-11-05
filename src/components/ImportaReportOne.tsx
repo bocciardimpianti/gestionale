@@ -35,8 +35,14 @@ interface ScadenzaRO {
   nominativo: string | null;
   [campo: string]: unknown;
 }
+interface RichiestaRO {
+  gguid: string;
+  cliente: string | null;
+  [campo: string]: unknown;
+}
 interface Pacchetto {
   origine: string;
+  richieste?: RichiestaRO[];
   scadenziario?: ScadenzaRO[];
   preventivi?: PreventivoRO[];
   ddt_acquisto?: DdtRO[];
@@ -92,6 +98,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       const preventivi = p.preventivi ?? [];
       const ddt = p.ddt_acquisto ?? [];
       const scadenze = p.scadenziario ?? [];
+      const richieste = p.richieste ?? [];
       if (p.origine !== "ReportOne") throw new Error("Il file non è un'esportazione di ReportOne preparata per il gestionale");
 
       // 1. Tariffe
@@ -130,6 +137,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         (preventivi.length ? `• ${preventivi.length} preventivi con le loro righe\n` : "") +
         (ddt.length ? `• ${ddt.length} DDT di acquisto con le loro righe (la giacenza dei materiali non cambia)\n` : "") +
         (scadenze.length ? `• ${scadenze.length} scadenze dello scadenziario (da importare dopo i DDT di acquisto)\n` : "") +
+        (richieste.length ? `• ${richieste.length} richieste di intervento\n` : "") +
         (p.foto_materiali.length ? `• ${p.foto_materiali.length} foto di materiali\n` : "") +
         "\nProcedere?",
       )) {
@@ -295,12 +303,25 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         }
       }
 
+      // 10. Richieste di intervento (cliente in anagrafica se c'è, altrimenti resta il nominativo)
+      let richiesteFatte = 0;
+      if (richieste.length) {
+        const { error } = await supabase.from("richieste").upsert(richieste.map(({ gguid, cliente, ...campi }) => ({
+          ...campi, gguid_reportone: gguid,
+          cliente_id: cliente ? idCliente.get(norm(cliente)) ?? null : null,
+          // Il nominativo serve solo per chi non è in anagrafica
+          nominativo: cliente && !idCliente.has(norm(cliente)) ? cliente : null,
+        })), { onConflict: "gguid_reportone" });
+        if (error) err.push("Richieste di intervento: " + error.message);
+        else richiesteFatte = richieste.length;
+      }
+
       await registra("rapporti_importato_reportone", {
         file: file.name, rapporti: idRapporto.size, nuovi, righe: conRighe.length, foto_materiali: daCaricare.length, errori: err.length,
       });
       setStato(
         `Importazione completata: ${idRapporto.size} rapporti (${nuovi} nuovi), materiali in ${conRighe.length} rapporti, ` +
-        `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe, ${preventiviFatti} preventivi, ${ddtFatti} DDT di acquisto, ${scadenzeFatte} scadenze.` +
+        `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe, ${preventiviFatti} preventivi, ${ddtFatti} DDT di acquisto, ${scadenzeFatte} scadenze, ${richiesteFatte} richieste.` +
         (err.length ? ` ${err.length} errori (vedi sotto).` : ""),
       );
       setErrori(err);

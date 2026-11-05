@@ -8,7 +8,8 @@ import { pulisciRicerca } from "../testo";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
-  Aperto: "#ef8c1a", Eseguito: "#3fae4b", Accettato: "#3fae4b", Chiuso: "#22b33a", Rifiutato: "#d9342b", Annullato: "#d9342b",
+  "Da assegnare": "#ef8c1a", Assegnata: "#3a7dc0", "In carico": "#8e44ad", Completata: "#22b33a",
+  Aperto: "#ef8c1a", Eseguito: "#3fae4b", Accettato: "#3fae4b", Chiuso: "#22b33a", Rifiutato: "#d9342b", Annullato: "#d9342b", Annullata: "#d9342b",
 };
 
 export interface Colonna {
@@ -22,6 +23,8 @@ export interface Colonna {
   spuntabile?: boolean;
   // Somma della colonna (righe visibili) nel piede della griglia
   somma?: boolean;
+  // Valore mostrato calcolato dalla riga (es. cliente in anagrafica oppure nominativo scritto a mano)
+  valore?: (r: Record<string, unknown>) => unknown;
 }
 
 type Riga = Record<string, unknown> & { id: number };
@@ -51,8 +54,9 @@ interface Props {
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 export const euro = (v: unknown) =>
   v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
-const mostra = (c: Colonna, r: Riga) =>
-  c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave])
+const mostra = (c: Colonna, r: Riga): string =>
+  c.valore ? testo(c.valore(r))
+  : c.tipo === "data" ? dataIt(r[c.chiave]) : c.tipo === "euro" ? euro(r[c.chiave])
   : c.tipo === "percentuale" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : `${Number(r[c.chiave]).toLocaleString("it-IT")}%`)
   : c.tipo === "numero" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : Number(r[c.chiave]).toLocaleString("it-IT")) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
@@ -129,11 +133,14 @@ export default function Griglia({ colonne, righe, selezionata, onSeleziona, onAp
       });
     }
     const segno = ordine.su ? 1 : -1;
-    const tipo = colonne.find((c) => c.chiave === ordine.chiave)?.tipo;
+    const colonnaOrdine = colonne.find((c) => c.chiave === ordine.chiave);
+    const tipo = colonnaOrdine?.tipo;
     return filtrate.sort((a, b) =>
       tipo === "euro" || tipo === "booleano" || tipo === "numero" || tipo === "percentuale"
         ? segno * (Number(a[ordine.chiave] ?? 0) - Number(b[ordine.chiave] ?? 0))
-        : segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
+        : colonnaOrdine?.valore
+          ? segno * mostra(colonnaOrdine, a).localeCompare(mostra(colonnaOrdine, b), "it", { sensitivity: "base", numeric: true })
+          : segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
   }, [righe, filtri, ordine, colonne, ricerca, colonnaRicerca]);
 

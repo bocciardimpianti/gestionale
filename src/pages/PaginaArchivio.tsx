@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
 import {
-  ChevronRight, Columns3, Database, Filter, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, QrCode, RefreshCw,
+  ChevronRight, Columns3, Database, Filter, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, QrCode, RefreshCw, UserCheck,
   RotateCcw, Search, Sheet, Trash2, Undo2,
 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
@@ -13,6 +13,7 @@ import ImportaReportOne from "../components/ImportaReportOne";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import { categoriaDa } from "../categorie";
 import { stampaEtichette } from "../etichette";
+import { prendiInCarico } from "../archivi";
 import FiltriCategoria from "../components/FiltriCategoria";
 import { linkWhatsapp } from "../whatsapp";
 import { Miniatura } from "../components/CampoImmagine";
@@ -66,10 +67,10 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     }
     await registra(`${cfg.sezione}_modificato`, { id: r.id, [chiave]: valore });
   };
-  const apriNuovo = async () => {
+  const apriNuovo = async (extra: Record<string, unknown> = {}) => {
     const base = vista.tipo === "archivio" ? { archivio_id: vista.id } : {};
     const proposti = (await cfg.valoriNuovo?.({ utenteId: profilo?.id ?? "", admin: profilo?.ruolo === "admin" })) ?? {};
-    setScheda({ ...proposti, ...base });
+    setScheda({ ...proposti, ...base, ...extra });
   };
   const [righe, setRighe] = useState<Riga[]>([]);
   const [visibili, setVisibili] = useState<Riga[]>([]);
@@ -108,6 +109,25 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   useEffect(() => {
     carica();
   }, [carica]);
+
+  // Arrivo dalle richieste di intervento: nuovo rapportino già compilato, oppure il rapportino collegato
+  useEffect(() => {
+    if (cfg.sezione !== "rapporti") return;
+    const nuovo = sessionStorage.getItem("nuovo-rapporto");
+    const daAprire = sessionStorage.getItem("apri-rapporto");
+    sessionStorage.removeItem("nuovo-rapporto");
+    sessionStorage.removeItem("apri-rapporto");
+    if (nuovo) {
+      try { apriNuovo(JSON.parse(nuovo)); } catch { /* dati non validi */ }
+    } else if (daAprire) {
+      supabase.from(cfg.tabella).select(cfg.select ?? "*").eq("id", Number(daAprire)).single().then(({ data }) => {
+        if (!data) return;
+        const r = { ...(data as unknown as Record<string, unknown>) };
+        for (const [k, v] of Object.entries(r)) if (v && typeof v === "object" && "nome" in v) r[k] = (v as { nome: unknown }).nome;
+        setScheda(r);
+      });
+    }
+  }, [cfg.sezione]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const salvaNascoste = (n: string[]) => {
     setNascoste(n);
@@ -424,7 +444,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
             <button className="btn blu" onClick={() => setImportaPdf(true)} title="Legge il DDT dal PDF del fornitore">Da PDF</button>
           )}
           {puo(cfg.sezione, "creare") && !nelCestino && (
-            <button className="btn blu" onClick={apriNuovo}>Nuovo</button>
+            <button className="btn blu" onClick={() => apriNuovo()}>Nuovo</button>
           )}
           <div className="tendina">
             <button className="btn verde" onClick={() => setMenu(menu ? "" : "azioni")}>Azioni <span className="punta">⌵</span></button>
@@ -435,6 +455,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
                 {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
                 {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}
+                {cfg.sezione === "richieste" && rigaSel && !["Completata", "Annullata"].includes(String(rigaSel.stato)) && voce(UserCheck, "#8e44ad", `Prendi in carico "${nomeDi(rigaSel)}"`,
+                  () => { prendiInCarico(rigaSel).then((ok) => { if (ok) carica(); }); })}
                 {cfg.sezione === "materiali" && selezionate.length > 0 && voce(QrCode, "#123b45", `Etichette QR dei materiali spuntati (${selezionate.length})`,
                   () => stampaEtichette(selezionate).catch((e) => setMessaggio("Errore: " + (e as Error).message)))}
                 {cfg.sezione === "materiali" && !selezionate.length && rigaSel && voce(QrCode, "#123b45", `Etichetta QR di "${nomeDi(rigaSel)}"`,
@@ -452,7 +474,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                     {voce(RotateCcw, "#666", "Ripristina colonne", () => salvaNascoste([]))}
                     {voce(FileUp, "#3a8a3a", "Importa da Excel", () => fileRef.current?.click(),
                       !nelCestino && puo(cfg.sezione, "creare") && puo(cfg.sezione, "modificare"))}
-                    {["rapporti", "preventivi", "ddt_acquisto", "scadenziario"].includes(cfg.sezione) && voce(Database, "#d9822b", "Importa da ReportOne (file .json)", () => setImportaReportOne(true),
+                    {["rapporti", "preventivi", "ddt_acquisto", "scadenziario", "richieste"].includes(cfg.sezione) && voce(Database, "#d9822b", "Importa da ReportOne (file .json)", () => setImportaReportOne(true),
                       !nelCestino && profilo?.ruolo === "admin")}
                   </div>
                 )}
@@ -505,6 +527,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         onSelezionate={setSelezionate}
         azioniRiga={(r) => [
           { testo: "Apri", esegui: () => setScheda(r) },
+          ...(cfg.sezione === "richieste" && !["Completata", "Annullata"].includes(String(r.stato))
+            ? [{ testo: "Prendi in carico", esegui: () => { prendiInCarico(r).then((ok) => { if (ok) carica(); }); } }]
+            : []),
           ...(puoWhatsapp && ["clienti", "fornitori"].includes(cfg.sezione) && (linkWhatsapp(r.cellulare) ?? linkWhatsapp(r.telefono))
             ? [{ testo: "Scrivi su WhatsApp", esegui: () => window.open((linkWhatsapp(r.cellulare) ?? linkWhatsapp(r.telefono))!, "_blank", "noopener") }]
             : []),
@@ -528,6 +553,11 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           nelCestino={nelCestino}
           onChiudi={() => setScheda(null)}
           onSalvato={(id) => {
+            // Rapportino creato da una richiesta di intervento: la richiesta diventa "Completata"
+            if (scheda?._richiesta_id && scheda.id === undefined) {
+              supabase.rpc("completa_richiesta", { p_richiesta: scheda._richiesta_id, p_rapporto: id })
+                .then(({ error }) => setMessaggio(error ? "Rapportino salvato, ma la richiesta non è stata chiusa: " + error.message : "Rapportino salvato: la richiesta di intervento è stata completata"));
+            }
             // Nelle viste rapide (es. materiali senza foto) si passa subito all'articolo successivo
             const i = visibili.findIndex((r) => r.id === id);
             const successivo = rapida && i >= 0 ? visibili[i + 1] : undefined;

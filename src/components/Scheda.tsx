@@ -654,6 +654,15 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                 {profilo?.ruolo === "admin" ? "Amministrazione" : profilo?.nome || profilo?.email}
               </span>
               <span className="comandi-piede">
+                {/* Azioni principali come pulsanti ben visibili (es. "Prendi in carico") */}
+                {!nelCestino && cfg.azioniScheda?.filter((a) => a.inEvidenza && (!a.mostra || a.mostra({ ...valori, ...dati, ...testoRifNomi() }))).map((a, i) => {
+                  const d = { ...valori, ...dati, ...testoRifNomi() };
+                  return (
+                    <button type="button" key={`e${i}`} className="btn azione-evidenza" onClick={() => a.esegui(d, { aggiorna: () => onSalvato(valori.id as number) })}>
+                      {typeof a.etichetta === "function" ? a.etichetta(d) : a.etichetta}
+                    </button>
+                  );
+                })}
                 {modificabile && <button type="submit" className="link blu">Salva</button>}
                 {!nuovo && (
                   <span className="tendina-piede">
@@ -671,9 +680,13 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                         {!nelCestino && puo(cfg.sezione, "eliminare") && <button type="button" onClick={onElimina}>Elimina</button>}
                         {nelCestino && onRipristina && puo(cfg.sezione, "eliminare") && <button type="button" onClick={onRipristina}>Ripristina</button>}
                         {cfg.stampa && <button type="button" onClick={stampa}>Stampa</button>}
-                        {cfg.azioniScheda?.map((a) => (
-                          <button type="button" key={a.etichetta} onClick={() => { setMenuAzioni(false); a.esegui({ ...valori, ...dati }); }}>{a.etichetta}</button>
-                        ))}
+                        {!nelCestino && cfg.azioniScheda?.filter((a) => !a.mostra || a.mostra({ ...valori, ...dati, ...testoRifNomi() })).map((a, i) => {
+                          const d = { ...valori, ...dati, ...testoRifNomi() };
+                          const testo = typeof a.etichetta === "function" ? a.etichetta(d) : a.etichetta;
+                          return (
+                            <button type="button" key={i} onClick={() => { setMenuAzioni(false); a.esegui(d, { aggiorna: () => onSalvato(valori.id as number) }); }}>{testo}</button>
+                          );
+                        })}
                         {dati.email ? <a href={`mailto:${dati.email}`}>Invia e-mail</a> : null}
                       </div>
                     )}
