@@ -122,7 +122,8 @@ export default function Utenti() {
       </div>
       {messaggio && <p className={messaggio.startsWith("Errore") ? "errore" : "ok"}>{messaggio}</p>}
 
-      {nuovo && <NuovoUtente sezioni={sezioni} tecnici={tecnici} onChiudi={() => setNuovo(false)} onCreato={() => { setNuovo(false); carica(); }} />}
+      {nuovo && <NuovoUtente sezioni={sezioni} tecnici={tecnici} onChiudi={() => setNuovo(false)}
+        onCreato={(avvisi) => { setNuovo(false); setMessaggio(avvisi.length ? "Errore: utente creato, ma " + avvisi.join("; ") : "Utente creato"); carica(); }} />}
 
       <table className="griglia">
         <thead>
@@ -202,7 +203,7 @@ function NuovoUtente({ sezioni, tecnici, onChiudi, onCreato }: {
   sezioni: { chiave: string }[];
   tecnici: { id: number; nome: string; utente_id: string | null }[];
   onChiudi: () => void;
-  onCreato: () => void;
+  onCreato: (avvisi: string[]) => void;
 }) {
   const [dati, setDati] = useState({ nome: "", email: "", password: "", ruolo: "standard" });
   const [whatsapp, setWhatsapp] = useState(false);
@@ -214,32 +215,35 @@ function NuovoUtente({ sezioni, tecnici, onChiudi, onCreato }: {
     e.preventDefault();
     try {
       const creato = await adminUtenti("crea", dati) as { id?: string } | null;
-      if (whatsapp && dati.ruolo === "standard" && creato?.id) {
-        const { error } = await supabase.from("profili").update({ whatsapp: true }).eq("id", creato.id);
-        if (error) throw new Error(`Utente creato, ma il permesso WhatsApp non è stato salvato: ${error.message}`);
+      // Utente creato: i passaggi successivi vanno avanti anche se uno non riesce (gli avvisi compaiono nell'elenco)
+      const avvisi: string[] = [];
+      const id = creato?.id;
+      if (id && whatsapp && dati.ruolo === "standard") {
+        const { error } = await supabase.from("profili").update({ whatsapp: true }).eq("id", id);
+        if (error) avvisi.push(`il permesso WhatsApp non è stato salvato (${error.message})`);
       }
-      if (creato?.id && mansione) {
-        const { error } = await supabase.from("profili").update({ mansione }).eq("id", creato.id);
-        if (error) throw new Error(`Utente creato, ma la mansione non è stata salvata: ${error.message}`);
+      if (id && mansione) {
+        const { error } = await supabase.from("profili").update({ mansione }).eq("id", id);
+        if (error) avvisi.push(/mansione/.test(error.message) ? "la mansione non è stata salvata: esegui su Supabase lo script 0023_mansioni_utenti.sql" : `la mansione non è stata salvata (${error.message})`);
         // Utente standard: permessi tipici della mansione (modificabili dopo)
         if (dati.ruolo === "standard" && PERMESSI_TIPICI[mansione]) {
           const righe = sezioni.map((s) => {
             const consentite = AZIONI_DI[PERMESSI_TIPICI[mansione][s.chiave]] ?? [];
-            return { utente_id: creato.id, sezione: s.chiave, ...Object.fromEntries(AZIONI.map((a) => [a, consentite.includes(a)])) };
+            return { utente_id: id, sezione: s.chiave, ...Object.fromEntries(AZIONI.map((a) => [a, consentite.includes(a)])) };
           });
           const { error: e2 } = await supabase.from("permessi").upsert(righe);
-          if (e2) throw new Error(`Utente creato, ma i permessi non sono stati salvati: ${e2.message}`);
+          if (e2) avvisi.push(`i permessi non sono stati salvati (${e2.message})`);
         }
       }
       // Fa interventi: collegato al tecnico con lo stesso nome, oppure nuovo tecnico
-      if (creato?.id && faInterventi) {
+      if (id && faInterventi) {
         const libero = tecnici.find((t) => !t.utente_id && paroleNome(t.nome) === paroleNome(dati.nome));
         const { error } = libero
-          ? await supabase.from("tecnici").update({ utente_id: creato.id }).eq("id", libero.id)
-          : await supabase.from("tecnici").insert({ nome: dati.nome.trim(), utente_id: creato.id });
-        if (error) throw new Error(`Utente creato, ma non è stato collegato come tecnico: ${error.message}`);
+          ? await supabase.from("tecnici").update({ utente_id: id }).eq("id", libero.id)
+          : await supabase.from("tecnici").insert({ nome: dati.nome.trim(), utente_id: id });
+        if (error) avvisi.push(`non è stato collegato come tecnico (${error.message})`);
       }
-      onCreato();
+      onCreato(avvisi);
     } catch (err) {
       setErrore((err as Error).message);
     }
