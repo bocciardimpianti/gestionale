@@ -1242,3 +1242,6 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .risultato.in-evidenza { border-left: 5px solid #f2a541; background: #fff8ec; }
 .altri-risultati { font-size: 15px; margin: 18px 0 0; color: var(--tenue, #666); }
 .griglia-campi.sotto-materiali { margin-top: 14px; }
+.chiedi-salva-velo { z-index: 120; }
+.chiedi-salva { width: min(460px, 100%); }
+.chiedi-salva .finestra-piede { flex-wrap: wrap; }

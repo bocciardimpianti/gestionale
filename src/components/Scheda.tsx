@@ -63,8 +63,22 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [cercaMateriale, setCercaMateriale] = useState(false);
   const [consigliati, setConsigliati] = useState(false);
   const telefono = useTelefono();
-  // Indietro del telefono: chiude la scheda e resta nell'elenco
-  useIndietroChiude(true, onChiudi);
+  // Modifiche fatte dall'utente e non ancora salvate: alla chiusura si chiede se salvarle
+  const modificata = useRef(false);
+  const segna = () => { modificata.current = true; };
+  const [chiediSalva, setChiediSalva] = useState(false);
+  const chiudi = () => {
+    if (modificabile && modificata.current) { setChiediSalva(true); return false; }
+    onChiudi();
+  };
+  // Chiudendo la pagina del browser con modifiche in sospeso il browser chiede conferma
+  useEffect(() => {
+    const avvisa = (e: BeforeUnloadEvent) => { if (modificabile && modificata.current) e.preventDefault(); };
+    window.addEventListener("beforeunload", avvisa);
+    return () => window.removeEventListener("beforeunload", avvisa);
+  }, [modificabile]);
+  // Indietro del telefono: chiude la scheda e resta nell'elenco (chiedendo prima se salvare)
+  useIndietroChiude(true, chiudi);
   // Dettatura nei campi: testo già scritto prima di iniziare a parlare (il dettato si aggiunge in fondo)
   const baseDettatura = useRef<Record<string, string>>({});
   // Telefono: descrizione del materiale mostrata per intero toccandola
@@ -96,8 +110,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   const totali = cfg.calcolaTotali?.(dati, righe) ?? {};
 
-  const cambiaRiga = (i: number, chiave: string, valore: unknown) =>
+  const cambiaRiga = (i: number, chiave: string, valore: unknown) => {
+    segna();
     setRighe((rr) => rr.map((r, j) => (j === i ? cfg.righe!.ricalcola({ ...r, [chiave]: valore }, chiave) : r)));
+  };
   // Sul telefono la riga appena aggiunta viene portata in vista
   const righePrecedenti = useRef(righe.length);
   useEffect(() => {
@@ -111,6 +127,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   }, [righe.length, telefono]);
 
   const aggiungiRiga = (extra: Record<string, unknown> = {}) => {
+    segna();
     setRighe((rr) => [...rr, cfg.righe!.ricalcola({ quantita: 1, ...extra })]);
     setRigaSel(righe.length);
   };
@@ -147,6 +164,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     if (rigaSel === null) return;
     const j = rigaSel + verso;
     if (j < 0 || j >= righe.length) return;
+    segna();
     setRighe((rr) => {
       const n = [...rr];
       [n[rigaSel], n[j]] = [n[j], n[rigaSel]];
@@ -164,11 +182,13 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     }
   }, [cfg.campi]);
 
-  const cambia = (chiave: string, valore: unknown) =>
+  const cambia = (chiave: string, valore: unknown) => {
+    segna();
     setDati((d) => {
       const nuovi = { ...d, [chiave]: valore };
       return { ...nuovi, ...(cfg.quandoCambia?.(nuovi, chiave) ?? {}) };
     });
+  };
 
   const cambiaRiferimento = (c: Campo, testo: string) => {
     setTestoRif((t) => ({ ...t, [c.chiave]: testo }));
@@ -264,6 +284,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     if (vecchi.length) await supabase.storage.from(cfg.sezione).remove(vecchi);
 
     await registra(`${cfg.sezione}_${nuovo ? "creato" : "modificato"}`, { id: risposta.data.id, nome: dati[cfg.colonne[0].chiave] ?? testoRif[cfg.campi.find((c) => c.tipo === "riferimento")?.chiave ?? ""] ?? null });
+    modificata.current = false;
     onSalvato(risposta.data.id);
   };
 
@@ -328,6 +349,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <select value="" title="Scegli tra gli impianti del cliente" className="solo-freccia" onChange={(e) => {
               const r = (suggerimenti[c.chiave] ?? [])[Number(e.target.value)];
               if (!r) return;
+              segna();
               setDati((d) => {
                 const n = { ...d, [c.suggerisciDa!.salvaId]: r.id };
                 for (const k of c.suggerisciDa!.copia) n[k] = r[k] ?? null;
@@ -360,6 +382,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           <select {...props} disabled={!modificabile} onChange={(e) => {
             const scelta = (opzioni[c.chiave] ?? []).find((o) => o.valore === e.target.value);
             if (c.copiaDaOpzione && scelta?.riga) {
+              segna();
               setDati((d) => {
                 const n: Record<string, unknown> = { ...d, [c.chiave]: e.target.value };
                 for (const k of c.copiaDaOpzione!) n[k] = scelta.riga![k] ?? null;
@@ -462,7 +485,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                       {quantita ? <span className="quantita-riga">{campo(r, i, quantita)}</span> : <span />}
                       {altre.map((c) => <span key={c.chiave}>{campo(r, i, c)}</span>)}
                       {modificabile && (
-                        <button type="button" className="togli-riga" aria-label="Togli questa riga" onClick={() => setRighe((rr) => rr.filter((_, j) => j !== i))}><CircleMinus size={19} /></button>
+                        <button type="button" className="togli-riga" aria-label="Togli questa riga" onClick={() => { segna(); setRighe((rr) => rr.filter((_, j) => j !== i)); }}><CircleMinus size={19} /></button>
                       )}
                     </div>
                   ))}
@@ -476,6 +499,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           <div className="barra-righe">
             <button type="button" title="Aggiungi materiali (o riga libera)" onClick={() => setCercaMateriale(true)}><CirclePlus size={30} strokeWidth={1.4} /></button>
             <button type="button" title="Elimina riga" disabled={rigaSel === null} onClick={() => {
+              segna();
               setRighe((rr) => rr.filter((_, j) => j !== rigaSel));
               setRigaSel(null);
             }}><CircleMinus size={30} strokeWidth={1.4} /></button>
@@ -612,10 +636,11 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   };
 
   return (
-    <div className="velo" onMouseDown={onChiudi}>
+    <div className="velo" onMouseDown={() => chiudi()}>
       <form
         className={`finestra-scheda${ingrandita ? " ingrandita" : ""}`}
         onSubmit={salva}
+        onChangeCapture={(e) => { if ((e.target as HTMLElement).closest(".finestra-scheda") === e.currentTarget) segna(); }}
         onMouseDown={(e) => { e.stopPropagation(); setMenuAzioni(false); }}
       >
         <div className="scheda-titolo">
@@ -625,7 +650,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <button type="button" title="Ingrandisci" onClick={() => setIngrandita(!ingrandita)}>
               {ingrandita ? <Minimize2 size={13} strokeWidth={3} /> : <Maximize2 size={13} strokeWidth={3} />}
             </button>
-            <button type="button" title="Chiudi" onClick={onChiudi}><X size={17} strokeWidth={3} /></button>
+            <button type="button" title="Chiudi" onClick={() => chiudi()}><X size={17} strokeWidth={3} /></button>
           </span>
         </div>
 
@@ -711,12 +736,28 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                     )}
                   </span>
                 )}
-                <button type="button" className="link rosso" onClick={onChiudi}>Chiudi</button>
+                <button type="button" className="link rosso" onClick={() => chiudi()}>Chiudi</button>
               </span>
             </div>
           </>
         )}
       </form>
+      {chiediSalva && (
+        <div className="velo chiedi-salva-velo" onMouseDown={(e) => { e.stopPropagation(); setChiediSalva(false); }}>
+          <div className="finestra chiedi-salva" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo">Salvare le modifiche?</div>
+            <div className="finestra-corpo">
+              <p>Hai fatto delle modifiche che non sono ancora state salvate.</p>
+            </div>
+            <div className="finestra-piede">
+              <button type="button" className="btn grigio" onClick={() => setChiediSalva(false)}>Annulla</button>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="btn rosso" onClick={() => { setChiediSalva(false); onChiudi(); }}>Esci senza salvare</button>
+              <button type="button" className="btn blu" autoFocus onClick={() => { setChiediSalva(false); salva(); }}>Salva</button>
+            </div>
+          </div>
+        </div>
+      )}
       {lettore && <LettoreCodice onLetto={codiceLetto} onChiudi={() => setLettore(false)} />}
       {cercaMateriale && (
         <div onMouseDown={(e) => e.stopPropagation()}>

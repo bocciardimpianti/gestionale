@@ -48,7 +48,8 @@ export function seguiTastiera() {
 
 // Tasto "indietro" del telefono (o del browser): con una scheda/finestra aperta la chiude invece di cambiare pagina.
 // All'apertura si aggiunge un passo nella cronologia; chiudendo con i pulsanti il passo viene tolto.
-export function useIndietroChiude(attivo: boolean, chiudi: () => void) {
+// Se chiudi() restituisce false la finestra resta aperta (es. c'è da chiedere se salvare) e Indietro continua a funzionare
+export function useIndietroChiude(attivo: boolean, chiudi: () => void | boolean) {
   const rif = useRef(chiudi);
   rif.current = chiudi;
   useEffect(() => {
@@ -61,9 +62,12 @@ export function useIndietroChiude(attivo: boolean, chiudi: () => void) {
     const indietro = () => {
       // Ancora nella pila: è stata tolta una finestra sopra questa
       if (aperte().includes(id) || chiusaDaIndietro) return;
+      if (rif.current() === false) {
+        history.pushState({ ...(history.state ?? {}), finestre: [...aperte(), id] }, "");
+        return;
+      }
       chiusaDaIndietro = true;
       window.removeEventListener("popstate", indietro);
-      rif.current();
     };
     window.addEventListener("popstate", indietro);
     return () => {
