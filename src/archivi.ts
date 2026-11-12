@@ -11,6 +11,8 @@ export interface Campo {
   tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma" | "email" | "pdf";
   // Sul telefono il campo va in cima alla scheda (es. il cliente nel rapportino)
   primoSuTelefono?: boolean;
+  /** Sul telefono il campo va mostrato sotto le righe dei materiali */
+  sottoMaterialiSuTelefono?: boolean;
   // Microfono nel campo per dettare il testo (si aggiunge a quello già scritto)
   dettatura?: boolean;
   // Campi a scelta: colore del quadratino accanto a ogni valore (es. stato del documento)
@@ -480,10 +482,10 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "ora_inizio", etichetta: "Ora inizio", tipo: "ora", larghezza: 1 },
       { chiave: "ora_fine", etichetta: "Ora fine", tipo: "ora", larghezza: 1 },
       { chiave: "ore_pausa", etichetta: "Ore Pausa", tipo: "numero", larghezza: 1 },
-      { chiave: "totale_ore", etichetta: "Totale ore", tipo: "numero", larghezza: 1, solaLettura: true },
+      { chiave: "totale_ore", etichetta: "Totale ore", tipo: "numero", larghezza: 1, solaLettura: true, sottoMaterialiSuTelefono: true },
       { chiave: "cliente_id", etichetta: "Nome cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2, primoSuTelefono: true },
       {
-        chiave: "tipo_impianto", etichetta: "Tipo impianto", larghezza: 2,
+        chiave: "tipo_impianto", etichetta: "Tipo impianto", larghezza: 2, sottoMaterialiSuTelefono: true,
         suggerisciDa: {
           tabella: "impianti",
           filtro: { colonna: "cliente_id", campo: "cliente_id" },
@@ -492,15 +494,15 @@ export const ARCHIVI: Record<string, Archivio> = {
           salvaId: "impianto_id",
         },
       },
-      { chiave: "impianto", etichetta: "Impianto", larghezza: 2 },
-      { chiave: "marca", etichetta: "Marca", larghezza: 2 },
-      { chiave: "modello", etichetta: "Modello", larghezza: 1 },
-      { chiave: "matricola", etichetta: "Matricola", larghezza: 1 },
+      { chiave: "impianto", etichetta: "Impianto", larghezza: 2, sottoMaterialiSuTelefono: true },
+      { chiave: "marca", etichetta: "Marca", larghezza: 2, sottoMaterialiSuTelefono: true },
+      { chiave: "modello", etichetta: "Modello", larghezza: 1, sottoMaterialiSuTelefono: true },
+      { chiave: "matricola", etichetta: "Matricola", larghezza: 1, sottoMaterialiSuTelefono: true },
       { chiave: "rif_preventivo", etichetta: "Rif. Preventivo", larghezza: 2 },
-      { chiave: "fatto_conto", etichetta: "Fatto conto", tipo: "scelta", opzioniFisse: ["Si", "No"], larghezza: 1 },
-      { chiave: "stato", etichetta: "Stato", tipo: "scelta", opzioniDa: "stati_documento", titoloOpzioni: "Stati documento", larghezza: 1 },
-      { chiave: "pagata", etichetta: "Pagata", tipo: "booleano", larghezza: 0.5 },
-      { chiave: "data_pagamento", etichetta: "Data Pagamento", tipo: "data", larghezza: 1, finisciRiga: true },
+      { chiave: "fatto_conto", etichetta: "Fatto conto", tipo: "scelta", opzioniFisse: ["Si", "No"], larghezza: 1, sottoMaterialiSuTelefono: true },
+      { chiave: "stato", etichetta: "Stato", tipo: "scelta", opzioniDa: "stati_documento", titoloOpzioni: "Stati documento", larghezza: 1, sottoMaterialiSuTelefono: true },
+      { chiave: "pagata", etichetta: "Pagata", tipo: "booleano", larghezza: 0.5, sottoMaterialiSuTelefono: true },
+      { chiave: "data_pagamento", etichetta: "Data Pagamento", tipo: "data", larghezza: 1, finisciRiga: true, sottoMaterialiSuTelefono: true },
       { chiave: "attivita", etichetta: "Attività svolte", tipo: "area", larghezza: 4 },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
       { chiave: "firma", etichetta: "Firma", tipo: "firma", larghezza: 2, linguetta: "Dettaglio" },

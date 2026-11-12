@@ -408,8 +408,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   // Sul telefono alcuni campi (es. il cliente del rapportino) vanno in cima alla scheda
   const principaliTutti = cfg.campi.filter((c) => !c.linguetta);
   const principali = telefono
-    ? [...principaliTutti.filter((c) => c.primoSuTelefono), ...principaliTutti.filter((c) => !c.primoSuTelefono)]
+    ? [...principaliTutti.filter((c) => c.primoSuTelefono), ...principaliTutti.filter((c) => !c.primoSuTelefono && !(cfg.righe && c.sottoMaterialiSuTelefono))]
     : principaliTutti;
+  // ...e altri sotto i materiali
+  const sottoMateriali = telefono && cfg.righe ? principaliTutti.filter((c) => c.sottoMaterialiSuTelefono && !c.primoSuTelefono) : [];
 
   const righeMateriali = () => {
     const rc = cfg.righe!;
@@ -640,6 +642,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                   <>
                     <div className="griglia-campi">{principali.map((c, i) => campo(c, !!principali[i - 1]?.finisciRiga))}</div>
                     {cfg.righe && righeMateriali()}
+                    {sottoMateriali.length > 0 && (
+                      <div className="griglia-campi sotto-materiali">{sottoMateriali.map((c, i) => campo(c, !!sottoMateriali[i - 1]?.finisciRiga))}</div>
+                    )}
                   </>
                 ) : cfg.campi.some((c) => c.linguetta === linguetta) ? (
                   <div className="griglia-campi">
