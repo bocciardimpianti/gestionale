@@ -8,6 +8,8 @@ import FiltriCategoria from "./FiltriCategoria";
 import { pulisciRicerca } from "../testo";
 import { useAuth } from "../auth";
 import GestioneElenco from "./GestioneElenco";
+import { Sparkles, X } from "lucide-react";
+import { chiediAssistente, type Proposta } from "../assistente";
 import { correggi, creaRicerca, normalizza, radice, useSinonimi, vocabolario } from "../ricercaFurba";
 import MicDettatura from "./MicDettatura";
 
@@ -93,6 +95,10 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const { profilo } = useAuth();
   const [gestioneSinonimi, setGestioneSinonimi] = useState(false);
   const [versioneSinonimi, setVersioneSinonimi] = useState(0);
+  // Assistente (Claude): proposte per la richiesta scritta a parole
+  const [proposte, setProposte] = useState<Proposta[] | null>(null);
+  const [assistenteAttivo, setAssistenteAttivo] = useState(false);
+  const [erroreAssistente, setErroreAssistente] = useState("");
   const sinonimi = useSinonimi(versioneSinonimi);
   // Parole del magazzino, per correggere gli errori di battitura (calcolate una volta sola)
   const parolePresenti = useMemo(() => (materiali ? vocabolario(materiali.map(testoDi)) : new Map<string, number>()), [materiali]);
@@ -175,6 +181,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
     return { filtrati: trovati.sort((a, b) => punteggio(a) - punteggio(b) || alfabetico(a, b)), correzioni };
   }, [materiali, testo, filtri, soloConFoto, soloDisponibili, categoria, marca, usi, sinonimi, parolePresenti]);
 
+  useEffect(() => { setProposte(null); setErroreAssistente(""); }, [testo]);
   useEffect(() => {
     setQuanti(150);
     setEvidenziato(0);
@@ -253,6 +260,32 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
           </div>
           {errore && <p className="errore">{errore}</p>}
           {telefono && !materiali && !errore && <p className="caricamento-materiali">Caricamento dei materiali…</p>}
+          {testo.trim().length >= 3 && materiali && (
+            <div className="riga-assistente">
+              <button type="button" className="btn-assistente" disabled={assistenteAttivo} onClick={async () => {
+                setAssistenteAttivo(true); setErroreAssistente(""); setProposte(null);
+                try { setProposte(await chiediAssistente(testo.trim(), materiali, testoDi, sinonimi)); }
+                catch (e) { setErroreAssistente((e as Error).message); }
+                finally { setAssistenteAttivo(false); }
+              }}>
+                <Sparkles size={15} /> {assistenteAttivo ? "L'assistente sta cercando…" : "Chiedi all'assistente"}
+              </button>
+              {erroreAssistente && <span className="errore">{erroreAssistente}</span>}
+            </div>
+          )}
+          {proposte && (
+            <div className="proposte-assistente">
+              <div className="titolo-proposte"><Sparkles size={14} /> Proposti dall'assistente per "{testo.trim()}"
+                <button type="button" aria-label="Chiudi le proposte" onClick={() => setProposte(null)}><X size={16} /></button>
+              </div>
+              {proposte.length ? proposte.map((p) => (
+                <button type="button" key={p.materiale.id} onClick={() => scegli(p.materiale)}>
+                  <b>{String(p.materiale.descrizione ?? "")}</b>
+                  <span>{p.motivo} · cod. {String(p.materiale.codice_interno ?? "")}</span>
+                </button>
+              )) : <p className="piccolo">Nessun materiale adatto trovato nel magazzino.</p>}
+            </div>
+          )}
           {correzioni.length > 0 && filtrati.length > 0 && (
             <p className="forse-cercavi">Nessun risultato esatto: <b>forse cercavi</b> {correzioni.join(" · ")}</p>
           )}
