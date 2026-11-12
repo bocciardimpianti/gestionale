@@ -250,6 +250,32 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     carica();
   };
 
+  // Più righe spuntate insieme: nel Cestino, ripristino, eliminazione definitiva
+  const suSpuntate = async (azione: "cestino" | "ripristina" | "definitivo") => {
+    const elenco = selezionate;
+    if (!elenco.length) return;
+    const n = elenco.length === 1 ? `"${nomeDi(elenco[0])}"` : `${elenco.length} elementi`;
+    const domanda = {
+      cestino: `Eliminare ${n}?\n\nVerranno spostati nel Cestino (Azioni → Cestino), da dove si possono ripristinare.`,
+      ripristina: `Ripristinare ${n} dal Cestino?`,
+      definitivo: `Eliminare DEFINITIVAMENTE ${n}? L'operazione non si può annullare.\n\nI documenti collegati perderanno il riferimento.`,
+    }[azione];
+    if (!confirm(domanda)) return;
+    const ids = elenco.map((r) => r.id);
+    for (let i = 0; i < ids.length; i += 200) {
+      const parte = ids.slice(i, i + 200);
+      const { error } = azione === "definitivo"
+        ? await supabase.from(cfg.tabella).delete().in("id", parte)
+        : await supabase.from(cfg.tabella).update({ eliminato_il: azione === "cestino" ? new Date().toISOString() : null }).in("id", parte);
+      if (error) { setMessaggio("Errore: " + error.message); carica(); return; }
+    }
+    const fatto = { cestino: "eliminato", ripristina: "ripristinato", definitivo: "eliminato_definitivamente" }[azione];
+    await registra(`${cfg.sezione}_${fatto}`, { id: ids, nomi: elenco.slice(0, 50).map(nomeDi) });
+    setMessaggio(`${elenco.length === 1 ? "1 elemento" : `${elenco.length} elementi`} ${{ cestino: "spostati nel Cestino", ripristina: "ripristinati", definitivo: "eliminati definitivamente" }[azione]}`);
+    setSelezionata(null);
+    carica();
+  };
+
   const spostaInArchivio = async (r: Riga, archivio: Cartella | null) => {
     if (await aggiorna(r.id, { archivio_id: archivio?.id ?? null }, "spostato", nomeDi(r))) {
       setScheda(null);
@@ -487,9 +513,19 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                   if (visibili.length > 48 && !confirm(`Stampare le etichette di ${visibili.length} materiali (${Math.ceil(visibili.length / 24)} fogli)?\nPer stamparne solo alcuni, filtra prima l'elenco (es. con la ricerca).`)) return;
                   stampaEtichette(visibili).catch((e) => setMessaggio("Errore: " + (e as Error).message));
                 }, visibili.length > 0)}
-                {!nelCestino && rigaSel && voce(Trash2, "#d9342b", `Elimina "${nomeDi(rigaSel)}"`, () => spostaNelCestino(rigaSel), puo(cfg.sezione, "eliminare"))}
-                {nelCestino && rigaSel && voce(Undo2, "#3a7dc0", "Ripristina", () => ripristina(rigaSel), puo(cfg.sezione, "eliminare"))}
-                {nelCestino && rigaSel && voce(Trash2, "#d9342b", "Elimina definitivamente", () => eliminaDefinitivo(rigaSel), puo(cfg.sezione, "eliminare"))}
+                {selezionate.length > 0 ? (
+                  <>
+                    {!nelCestino && voce(Trash2, "#d9342b", `Elimina ${selezionate.length === 1 ? "lo spuntato" : `i ${selezionate.length} spuntati`}`, () => suSpuntate("cestino"), puo(cfg.sezione, "eliminare"))}
+                    {nelCestino && voce(Undo2, "#3a7dc0", `Ripristina ${selezionate.length === 1 ? "lo spuntato" : `i ${selezionate.length} spuntati`}`, () => suSpuntate("ripristina"), puo(cfg.sezione, "eliminare"))}
+                    {nelCestino && voce(Trash2, "#d9342b", `Elimina definitivamente ${selezionate.length === 1 ? "lo spuntato" : `i ${selezionate.length} spuntati`}`, () => suSpuntate("definitivo"), puo(cfg.sezione, "eliminare"))}
+                  </>
+                ) : (
+                  <>
+                    {!nelCestino && rigaSel && voce(Trash2, "#d9342b", `Elimina "${nomeDi(rigaSel)}"`, () => spostaNelCestino(rigaSel), puo(cfg.sezione, "eliminare"))}
+                    {nelCestino && rigaSel && voce(Undo2, "#3a7dc0", "Ripristina", () => ripristina(rigaSel), puo(cfg.sezione, "eliminare"))}
+                    {nelCestino && rigaSel && voce(Trash2, "#d9342b", "Elimina definitivamente", () => eliminaDefinitivo(rigaSel), puo(cfg.sezione, "eliminare"))}
+                  </>
+                )}
                 {nelCestino
                   ? voce(Undo2, "#666", "Esci dal Cestino", () => setVista({ tipo: "tutti" }))
                   : voce(Trash2, "#666", "Cestino", () => setVista({ tipo: "cestino" }), puo(cfg.sezione, "eliminare"))}
@@ -548,7 +584,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         ricerca={ricerca}
         colonnaRicerca={colonnaRicerca}
         onSpunta={!nelCestino && puo(cfg.sezione, "modificare") ? spunta : undefined}
-        selezionabile={cfg.sezione === "materiali"}
+        selezionabile={!cfg.colonne.some((c) => c.somma)}
         onSelezionate={setSelezionate}
         azioniRiga={(r) => [
           { testo: "Apri", esegui: () => setScheda(r) },
