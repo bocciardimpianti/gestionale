@@ -280,8 +280,11 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
               </div>
               {proposte.length ? proposte.map((p) => (
                 <button type="button" key={p.materiale.id} onClick={() => scegli(p.materiale)}>
-                  <b>{String(p.materiale.descrizione ?? "")}</b>
-                  <span>{p.motivo} · cod. {String(p.materiale.codice_interno ?? "")}</span>
+                  <span className="riga-telefono-foto">{typeof p.materiale.foto === "string" && p.materiale.foto ? <Miniatura percorso={p.materiale.foto} archivio="materiali" /> : null}</span>
+                  <span className="testi-proposta">
+                    <b>{String(p.materiale.descrizione ?? "")}</b>
+                    <span>{p.motivo} · cod. {String(p.materiale.codice_interno ?? "")}</span>
+                  </span>
                 </button>
               )) : <p className="piccolo">Nessun materiale adatto trovato nel magazzino.</p>}
             </div>
