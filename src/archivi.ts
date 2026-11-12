@@ -676,9 +676,8 @@ export const ARCHIVI: Record<string, Archivio> = {
     campi: [
       {
         chiave: "foto", etichetta: "Fotografia", tipo: "foto", larghezza: 4,
-        // Codice del fornitore + descrizione: trova più spesso il prodotto esatto
-        cercaFoto: (d) => [d.codice_fornitore1, d.codice_fornitore2, d.descrizione]
-          .map((v) => String(v ?? "").trim()).filter((v) => v && v !== "/").slice(0, 2).join(" ") || String(d.descrizione ?? ""),
+        // Google Immagini cerca solo con la descrizione del materiale
+        cercaFoto: (d) => String(d.descrizione ?? "").trim(),
       },
       { chiave: "codice_interno", etichetta: "Codice Interno", larghezza: 2, finisciRiga: true },
       { chiave: "_info", etichetta: "Info Fornitura", tipo: "titolo", stile: "blu-scuro" },
