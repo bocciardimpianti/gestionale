@@ -3,7 +3,8 @@ import writeXlsxFile from "write-excel-file";
 import { supabase } from "./supabase";
 
 // Tabelle incluse nel backup: foglio Excel e colonna per l'ordinamento
-const TABELLE: { tabella: string; foglio: string; ordine: string }[] = [
+// "intera": elenco breve salvato sempre per intero, anche nel backup incrementale
+const TABELLE: { tabella: string; foglio: string; ordine: string; intera?: boolean }[] = [
   { tabella: "clienti", foglio: "Clienti", ordine: "id" },
   { tabella: "fornitori", foglio: "Fornitori", ordine: "id" },
   { tabella: "tecnici", foglio: "Tecnici", ordine: "id" },
@@ -18,19 +19,19 @@ const TABELLE: { tabella: string; foglio: string; ordine: string }[] = [
   { tabella: "scadenziario", foglio: "Scadenziario", ordine: "id" },
   { tabella: "richieste", foglio: "Richieste di intervento", ordine: "id" },
   { tabella: "materiali", foglio: "Materiali", ordine: "id" },
-  { tabella: "archivi", foglio: "Archivi", ordine: "id" },
-  { tabella: "tipologie_pagamento", foglio: "Tipologie pagamento", ordine: "ordine" },
-  { tabella: "modalita_pagamento", foglio: "Modalità pagamento", ordine: "ordine" },
-  { tabella: "banche", foglio: "Banche", ordine: "ordine" },
-  { tabella: "province", foglio: "Province", ordine: "ordine" },
-  { tabella: "nazioni", foglio: "Nazioni", ordine: "ordine" },
-  { tabella: "periodi", foglio: "Periodi", ordine: "ordine" },
-  { tabella: "stati_documento", foglio: "Stati documento", ordine: "ordine" },
-  { tabella: "tariffe", foglio: "Tariffe", ordine: "ordine" },
-  { tabella: "unita_misura", foglio: "Unità di misura", ordine: "ordine" },
-  { tabella: "note_dashboard", foglio: "Note dashboard", ordine: "id" },
-  { tabella: "profili", foglio: "Utenti", ordine: "email" },
-  { tabella: "permessi", foglio: "Permessi", ordine: "utente_id" },
+  { tabella: "archivi", foglio: "Archivi", ordine: "id", intera: true },
+  { tabella: "tipologie_pagamento", foglio: "Tipologie pagamento", ordine: "ordine", intera: true },
+  { tabella: "modalita_pagamento", foglio: "Modalità pagamento", ordine: "ordine", intera: true },
+  { tabella: "banche", foglio: "Banche", ordine: "ordine", intera: true },
+  { tabella: "province", foglio: "Province", ordine: "ordine", intera: true },
+  { tabella: "nazioni", foglio: "Nazioni", ordine: "ordine", intera: true },
+  { tabella: "periodi", foglio: "Periodi", ordine: "ordine", intera: true },
+  { tabella: "stati_documento", foglio: "Stati documento", ordine: "ordine", intera: true },
+  { tabella: "tariffe", foglio: "Tariffe", ordine: "ordine", intera: true },
+  { tabella: "unita_misura", foglio: "Unità di misura", ordine: "ordine", intera: true },
+  { tabella: "note_dashboard", foglio: "Note dashboard", ordine: "id", intera: true },
+  { tabella: "profili", foglio: "Utenti", ordine: "email", intera: true },
+  { tabella: "permessi", foglio: "Permessi", ordine: "utente_id", intera: true },
   { tabella: "registro", foglio: "Registro attività", ordine: "id" },
 ];
 
@@ -110,7 +111,7 @@ export async function creaBackup(
     const righe = RIGHE_DI[t.tabella];
     dati[t.tabella] = dal && righe
       ? await leggiRighe(t.tabella, righe.campo, (dati[righe.padre] ?? []).map((r) => r.id))
-      : await leggiTabella(t.tabella, t.ordine, dal);
+      : await leggiTabella(t.tabella, t.ordine, t.intera ? undefined : dal);
   }
 
   avanzamento("Creazione del file Excel…");
@@ -149,7 +150,7 @@ export async function creaBackup(
       `Backup ${dal ? "INCREMENTALE" : "COMPLETO"} del gestionale Bocciardi Impianti - ${new Date().toLocaleString("it-IT")}`,
       ...(dal ? [
         `Contiene solo i dati creati o modificati dal ${new Date(dal).toLocaleString("it-IT")} (con le loro foto, firme e PDF);`,
-        "gli elenchi brevi (province, tariffe, utenti, permessi…) sono sempre completi.",
+        `gli elenchi brevi sono sempre completi (${TABELLE.filter((t) => t.intera).map((t) => t.foglio).join(", ")}).`,
         "Per un ripristino servono l'ultimo backup COMPLETO e, in ordine di data, tutti gli INCREMENTALI successivi.",
       ] : []),
       "",
