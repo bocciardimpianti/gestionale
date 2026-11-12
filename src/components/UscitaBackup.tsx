@@ -9,6 +9,8 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
 }) {
   const [stato, setStato] = useState("");
   const [inCorso, setInCorso] = useState(false);
+  // Backup salvato: restano solo i pulsanti per chiudere la finestra (o uscire)
+  const [fatto, setFatto] = useState(false);
   // Le foto dei materiali sono molte e cambiano poco: si possono escludere (scelta ricordata su questo PC)
   const [fotoMateriali, setFotoMateriali] = useState(() => {
     try {
@@ -39,8 +41,10 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
       setStato("Salvataggio del file…");
       await destinazione.scrivi(zip);
       setStato(`Backup salvato: ${nome}`);
-      if (soloBackup) setInCorso(false);
-      else setTimeout(onEsci, 800);
+      setInCorso(false);
+      setFatto(true);
+      // All'uscita si esce da soli dopo un attimo; il pulsante "Esci" resta comunque disponibile
+      if (!soloBackup) setTimeout(onEsci, 1500);
     } catch (e) {
       setInCorso(false);
       setStato("Errore durante il backup: " + (e as Error).message);
@@ -65,6 +69,14 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
           </label>
           {stato && <p className={stato.startsWith("Errore") ? "errore" : "ok"}>{stato}</p>}
         </div>
+        {fatto ? (
+          <div className="finestra-piede">
+            <span style={{ flex: 1 }} />
+            {soloBackup
+              ? <button type="button" className="btn blu" autoFocus onClick={onAnnulla}>Chiudi</button>
+              : <button type="button" className="btn blu" autoFocus onClick={onEsci}>Esci</button>}
+          </div>
+        ) : (
         <div className="finestra-piede">
           <button type="button" className="btn grigio" disabled={inCorso} onClick={onAnnulla}>Annulla</button>
           <span style={{ flex: 1 }} />
@@ -73,6 +85,7 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
             {inCorso ? "Backup in corso…" : soloBackup ? "Salva backup" : "Salva backup ed esci"}
           </button>
         </div>
+        )}
       </div>
     </div>
   );
