@@ -430,6 +430,16 @@ export const ARCHIVI: Record<string, Archivio> = {
     valoriNuovo: async ({ utenteId, admin }) => {
       // Tecnico proposto: quello collegato all'utente, oppure "Amministrazione" per l'admin
       let { data: tecnico } = await supabase.from("tecnici").select("id, nome").eq("utente_id", utenteId).is("eliminato_il", null).limit(1).maybeSingle();
+      // Utente non collegato a un tecnico: si prova con il nome dell'utente (anche con nome e cognome invertiti)
+      if (!tecnico) {
+        const { data: prof } = await supabase.from("profili").select("nome, email").eq("id", utenteId).maybeSingle();
+        const parole = (t: unknown) => String(t ?? "").toLowerCase().split(/[^a-zà-ú]+/).filter((w) => w.length >= 2).sort().join(" ");
+        const mio = parole(prof?.nome);
+        if (mio) {
+          const { data: tutti } = await supabase.from("tecnici").select("id, nome").is("eliminato_il", null);
+          tecnico = (tutti ?? []).find((t) => parole(t.nome) === mio) ?? null;
+        }
+      }
       if (!tecnico && admin) {
         ({ data: tecnico } = await supabase.from("tecnici").select("id, nome").ilike("nome", "amministrazione").limit(1).maybeSingle());
       }
