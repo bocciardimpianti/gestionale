@@ -115,7 +115,7 @@ export interface Archivio {
   // Campi calcolati al salvataggio e mostrati nel piede (es. imponibile e totale)
   calcolaTotali?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => Record<string, number>;
   // Viste rapide nel menu Filtri (es. materiali senza foto)
-  visteRapide?: { nome: string; filtro: (r: Record<string, unknown>) => boolean; ordine?: { chiave: string; su: boolean } }[];
+  visteRapide?: { nome: string; filtro: (r: Record<string, unknown>) => boolean; ordine?: { chiave: string; su: boolean }; fotoVeloce?: boolean }[];
   // Vista Galleria (schede con foto) oltre alla Tabella
   galleria?: { foto: string; titolo: string; dettagli: (r: Record<string, unknown>) => string };
   // Voci aggiuntive del menu Azioni della scheda (es. etichetta QR del materiale)
@@ -593,6 +593,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       nome: "Senza foto (più usati prima)",
       filtro: (r) => !r.foto && !/^(ore |foro |manutenzione|imprevist|perdit|material[ei] vari|ferramenta)/i.test(String(r.descrizione ?? "")),
       ordine: { chiave: "giacenza", su: true },
+      // Incollando una foto il materiale si salva da solo e si apre il successivo
+      fotoVeloce: true,
     }],
     galleria: {
       foto: "foto",

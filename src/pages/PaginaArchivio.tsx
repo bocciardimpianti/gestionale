@@ -611,8 +611,10 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
 
       {scheda && (
         <Scheda
+          key={String(scheda.id ?? "nuovo")}
           cfg={cfg}
           valori={scheda}
+          fotoVeloce={!!rapida?.fotoVeloce}
           cartelle={cartelle}
           nelCestino={nelCestino}
           onChiudi={() => setScheda(null)}

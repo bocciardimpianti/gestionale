@@ -63,27 +63,8 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
   // Immagine incollata (Ctrl+V) o trascinata nel riquadro
   const daTrasferimento = async (dt: DataTransfer | null) => {
     if (!dt || !modificabile || firma) return;
-    const file = [...dt.files].find((f) => f.type.startsWith("image/"))
-      ?? [...dt.items].find((i) => i.kind === "file" && i.type.startsWith("image/"))?.getAsFile();
-    if (file) {
-      setAvviso("");
-      onCambia(await riduci(file));
-      return;
-    }
-    // Dal browser a volte arriva solo l'indirizzo dell'immagine: proviamo a scaricarla
-    const indirizzo = dt.getData("text/uri-list") || dt.getData("text/plain");
-    if (/^(https?:|data:image)/.test(indirizzo)) {
-      try {
-        const r = await fetch(indirizzo);
-        const b = await r.blob();
-        if (!b.type.startsWith("image/")) throw new Error();
-        setAvviso("");
-        onCambia(await riduci(new File([b], "foto", { type: b.type })));
-        return;
-      } catch {
-        /* il sito non permette di scaricare l'immagine */
-      }
-    }
+    const b = await immagineDa(dt);
+    if (b) { setAvviso(""); onCambia(b); return; }
     setAvviso("Immagine non leggibile: sull'immagine fai clic destro → \"Copia immagine\", poi clicca qui e premi Ctrl+V");
   };
 
@@ -137,6 +118,25 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
 }
 
 // Riduce le foto del telefono (spesso 4-8 MB) a max 1600 px, in JPEG
+/** Immagine da appunti o trascinamento (file, oppure indirizzo da scaricare), già ridotta; null se non leggibile */
+export async function immagineDa(dt: DataTransfer): Promise<Blob | null> {
+  const file = [...dt.files].find((f) => f.type.startsWith("image/"))
+    ?? [...dt.items].find((i) => i.kind === "file" && i.type.startsWith("image/"))?.getAsFile();
+  if (file) return riduci(file);
+  // Dal browser a volte arriva solo l'indirizzo dell'immagine: proviamo a scaricarla
+  const indirizzo = dt.getData("text/uri-list") || dt.getData("text/plain");
+  if (/^(https?:|data:image)/.test(indirizzo)) {
+    try {
+      const r = await fetch(indirizzo);
+      const b = await r.blob();
+      if (b.type.startsWith("image/")) return riduci(new File([b], "foto", { type: b.type }));
+    } catch {
+      /* il sito non permette di scaricare l'immagine */
+    }
+  }
+  return null;
+}
+
 async function riduci(file: File): Promise<Blob> {
   try {
     const img = await createImageBitmap(file);

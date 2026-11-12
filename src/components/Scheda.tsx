@@ -6,7 +6,7 @@ import { useAuth } from "../auth";
 import { ARCHIVI, type Archivio, type Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
-import CampoImmagine, { urlFirmato } from "./CampoImmagine";
+import CampoImmagine, { immagineDa, urlFirmato } from "./CampoImmagine";
 import CercaMateriale from "./CercaMateriale";
 import LettoreCodice from "./LettoreCodice";
 import MicDettatura from "./MicDettatura";
@@ -27,6 +27,8 @@ interface Props {
   onSposta: (archivio: Cartella | null) => void;
   // Ripristino dal Cestino (scheda aperta dal Cestino)
   onRipristina?: () => void;
+  // Vista "Senza foto": incollando un'immagine la scheda si salva da sola (e si passa al materiale successivo)
+  fotoVeloce?: boolean;
 }
 
 // Finestra di dettaglio come nel programma originale: linguette, campi incorniciati, piede con Salva/Azioni/Chiudi
@@ -37,7 +39,7 @@ const NUMERI_OBBLIGATORI = new Set([
   "ricarico", "sconto", "sconto_totale", "totale", "totale_materiali", "totale_materiali_servizi", "totale_preventivo", "totale_servizi",
 ]);
 
-export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta, onRipristina }: Props) {
+export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta, onRipristina, fotoVeloce = false }: Props) {
   const { puo, profilo, puoWhatsapp, vedePrezzi } = useAuth();
   // Senza il permesso "Totali" totali, imponibili e importi non compaiono (restano salvati com'erano)
   const campiVisibili = senzaPrezzi(cfg.campi, vedePrezzi);
@@ -48,7 +50,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [dati, setDati] = useState<Record<string, unknown>>(valori);
   const [opzioni, setOpzioni] = useState<Record<string, { valore: string; etichetta: string; riga?: Record<string, unknown> }[]>>({});
   const [linguetta, setLinguetta] = useState("Principale");
-  const [stato, setStato] = useState("Pronto");
+  const [stato, setStato] = useState(fotoVeloce ? "Foto veloce: Cerca foto → clic destro sull'immagine → Copia immagine → torna qui e premi Ctrl+V (salva e passa al successivo)" : "Pronto");
   const [ingrandita, setIngrandita] = useState(false);
   const [ridotta, setRidotta] = useState(false);
   const [menuAzioni, setMenuAzioni] = useState(false);
@@ -291,6 +293,36 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     onSalvato(risposta.data.id);
   };
 
+  // Foto veloce: Ctrl+V ovunque nella scheda mette l'immagine nel primo campo foto vuoto e salva
+  const salvaDopoFoto = useRef(false);
+  const salvaRif = useRef(salva);
+  salvaRif.current = salva;
+  useEffect(() => {
+    if (!fotoVeloce || !modificabile) return;
+    const incolla = async (e: ClipboardEvent) => {
+      const bersaglio = e.target instanceof HTMLElement ? e.target : null;
+      if (bersaglio?.closest(".cornice-immagine")) return; // il riquadro foto gestisce da sé l'incolla
+      const ha = e.clipboardData && ([...e.clipboardData.items].some((i) => i.type.startsWith("image/")) || /^https?:/.test(e.clipboardData.getData("text/plain")));
+      if (!ha || (bersaglio && /^(INPUT|TEXTAREA)$/.test(bersaglio.tagName) && ![...e.clipboardData!.items].some((i) => i.type.startsWith("image/")))) return;
+      e.preventDefault();
+      const campoFoto = cfg.campi.find((c) => c.tipo === "foto" && !dati[c.chiave]) ?? cfg.campi.find((c) => c.tipo === "foto");
+      if (!campoFoto) return;
+      const b = await immagineDa(e.clipboardData!);
+      if (!b) return setStato("Errore: immagine non leggibile. Su Google fai clic destro sull'immagine → \"Copia immagine\", poi torna qui e premi Ctrl+V");
+      salvaDopoFoto.current = true;
+      cambia(campoFoto.chiave, b);
+      setStato("Foto incollata: salvataggio…");
+    };
+    window.addEventListener("paste", incolla);
+    return () => window.removeEventListener("paste", incolla);
+  });
+  useEffect(() => {
+    if (!fotoVeloce || !salvaDopoFoto.current) return;
+    if (!cfg.campi.some((c) => c.tipo === "foto" && dati[c.chiave] instanceof Blob)) return;
+    salvaDopoFoto.current = false;
+    salvaRif.current();
+  }, [dati, fotoVeloce, cfg.campi]);
+
   const campo = (c: Campo, aCapo: boolean) => {
     if (c.tipo === "titolo") return <div key={c.chiave} className={`sezione-scheda ${c.stile ?? "grigio"}`}>{c.etichetta}</div>;
     if (c.tipo === "pdf")
@@ -312,7 +344,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       return (
         <div key={c.chiave} style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
           <CampoImmagine archivio={cfg.sezione} cerca={c.cercaFoto?.(dati)} etichetta={c.etichetta} valore={dati[c.chiave]} firma={c.tipo === "firma"} modificabile={modificabile}
-            onCambia={(v) => cambia(c.chiave, v)} />
+            onCambia={(v) => { if (fotoVeloce && v instanceof Blob) salvaDopoFoto.current = true; cambia(c.chiave, v); }} />
         </div>
       );
     const valore = String((c.chiave in totali ? totali[c.chiave] : dati[c.chiave]) ?? "");
