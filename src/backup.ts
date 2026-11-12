@@ -42,15 +42,44 @@ const FILE: { archivio: string; tabella: string; colonne: string[] }[] = [
   { archivio: "ddt_acquisto", tabella: "ddt_acquisto", colonne: ["pdf"] },
 ];
 
-async function leggiTabella(tabella: string, ordine: string) {
+// Righe di dettaglio senza date proprie: nel backup incrementale vanno con il documento modificato
+const RIGHE_DI: Record<string, { padre: string; campo: string }> = {
+  righe_rapporto: { padre: "rapporti", campo: "rapporto_id" },
+  righe_preventivo: { padre: "preventivi", campo: "preventivo_id" },
+  righe_ddt_acquisto: { padre: "ddt_acquisto", campo: "ddt_id" },
+};
+
+// "dal": solo i record creati o modificati da quel momento (backup incrementale).
+// Le tabelle senza date (elenchi brevi come province o tariffe) vengono salvate sempre per intero.
+async function leggiTabella(tabella: string, ordine: string, dal?: string) {
+  const d = `"${dal}"`;
+  const filtri: (string | null)[] = dal ? [`modificato_il.gte.${d},creato_il.gte.${d}`, `creato_il.gte.${d}`, `il.gte.${d}`, null] : [null];
+  for (const filtro of filtri) {
+    const tutte: Record<string, unknown>[] = [];
+    let riuscita = true;
+    for (let da = 0; ; da += 1000) {
+      let q = supabase.from(tabella).select("*");
+      if (filtro) q = q.or(filtro);
+      const { data, error } = await q.order(ordine).range(da, da + 999);
+      // Filtro non applicabile (colonna assente): si prova il successivo; tabella non ancora creata: si salta
+      if (error) { riuscita = false; break; }
+      tutte.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+    if (riuscita) return tutte;
+  }
+  return [];
+}
+
+// Righe dei soli documenti presenti nel backup incrementale
+async function leggiRighe(tabella: string, campo: string, idPadri: unknown[]) {
   const tutte: Record<string, unknown>[] = [];
-  for (let da = 0; ; da += 1000) {
-    const { data, error } = await supabase.from(tabella).select("*").order(ordine).range(da, da + 999);
-    // Una tabella non ancora creata (script non eseguito) non blocca il backup
+  for (let i = 0; i < idPadri.length; i += 200) {
+    const { data, error } = await supabase.from(tabella).select("*").in(campo, idPadri.slice(i, i + 200)).order("id");
     if (error) return tutte;
     tutte.push(...(data ?? []));
-    if (!data || data.length < 1000) return tutte;
   }
+  return tutte;
 }
 
 const cella = (v: unknown) => {
@@ -61,23 +90,27 @@ const cella = (v: unknown) => {
   return { type: String, value: String(v) };
 };
 
-export const nomeBackup = () => {
+export const nomeBackup = (incrementale = false) => {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
-  return `Backup gestionale ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())}.zip`;
+  return `Backup gestionale ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())} ${incrementale ? "incrementale" : "completo"}.zip`;
 };
 
-// Crea il backup completo: un file Excel con un foglio per tabella, i dati in formato JSON e tutte le foto/firme
+// Con "dal" il backup è incrementale: solo ciò che è stato creato o modificato da quella data (con foto e PDF nuovi)
 export async function creaBackup(
   avanzamento: (messaggio: string) => void,
-  opzioni: { fotoMateriali: boolean } = { fotoMateriali: true },
+  opzioni: { fotoMateriali: boolean; dal?: string } = { fotoMateriali: true },
 ): Promise<Blob> {
   const zip = new JSZip();
   const dati: Record<string, Record<string, unknown>[]> = {};
+  const dal = opzioni.dal;
 
   for (const [i, t] of TABELLE.entries()) {
     avanzamento(`Lettura ${t.foglio}… (${i + 1}/${TABELLE.length})`);
-    dati[t.tabella] = await leggiTabella(t.tabella, t.ordine);
+    const righe = RIGHE_DI[t.tabella];
+    dati[t.tabella] = dal && righe
+      ? await leggiRighe(t.tabella, righe.campo, (dati[righe.padre] ?? []).map((r) => r.id))
+      : await leggiTabella(t.tabella, t.ordine, dal);
   }
 
   avanzamento("Creazione del file Excel…");
@@ -92,7 +125,7 @@ export async function creaBackup(
   });
   const excel = (await writeXlsxFile(contenuto as never, { sheets: fogli.map((t) => t.foglio) } as never)) as unknown as Blob;
   zip.file("Dati gestionale.xlsx", excel);
-  zip.file("dati.json", JSON.stringify({ creato_il: new Date().toISOString(), tabelle: dati }));
+  zip.file("dati.json", JSON.stringify({ creato_il: new Date().toISOString(), tipo: dal ? "incrementale" : "completo", modifiche_dal: dal ?? null, tabelle: dati }));
 
   // Foto e firme
   const percorsi: { archivio: string; percorso: string }[] = [];
@@ -113,7 +146,12 @@ export async function creaBackup(
   zip.file(
     "LEGGIMI.txt",
     [
-      `Backup del gestionale Bocciardi Impianti - ${new Date().toLocaleString("it-IT")}`,
+      `Backup ${dal ? "INCREMENTALE" : "COMPLETO"} del gestionale Bocciardi Impianti - ${new Date().toLocaleString("it-IT")}`,
+      ...(dal ? [
+        `Contiene solo i dati creati o modificati dal ${new Date(dal).toLocaleString("it-IT")} (con le loro foto, firme e PDF);`,
+        "gli elenchi brevi (province, tariffe, utenti, permessi…) sono sempre completi.",
+        "Per un ripristino servono l'ultimo backup COMPLETO e, in ordine di data, tutti gli INCREMENTALI successivi.",
+      ] : []),
       "",
       "Dati gestionale.xlsx  tutte le tabelle, un foglio per tabella",
       "dati.json             gli stessi dati in formato completo (per un eventuale ripristino)",

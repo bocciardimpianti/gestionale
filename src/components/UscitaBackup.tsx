@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GIORNI_COMPLETO, segnaBackup, situazioneBackup } from "../backupStato";
 
 // Finestra mostrata all'uscita (admin, da PC): salva il backup completo prima di uscire.
 // Con "soloBackup" serve anche per fare un backup in qualsiasi momento, senza uscire.
@@ -11,6 +12,9 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
   const [inCorso, setInCorso] = useState(false);
   // Backup salvato: restano solo i pulsanti per chiudere la finestra (o uscire)
   const [fatto, setFatto] = useState(false);
+  // Incrementale (solo le modifiche dall'ultimo backup) oppure completo, dovuto almeno una volta a settimana
+  const situazione = situazioneBackup();
+  const [completo, setCompleto] = useState(situazione.serveCompleto);
   // Le foto dei materiali sono molte e cambiano poco: si possono escludere (scelta ricordata su questo PC)
   const [fotoMateriali, setFotoMateriali] = useState(() => {
     try {
@@ -33,13 +37,16 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
     try {
       // Modulo caricato solo quando serve (contiene le librerie zip ed Excel)
       const { creaBackup, nomeBackup, scegliDestinazione } = await import("../backup");
-      const nome = nomeBackup();
+      const incrementale = !completo && !!situazione.ultimo;
+      const nome = nomeBackup(incrementale);
+      const inizio = new Date().toISOString();
       const destinazione = await scegliDestinazione(nome);
       if (!destinazione) return; // salvataggio annullato
       setInCorso(true);
-      const zip = await creaBackup(setStato, { fotoMateriali });
+      const zip = await creaBackup(setStato, { fotoMateriali, dal: incrementale ? situazione.ultimo : undefined });
       setStato("Salvataggio del file…");
       await destinazione.scrivi(zip);
+      segnaBackup(inizio, incrementale);
       setStato(`Backup salvato: ${nome}`);
       setInCorso(false);
       setFatto(true);
@@ -63,6 +70,23 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
             Contiene tutti i dati in Excel (un foglio per sezione), una copia completa per il ripristino e le foto e firme dei rapporti.
             Ti verrà chiesto dove salvarlo: è proposta la cartella Documenti.
           </p>
+          <div className="tipo-backup">
+            {situazione.serveCompleto ? (
+              <p><b>Backup completo</b>: {situazione.completo
+                ? `l'ultimo completo su questo PC è del ${new Date(situazione.completo).toLocaleDateString("it-IT")}, va rifatto almeno ogni ${GIORNI_COMPLETO} giorni.`
+                : "su questo PC non ne è ancora stato fatto uno."}</p>
+            ) : (
+              <>
+                <p><b>{completo ? "Backup completo" : "Backup incrementale"}</b>: {completo
+                  ? "tutti i dati, le foto e i PDF."
+                  : `solo quello che è stato creato o modificato dal ${new Date(situazione.ultimo).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} (ultimo backup su questo PC). Più piccolo e veloce.`}</p>
+                <label className="interruttore opzione-backup">
+                  <input type="checkbox" checked={completo} disabled={inCorso || fatto} onChange={(e) => setCompleto(e.target.checked)} />
+                  Fai comunque un backup completo <span className="piccolo">(ultimo completo: {new Date(situazione.completo).toLocaleDateString("it-IT")})</span>
+                </label>
+              </>
+            )}
+          </div>
           <label className="interruttore opzione-backup">
             <input type="checkbox" checked={fotoMateriali} disabled={inCorso} onChange={(e) => cambiaFotoMateriali(e.target.checked)} />
             Includi le foto dei materiali <span className="piccolo">(backup più grande e più lento)</span>
