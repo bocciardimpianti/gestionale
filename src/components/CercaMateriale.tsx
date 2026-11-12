@@ -83,6 +83,8 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const [aggiunti, setAggiunti] = useState<string[]>([]);
   const [errore, setErrore] = useState("");
   const elenco = useRef<HTMLDivElement>(null);
+  // Elenco scorso verso il basso: sugli schermi bassi (telefono in orizzontale) si nascondono titolo e filtri
+  const [scorso, setScorso] = useState(false);
   const telefono = useTelefono();
   useIndietroChiude(true, onChiudi);
 
@@ -182,7 +184,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
 
   return (
     <div className="velo" onMouseDown={onChiudi}>
-      <div className="finestra finestra-materiali" onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`finestra finestra-materiali${scorso ? " scorso" : ""}`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="finestra-titolo">{titolo}<button type="button" className="chiudi" onClick={onChiudi}>×</button></div>
         <div className="finestra-corpo cerca-materiale">
           <div className="riga-cerca">
@@ -233,6 +235,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
             }}
             onScroll={(e) => {
             const el = e.currentTarget;
+            if ((el.scrollTop > 30) !== scorso) setScorso(el.scrollTop > 30);
             if (el.scrollTop + el.clientHeight > el.scrollHeight - 200 && quanti < filtrati.length) setQuanti((q) => q + 150);
           }}>
             {telefono ? (
