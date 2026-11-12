@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
-// Schermi da telefono: elenchi a righe grandi, schede e ricerche a tutto schermo
-const QUERY = "(max-width: 760px)";
+// Schermi da telefono: elenchi a righe grandi, schede e ricerche a tutto schermo.
+// Anche il telefono girato in orizzontale (schermo basso e tattile) resta in modalità telefono.
+export const QUERY = "(max-width: 760px), (max-height: 500px) and (pointer: coarse)";
 
 export function useTelefono() {
   const [telefono, setTelefono] = useState(() => window.matchMedia(QUERY).matches);
