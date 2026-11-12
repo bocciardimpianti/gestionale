@@ -1262,3 +1262,5 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .cornice .mappa { min-height: 36px; padding: 0 12px; font-size: 14px; bottom: 6px; }
   .cornice:has(.mappa) input { padding-right: 96px; }
 }
+.forse-cercavi { margin: 0; padding: 6px 10px; border-radius: 8px; background: #fff4d6; color: #6b4e00; font-size: 13px; }
+.sopra-materiali > div > .velo { z-index: 120; }

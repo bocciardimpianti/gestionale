@@ -584,6 +584,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         onVisibili={setVisibili}
         ordineIniziale={rapida?.ordine ?? cfg.ordineIniziale}
         ricerca={ricerca}
+        ricercaFurba={cfg.sezione === "materiali"}
         colonnaRicerca={colonnaRicerca}
         onSpunta={!nelCestino && puo(cfg.sezione, "modificare") ? spunta : undefined}
         selezionabile={!cfg.colonne.some((c) => c.somma)}

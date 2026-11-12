@@ -7,6 +7,7 @@ import { coloreCategoria } from "../categorie";
 import { pulisciRicerca } from "../testo";
 import { useAuth } from "../auth";
 import { senzaPrezzi } from "../prezzi";
+import { correggi, creaRicerca, normalizza, radice, useSinonimi, vocabolario } from "../ricercaFurba";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
@@ -51,6 +52,8 @@ interface Props {
   selezionabile?: boolean;
   // Riceve le righe spuntate (visibili), es. per stampare le etichette dei materiali scelti
   onSelezionate?: (righe: Riga[]) => void;
+  // Ricerca libera con sinonimi, singolare/plurale ed errori di battitura (es. elenco Materiali)
+  ricercaFurba?: boolean;
 }
 
 const testo = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -63,7 +66,7 @@ export const mostra = (c: Colonna, r: Riga): string =>
   : c.tipo === "numero" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : Number(r[c.chiave]).toLocaleString("it-IT")) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne: tutteColonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga, selezionabile = false, onSelezionate }: Props) {
+export default function Griglia({ colonne: tutteColonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga, selezionabile = false, onSelezionate, ricercaFurba = false }: Props) {
   // Senza il permesso "Totali" le colonne con totali e importi non compaiono
   const { vedePrezzi } = useAuth();
   const colonne = useMemo(() => senzaPrezzi(tutteColonne, vedePrezzi), [tutteColonne, vedePrezzi]);
@@ -113,11 +116,42 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
     };
   }, [telefono]);
 
+  const sinonimi = useSinonimi();
+  const doveTutte = useMemo(() => colonne.filter((c) => c.tipo !== "booleano" && c.tipo !== "immagine" && c.tipo !== "miniatura"), [colonne]);
+  // Testo di ogni riga per la ricerca furba (calcolato una volta per elenco)
+  const testiFurbi = useMemo(() => ricercaFurba ? new Map(righe.map((r) => [r, normalizza(doveTutte.map((c) => mostra(c, r)).join(" "))])) : null, [ricercaFurba, righe, doveTutte]);
+  const paroleFurbe = useMemo(() => (testiFurbi ? vocabolario([...testiFurbi.values()]) : new Map<string, number>()), [testiFurbi]);
+  const correzioni = useRef<string[]>([]);
+
   const visibili = useMemo(() => {
     const attivi = Object.entries(filtri).filter(([, f]) => f.trim());
     const parole = pulisciRicerca(ricerca).split(/\s+/).filter(Boolean);
     const dove = colonne.filter((c) =>
       c.tipo !== "booleano" && c.tipo !== "immagine" && c.tipo !== "miniatura" && (!colonnaRicerca || c.chiave === colonnaRicerca));
+    const filtriOk = (r: Riga) => attivi.every(([k, f]) => {
+      const c = colonne.find((c) => c.chiave === k);
+      if (c?.tipo === "booleano") return f === "sì" ? !!r[k] : !r[k];
+      return (c ? mostra(c, r) : testo(r[k])).toLowerCase().includes(f.trim().toLowerCase());
+    });
+    let corrette: string[] = [];
+    if (testiFurbi && parole.length && !colonnaRicerca) {
+      let rf = creaRicerca(ricerca, sinonimi);
+      let trovate = righe.filter((r) => rf.corrisponde(testiFurbi.get(r) ?? "") && filtriOk(r));
+      if (!trovate.length) {
+        const sostituti = correggi(rf.parole, paroleFurbe);
+        if (sostituti.size) {
+          rf = creaRicerca(ricerca, sinonimi, sostituti);
+          trovate = righe.filter((r) => rf.corrisponde(testiFurbi.get(r) ?? "") && filtriOk(r));
+          corrette = [...sostituti.entries()].map(([p, v]) => `${p} → ${v.slice(0, 3).join(", ")}`);
+        }
+      }
+      correzioni.current = corrette;
+      // Prima chi ha la parola cercata così com'è, poi i sinonimi
+      const primo = radice(normalizza(parole[0]));
+      return trovate.sort((a, b) => Number(!(testiFurbi.get(a) ?? "").includes(primo)) - Number(!(testiFurbi.get(b) ?? "").includes(primo))
+        || testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }) * (ordine.su ? 1 : -1));
+    }
+    correzioni.current = [];
     // Su una colonna precisa si cercano le parole che INIZIANO col testo (es. "F" → Ferdinando, Rossi Franco)
     const iniziaCon = (v: string, p: string) => v.startsWith(p) || v.split(/[\s.,'()/-]+/).some((w) => w.startsWith(p));
     const filtrate = righe.filter((r) =>
@@ -147,7 +181,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
           ? segno * mostra(colonnaOrdine, a).localeCompare(mostra(colonnaOrdine, b), "it", { sensitivity: "base", numeric: true })
           : segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
-  }, [righe, filtri, ordine, colonne, ricerca, colonnaRicerca]);
+  }, [righe, filtri, ordine, colonne, ricerca, colonnaRicerca, testiFurbi, paroleFurbe, sinonimi]);
 
   useEffect(() => {
     onVisibili?.(visibili);
@@ -182,6 +216,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
     const spunte = onSpunta ? colonne.filter((c) => c.tipo === "booleano" && c.spuntabile) : [];
     return (
       <div className="elenco-telefono">
+        {correzioni.current.length > 0 && visibili.length > 0 && <p className="forse-cercavi">Nessun risultato esatto: <b>forse cercavi</b> {correzioni.current.join(" · ")}</p>}
         <div className="elenco-telefono-barra">
           <span>{visibili.length} di {righe.length}</span>
           <label>
@@ -315,6 +350,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
 
   return (
     <div className="griglia-dati">
+      {correzioni.current.length > 0 && visibili.length > 0 && <p className="forse-cercavi">Nessun risultato esatto: <b>forse cercavi</b> {correzioni.current.join(" · ")}</p>}
       <div className="griglia-scorri" ref={scorri}>
         <table style={{ width: larghezzaPrima + colonne.reduce((t, c) => t + c.larghezza, 0) }}>
           {larghezze}

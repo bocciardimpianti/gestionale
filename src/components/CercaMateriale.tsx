@@ -6,6 +6,9 @@ import { useIndietroChiude, useTelefono } from "../telefono";
 import { categoriaDa, coloreCategoria, marcaDi } from "../categorie";
 import FiltriCategoria from "./FiltriCategoria";
 import { pulisciRicerca } from "../testo";
+import { useAuth } from "../auth";
+import GestioneElenco from "./GestioneElenco";
+import { correggi, creaRicerca, normalizza, radice, useSinonimi, vocabolario } from "../ricercaFurba";
 import MicDettatura from "./MicDettatura";
 
 type Materiale = Record<string, unknown> & { id: number };
@@ -24,7 +27,7 @@ const categoriaDi = (m: Materiale) => {
   return c;
 };
 
-const testoDi = (m: Materiale) => `${m.descrizione ?? ""} ${m.nome_articolo ?? ""} ${m.codice_interno ?? ""} ${m.codice_barre ?? ""} ${m.fornitore1 ?? ""} ${m.fornitore2 ?? ""} ${m.codice_fornitore1 ?? ""} ${m.codice_fornitore2 ?? ""}`.toLowerCase();
+const testoDi = (m: Materiale) => normalizza(`${m.descrizione ?? ""} ${m.nome_articolo ?? ""} ${m.codice_interno ?? ""} ${m.codice_barre ?? ""} ${m.fornitore1 ?? ""} ${m.fornitore2 ?? ""} ${m.codice_fornitore1 ?? ""} ${m.codice_fornitore2 ?? ""}`);
 
 // Filtri per singola colonna: ogni filtro guarda solo i suoi campi
 type Filtri = { codice: string; descrizione: string; fornitore: string; um: string; prezzo: string; giacenza: string };
@@ -87,6 +90,12 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const [scorso, setScorso] = useState(false);
   const telefono = useTelefono();
   useIndietroChiude(true, onChiudi);
+  const { profilo } = useAuth();
+  const [gestioneSinonimi, setGestioneSinonimi] = useState(false);
+  const [versioneSinonimi, setVersioneSinonimi] = useState(0);
+  const sinonimi = useSinonimi(versioneSinonimi);
+  // Parole del magazzino, per correggere gli errori di battitura (calcolate una volta sola)
+  const parolePresenti = useMemo(() => (materiali ? vocabolario(materiali.map(testoDi)) : new Map<string, number>()), [materiali]);
 
   useEffect(() => {
     leggiTutto("materiali", "*", true)
@@ -117,15 +126,17 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
     return [...conta.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([nome]) => nome);
   }, [materiali, categoria]);
 
-  const filtrati = useMemo(() => {
-    if (!materiali) return [];
+  const { filtrati, correzioni } = useMemo(() => {
+    if (!materiali) return { filtrati: [] as Materiale[], correzioni: [] as string[] };
     const parole = pulisciRicerca(testo).split(/\s+/).filter(Boolean);
     const alfabetico = (a: Materiale, b: Materiale) => (usi?.get(b.id) ?? 0) - (usi?.get(a.id) ?? 0)
       || String(a.descrizione ?? "").localeCompare(String(b.descrizione ?? ""), "it", { sensitivity: "base" });
     const paroleColonna = (Object.keys(campiFiltro) as (keyof typeof campiFiltro)[])
       .map((k) => [k, pulisciRicerca(filtri[k]).split(/\s+/).filter(Boolean)] as const)
       .filter(([, p]) => p.length);
-    const trovati = materiali.filter((m) => {
+    // Ricerca furba: radici (singolare/plurale) e sinonimi; se non trova niente, corregge gli errori di battitura
+    let ricerca = creaRicerca(testo, sinonimi);
+    const filtra = () => materiali.filter((m) => {
       if (soloConFoto && !m.foto) return false;
       if (soloDisponibili && !(Number(m.giacenza ?? 0) > 0)) return false;
       if (categoria && categoriaDi(m) !== categoria) return false;
@@ -136,21 +147,33 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
         if (!p.every((x) => t.includes(x))) return false;
       }
       if (!parole.length) return true;
-      const t = testoDi(m);
-      return parole.every((p) => t.includes(p));
+      return ricerca.corrisponde(testoDi(m));
     });
+    let trovati = filtra();
+    let correzioni: string[] = [];
+    if (!trovati.length && parole.length) {
+      const sostituti = correggi(ricerca.parole, parolePresenti);
+      if (sostituti.size) {
+        ricerca = creaRicerca(testo, sinonimi, sostituti);
+        trovati = filtra();
+        correzioni = [...sostituti.entries()].map(([p, v]) => `${p} → ${v.slice(0, 3).join(", ")}`);
+      }
+    }
     // Senza testo generale: ordine alfabetico, ma chi INIZIA con il filtro della descrizione va in cima
     const primo = parole[0] ?? pulisciRicerca(filtri.descrizione).split(/\s+/)[0] ?? "";
-    if (!primo) return trovati.sort(alfabetico);
+    if (!primo) return { filtrati: trovati.sort(alfabetico), correzioni };
     // Prima chi inizia con il testo (descrizione o codice), poi chi ha una parola che inizia così, poi gli altri
+    // Con la radice: "gomiti" mette in cima chi inizia con "gomit"; chi la trova solo tramite un sinonimo va in fondo
+    const r = radice(normalizza(primo));
     const punteggio = (m: Materiale) => {
-      const d = String(m.descrizione ?? "").toLowerCase();
-      if (d.startsWith(primo) || String(m.codice_interno ?? "").toLowerCase().startsWith(primo) || String(m.codice_barre ?? "").toLowerCase() === primo) return 0;
-      if (d.split(/[\s.,'()/-]+/).some((w) => w.startsWith(primo))) return 1;
-      return 2;
+      const d = normalizza(String(m.descrizione ?? ""));
+      if (d.startsWith(r) || String(m.codice_interno ?? "").toLowerCase().startsWith(primo) || String(m.codice_barre ?? "").toLowerCase() === primo) return 0;
+      if (d.split(/[\s.,'()/-]+/).some((w) => w.startsWith(r))) return 1;
+      if (testoDi(m).includes(r)) return 2;
+      return 3;
     };
-    return trovati.sort((a, b) => punteggio(a) - punteggio(b) || alfabetico(a, b));
-  }, [materiali, testo, filtri, soloConFoto, soloDisponibili, categoria, marca, usi]);
+    return { filtrati: trovati.sort((a, b) => punteggio(a) - punteggio(b) || alfabetico(a, b)), correzioni };
+  }, [materiali, testo, filtri, soloConFoto, soloDisponibili, categoria, marca, usi, sinonimi, parolePresenti]);
 
   useEffect(() => {
     setQuanti(150);
@@ -221,12 +244,18 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
                 Azzera filtri
               </button>
             )}
+            {profilo?.ruolo === "admin" && !telefono && (
+              <button type="button" className="link" onClick={() => setGestioneSinonimi(true)} title="Parole equivalenti per la ricerca (es. gomito = curva)">Sinonimi…</button>
+            )}
           </div>
           <div className="piccolo">
             {materiali ? `${filtrati.length} materiali${testo || filtriAttivi ? " trovati" : ""} — clicca (o Invio) per aggiungere; puoi aggiungerne più di uno` : "Caricamento dei materiali…"}
           </div>
           {errore && <p className="errore">{errore}</p>}
           {telefono && !materiali && !errore && <p className="caricamento-materiali">Caricamento dei materiali…</p>}
+          {correzioni.length > 0 && filtrati.length > 0 && (
+            <p className="forse-cercavi">Nessun risultato esatto: <b>forse cercavi</b> {correzioni.join(" · ")}</p>
+          )}
           <div className="risultati" ref={elenco}
             onTouchMove={() => {
               // Solo mentre si scorre: chiudere la tastiera al primo tocco sposterebbe la riga sotto il dito e il tocco andrebbe perso
@@ -325,6 +354,14 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
               <button type="submit" className="btn blu" disabled={!(Number(quantita.replace(",", ".")) > 0)}>Aggiungi</button>
             </div>
           </form>
+        </div>
+      )}
+      {gestioneSinonimi && (
+        <div className="sopra-materiali" onMouseDown={(e) => e.stopPropagation()}>
+          <div>
+            <GestioneElenco titolo="Sinonimi ricerca (parole equivalenti separate da virgola, es. gomito, curva)" tabella="sinonimi_ricerca"
+              onChiudi={() => { setGestioneSinonimi(false); setVersioneSinonimi((v) => v + 1); }} />
+          </div>
         </div>
       )}
     </div>
