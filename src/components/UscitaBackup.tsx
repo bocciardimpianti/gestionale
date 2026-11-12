@@ -94,14 +94,16 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
             <div className="backup-confermato">
               <b>✓ Backup effettuato</b>
               <span>{stato.replace(/^Backup salvato: /, "File: ")}</span>
-              {!soloBackup && <span className="piccolo">Premi Chiudi per uscire dal gestionale.</span>}
+              <span className="piccolo">Puoi continuare a lavorare oppure uscire dal gestionale.</span>
             </div>
           ) : stato && <p className={stato.startsWith("Errore") ? "errore" : "ok"}>{stato}</p>}
         </div>
         {fatto ? (
           <div className="finestra-piede">
             <span style={{ flex: 1 }} />
-            <button type="button" className="btn blu" autoFocus onClick={soloBackup ? onAnnulla : onEsci}>Chiudi</button>
+            {/* A backup fatto si sceglie: restare nel gestionale oppure uscire */}
+            <button type="button" className="btn grigio" onClick={onEsci}>Esci dal gestionale</button>
+            <button type="button" className="btn blu" autoFocus onClick={onAnnulla}>Continua a lavorare</button>
           </div>
         ) : (
         <div className="finestra-piede">
