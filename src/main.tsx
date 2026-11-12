@@ -14,6 +14,7 @@ import { ARCHIVI } from "./archivi";
 import Agenda from "./pages/Agenda";
 import { seguiTastiera } from "./telefono";
 import "./styles.css";
+import CercaOvunque from "./pages/CercaOvunque";
 
 seguiTastiera();
 
@@ -58,6 +59,7 @@ function Struttura() {
       <Routes>
         <Route path="/" element={puo("home", "vedere") ? <Dashboard /> : <Benvenuto />} />
         <Route path="/s/:chiave" element={<PaginaSezione />} />
+        <Route path="/cerca" element={<CercaOvunque />} />
         {admin && <Route path="/admin/utenti" element={<Utenti />} />}
         {admin && <Route path="/admin/registro" element={<Registro />} />}
         <Route path="*" element={<Navigate to="/" />} />

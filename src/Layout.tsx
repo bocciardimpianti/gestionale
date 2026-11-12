@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
   LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
-  Settings, Smartphone, Star, User, UserRound, Users, Wrench, X, type LucideIcon,
+  Search, Settings, Smartphone, Star, User, UserRound, Users, Wrench, X, type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "./auth";
 import UscitaBackup from "./components/UscitaBackup";
@@ -97,6 +97,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         <Logo />
         {import.meta.env.VITE_PROVA && <span className="etichetta-prova">PROVA</span>}
         <div className="icone-alte">
+          <button className="cerca-alto" title="Cerca ovunque (impianti, clienti, rapportini…)" onClick={() => naviga("/cerca")}>
+            <Search size={20} strokeWidth={1.8} /><span>Cerca</span>
+          </button>
           <button className="utente-alto" title="Esci per cambiare utente" onClick={richiediUscita}>
             <span>{profilo?.nome || profilo?.email}</span>
             <LogOut size={20} strokeWidth={1.5} />

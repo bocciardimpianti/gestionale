@@ -1218,3 +1218,17 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 /* Conferma del backup effettuato */
 .backup-confermato { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; margin-top: 8px; border-radius: 8px; background: #eaf6ec; border: 1px solid #a9d8b2; }
 .backup-confermato b { color: #1e7a32; font-size: 16px; }
+
+/* Cerca ovunque */
+.icone-alte > button.cerca-alto { display: flex !important; align-items: center; gap: 6px; border: 1px solid var(--bordo, #cfd4da); border-radius: 6px; padding: 4px 10px; background: #fff; font-size: 14px; }
+.cerca-ovunque { max-width: 980px; }
+.cerca-ovunque-campo { margin: 8px 0 4px; }
+.cerca-ovunque-campo label { flex: 1; display: flex; align-items: center; gap: 8px; border: 1px solid var(--bordo, #cfd4da); border-radius: 8px; padding: 0 10px; background: #fff; }
+.cerca-ovunque-campo input { flex: 1; border: 0; outline: none; height: 44px; font-size: 16px; background: transparent; min-width: 0; }
+.cerca-ovunque-campo .mic-dettatura { min-height: 46px; width: 46px; }
+.gruppo-risultati { margin-top: 14px; }
+.gruppo-risultati h2 { font-size: 16px; margin: 0 0 6px; }
+.risultato { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; background: #fff; border: 1px solid var(--bordo, #e3e5e8); border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; cursor: pointer; font: inherit; color: inherit; }
+.risultato:hover { border-color: var(--petrolio, #123b45); background: #f5fafb; }
+.risultato span { font-size: 13px; color: var(--tenue, #666); }
+@media (max-width: 760px) { .icone-alte > button.cerca-alto span { display: none; } .icone-alte > button.cerca-alto { padding: 6px 8px; } }
