@@ -15,6 +15,8 @@ export interface Profilo {
   ruolo: "admin" | "standard";
   attivo: boolean;
   whatsapp?: boolean;
+  // Titolare, Tecnico, Commerciale, Amministrativo, Magazzino (solo descrittiva; i permessi restano quelli scelti)
+  mansione?: string | null;
 }
 
 export interface Sezione {

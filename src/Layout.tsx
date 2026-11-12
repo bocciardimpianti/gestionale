@@ -74,7 +74,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     gruppi.push({
       nome: "AMMINISTRAZIONE",
       voci: [
-        { chiave: "admin/utenti", etichetta: "Utenti e permessi", gruppo: "", ordine: 0 },
+        { chiave: "admin/utenti", etichetta: "Utenti, permessi e tecnici", gruppo: "", ordine: 0 },
         { chiave: "admin/registro", etichetta: "Registro attività", gruppo: "", ordine: 0 },
       ],
     });

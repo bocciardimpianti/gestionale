@@ -10,15 +10,42 @@ const ETICHETTE: Record<Azione, string> = {
   esportare: "Esportare",
 };
 
+export const MANSIONI = ["Titolare", "Tecnico", "Commerciale", "Amministrativo", "Magazzino"];
+type Livello = "V" | "VC" | "VCM" | "VCME" | "tutto";
+const AZIONI_DI: Record<Livello, Azione[]> = {
+  V: ["vedere"], VC: ["vedere", "creare"], VCM: ["vedere", "creare", "modificare"],
+  VCME: ["vedere", "creare", "modificare", "esportare"], tutto: ["vedere", "creare", "modificare", "eliminare", "esportare"],
+};
+// Permessi tipici di ogni mansione (proposti scegliendo la mansione di un utente standard, poi modificabili)
+const PERMESSI_TIPICI: Record<string, Record<string, Livello>> = {
+  Tecnico: { home: "V", clienti: "VC", impianti: "VCM", rapporti: "VCM", agenda: "V", richieste: "V", materiali: "V" },
+  Commerciale: { home: "V", clienti: "VCM", impianti: "V", rapporti: "V", agenda: "V", preventivi: "VCME", richieste: "VCM", materiali: "V" },
+  Amministrativo: {
+    home: "V", clienti: "VCME", fornitori: "VCME", tecnici: "VCM", impianti: "VCM", rapporti: "VCME", agenda: "V", preventivi: "VCME",
+    richieste: "VCM", ddt_acquisto: "VCME", materiali: "VCME", scadenziario: "VCME", conti_clienti: "VCME",
+  },
+  Magazzino: { home: "V", fornitori: "V", rapporti: "V", ddt_acquisto: "VCM", materiali: "VCME" },
+  Titolare: Object.fromEntries(["home", "clienti", "fornitori", "tecnici", "impianti", "rapporti", "agenda", "preventivi", "richieste", "ddt_acquisto", "materiali", "scadenziario", "conti_clienti"].map((k) => [k, "tutto" as Livello])),
+};
+
+// Parole di un nome in ordine (per abbinare "Michael Gronchi" a "Gronchi Michael")
+const paroleNome = (t: unknown) => String(t ?? "").toLowerCase().split(/[^a-zà-ú]+/).filter((w) => w.length >= 2).sort().join(" ");
+
 export default function Utenti() {
   const { profilo: io, sezioni } = useAuth();
   const [utenti, setUtenti] = useState<Profilo[]>([]);
   const [selezionato, setSelezionato] = useState<Profilo | null>(null);
   const [nuovo, setNuovo] = useState(false);
   const [messaggio, setMessaggio] = useState("");
+  // Tecnici collegati agli utenti (chi "fa interventi" compare nei rapportini, prende in carico le richieste, riceve le notifiche)
+  const [tecnici, setTecnici] = useState<{ id: number; nome: string; utente_id: string | null }[]>([]);
 
   const carica = useCallback(async () => {
-    const { data } = await supabase.from("profili").select("*").order("email");
+    const [{ data }, { data: tec }] = await Promise.all([
+      supabase.from("profili").select("*").order("email"),
+      supabase.from("tecnici").select("id, nome, utente_id").is("eliminato_il", null).order("nome"),
+    ]);
+    setTecnici(tec ?? []);
     setUtenti(data ?? []);
     setSelezionato((s) => (s ? (data ?? []).find((u) => u.id === s.id) ?? null : null));
   }, []);
@@ -38,6 +65,49 @@ export default function Utenti() {
     }
   };
 
+  // "Fa interventi": collega l'utente al tecnico con lo stesso nome, oppure crea il tecnico; togliendo la spunta lo scollega
+  const impostaTecnico = (u: Profilo, attivo: boolean) =>
+    esegui(async () => {
+      if (!attivo) {
+        const { error } = await supabase.from("tecnici").update({ utente_id: null }).eq("utente_id", u.id);
+        if (error) throw error;
+        return;
+      }
+      if (tecnici.some((t) => t.utente_id === u.id)) return;
+      const nome = u.nome || u.email;
+      const libero = tecnici.find((t) => !t.utente_id && paroleNome(t.nome) === paroleNome(nome));
+      if (libero) {
+        const { error } = await supabase.from("tecnici").update({ utente_id: u.id }).eq("id", libero.id);
+        if (error) throw error;
+      } else {
+        const scelto = prompt(`Nome del tecnico per ${u.email} (come comparirà nei rapportini e in agenda):`, nome);
+        if (!scelto?.trim()) return;
+        const esistente = tecnici.find((t) => !t.utente_id && paroleNome(t.nome) === paroleNome(scelto));
+        const { error } = esistente
+          ? await supabase.from("tecnici").update({ utente_id: u.id }).eq("id", esistente.id)
+          : await supabase.from("tecnici").insert({ nome: scelto.trim(), utente_id: u.id });
+        if (error) throw error;
+      }
+    }, attivo ? "Utente collegato come tecnico" : "Utente non più tecnico (lo storico dei suoi rapportini resta)");
+
+  // Mansione: per un utente standard si propongono i permessi tipici
+  const impostaMansione = (u: Profilo, mansione: string) =>
+    esegui(async () => {
+      const { error } = await supabase.from("profili").update({ mansione: mansione || null }).eq("id", u.id);
+      if (error) throw error;
+      if (u.ruolo === "standard" && PERMESSI_TIPICI[mansione] && confirm(`Applicare a ${u.nome || u.email} i permessi tipici di "${mansione}"?\n\nPotrai modificarli dopo con il pulsante Permessi.`)) {
+        const righe = sezioni.map((s) => {
+          const consentite = AZIONI_DI[PERMESSI_TIPICI[mansione][s.chiave]] ?? [];
+          return { utente_id: u.id, sezione: s.chiave, ...Object.fromEntries(AZIONI.map((a) => [a, consentite.includes(a)])) };
+        });
+        const { error: e2 } = await supabase.from("permessi").upsert(righe);
+        if (e2) throw e2;
+      }
+      if (mansione === "Tecnico" && !tecnici.some((t) => t.utente_id === u.id) && confirm(`${u.nome || u.email} fa interventi? Verrà collegato come tecnico (rapportini, presa in carico delle richieste, notifiche).`)) {
+        await impostaTecnico(u, true);
+      }
+    }, "Mansione salvata");
+
   const aggiornaProfilo = (u: Profilo, campi: Partial<Profilo>) =>
     esegui(async () => {
       const { error } = await supabase.from("profili").update(campi).eq("id", u.id);
@@ -47,16 +117,16 @@ export default function Utenti() {
   return (
     <>
       <div className="barra-titolo">
-        <h2>Utenti e permessi</h2>
+        <h2>Utenti, permessi e tecnici</h2>
         <button className="primario" onClick={() => setNuovo(true)}>+ Nuovo utente</button>
       </div>
       {messaggio && <p className={messaggio.startsWith("Errore") ? "errore" : "ok"}>{messaggio}</p>}
 
-      {nuovo && <NuovoUtente onChiudi={() => setNuovo(false)} onCreato={() => { setNuovo(false); carica(); }} />}
+      {nuovo && <NuovoUtente sezioni={sezioni} tecnici={tecnici} onChiudi={() => setNuovo(false)} onCreato={() => { setNuovo(false); carica(); }} />}
 
       <table className="griglia">
         <thead>
-          <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Stato</th><th>WhatsApp</th><th></th></tr>
+          <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Mansione</th><th>Fa interventi (tecnico)</th><th>Stato</th><th>WhatsApp</th><th></th></tr>
         </thead>
         <tbody>
           {utenti.map((u) => (
@@ -68,6 +138,23 @@ export default function Utenti() {
                   <option value="admin">Admin</option>
                   <option value="standard">Standard</option>
                 </select>
+              </td>
+              <td>
+                <select value={u.mansione ?? ""} onChange={(e) => impostaMansione(u, e.target.value)}>
+                  <option value="">—</option>
+                  {MANSIONI.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </td>
+              <td>
+                {(() => {
+                  const t = tecnici.find((x) => x.utente_id === u.id);
+                  return (
+                    <label className="interruttore" title="Compare nei rapportini e in agenda, prende in carico le richieste, riceve le notifiche">
+                      <input type="checkbox" checked={!!t} onChange={(e) => impostaTecnico(u, e.target.checked)} />
+                      {t ? t.nome : "No"}
+                    </label>
+                  );
+                })()}
               </td>
               <td>
                 <label className="interruttore">
@@ -111,9 +198,16 @@ export default function Utenti() {
   );
 }
 
-function NuovoUtente({ onChiudi, onCreato }: { onChiudi: () => void; onCreato: () => void }) {
+function NuovoUtente({ sezioni, tecnici, onChiudi, onCreato }: {
+  sezioni: { chiave: string }[];
+  tecnici: { id: number; nome: string; utente_id: string | null }[];
+  onChiudi: () => void;
+  onCreato: () => void;
+}) {
   const [dati, setDati] = useState({ nome: "", email: "", password: "", ruolo: "standard" });
   const [whatsapp, setWhatsapp] = useState(false);
+  const [mansione, setMansione] = useState("");
+  const [faInterventi, setFaInterventi] = useState(false);
   const [errore, setErrore] = useState("");
 
   const invia = async (e: FormEvent) => {
@@ -123,6 +217,27 @@ function NuovoUtente({ onChiudi, onCreato }: { onChiudi: () => void; onCreato: (
       if (whatsapp && dati.ruolo === "standard" && creato?.id) {
         const { error } = await supabase.from("profili").update({ whatsapp: true }).eq("id", creato.id);
         if (error) throw new Error(`Utente creato, ma il permesso WhatsApp non è stato salvato: ${error.message}`);
+      }
+      if (creato?.id && mansione) {
+        const { error } = await supabase.from("profili").update({ mansione }).eq("id", creato.id);
+        if (error) throw new Error(`Utente creato, ma la mansione non è stata salvata: ${error.message}`);
+        // Utente standard: permessi tipici della mansione (modificabili dopo)
+        if (dati.ruolo === "standard" && PERMESSI_TIPICI[mansione]) {
+          const righe = sezioni.map((s) => {
+            const consentite = AZIONI_DI[PERMESSI_TIPICI[mansione][s.chiave]] ?? [];
+            return { utente_id: creato.id, sezione: s.chiave, ...Object.fromEntries(AZIONI.map((a) => [a, consentite.includes(a)])) };
+          });
+          const { error: e2 } = await supabase.from("permessi").upsert(righe);
+          if (e2) throw new Error(`Utente creato, ma i permessi non sono stati salvati: ${e2.message}`);
+        }
+      }
+      // Fa interventi: collegato al tecnico con lo stesso nome, oppure nuovo tecnico
+      if (creato?.id && faInterventi) {
+        const libero = tecnici.find((t) => !t.utente_id && paroleNome(t.nome) === paroleNome(dati.nome));
+        const { error } = libero
+          ? await supabase.from("tecnici").update({ utente_id: creato.id }).eq("id", libero.id)
+          : await supabase.from("tecnici").insert({ nome: dati.nome.trim(), utente_id: creato.id });
+        if (error) throw new Error(`Utente creato, ma non è stato collegato come tecnico: ${error.message}`);
       }
       onCreato();
     } catch (err) {
@@ -149,6 +264,19 @@ function NuovoUtente({ onChiudi, onCreato }: { onChiudi: () => void; onCreato: (
           </select>
         </label>
       </div>
+      <div className="campi">
+        <label>Mansione
+          <select value={mansione} onChange={(e) => { setMansione(e.target.value); if (e.target.value === "Tecnico") setFaInterventi(true); }}>
+            <option value="">—</option>
+            {MANSIONI.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </label>
+      </div>
+      <label className="interruttore">
+        <input type="checkbox" checked={faInterventi} onChange={(e) => setFaInterventi(e.target.checked)} />
+        Fa interventi (tecnico): compare nei rapportini e in agenda, prende in carico le richieste, riceve le notifiche
+      </label>
+      {dati.ruolo === "standard" && mansione && PERMESSI_TIPICI[mansione] && <p className="piccolo">Verranno impostati i permessi tipici di "{mansione}", modificabili dopo con il pulsante Permessi.</p>}
       <label className="interruttore">
         <input type="checkbox" checked={dati.ruolo === "admin" || whatsapp} disabled={dati.ruolo === "admin"} onChange={(e) => setWhatsapp(e.target.checked)} />
         Può scrivere su WhatsApp a clienti e fornitori{dati.ruolo === "admin" ? " (sempre attivo per gli admin)" : ""}
