@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect, useState, type FormEvent } from "react";
-import { MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { MapPin, MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -416,6 +416,16 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         {c.tipo === "email" && (
           <a className="chiama" href={valore ? `mailto:${valore}` : undefined} title="Scrivi e-mail"><Mail size={14} strokeWidth={2} /></a>
         )}
+        {c.mappa && (() => {
+          // Apre Google Maps (sul telefono l'app) sull'indirizzo, da lì si avvia il navigatore
+          const dove = c.mappa({ ...dati, ...testoRifNomi() }).replace(/\s+/g, " ").trim();
+          return dove.replace(/[\s,]/g, "") ? (
+            <a className="mappa" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dove)}`} target="_blank" rel="noopener noreferrer"
+              title={`Apri in Maps: ${dove}`} aria-label={`Apri in Maps: ${dove}`}>
+              <MapPin size={15} strokeWidth={2.2} /> Maps
+            </a>
+          ) : null;
+        })()}
         {c.colori && valore && <span className="quadratino" style={{ background: c.colori[valore] ?? "#999" }} />}
         {c.tipo === "telefono" && (
           <a className="chiama" href={valore ? `tel:${valore.replace(/\s/g, "")}` : undefined} title="Chiama">

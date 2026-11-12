@@ -1254,3 +1254,11 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .finestra-materiali .finestra-piede .ok { display: none; }
   .finestra-materiali.scorso .finestra-titolo, .finestra-materiali.scorso .filtri-categoria, .finestra-materiali.scorso .opzioni-materiali { display: none; }
 }
+/* Pulsante Maps accanto all'indirizzo */
+.cornice .mappa { position: absolute; right: 6px; bottom: 5px; display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 99px;
+  background: var(--ottanio-tenue, #e3f1f1); color: var(--ottanio-scuro, #0d5c63); font-size: 12px; font-weight: 600; text-decoration: none; }
+.cornice:has(.mappa) input { padding-right: 76px; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .cornice .mappa { min-height: 36px; padding: 0 12px; font-size: 14px; bottom: 6px; }
+  .cornice:has(.mappa) input { padding-right: 96px; }
+}

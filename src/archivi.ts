@@ -15,6 +15,8 @@ export interface Campo {
   sottoMaterialiSuTelefono?: boolean;
   // Microfono nel campo per dettare il testo (si aggiunge a quello già scritto)
   dettatura?: boolean;
+  /** Pulsante Maps accanto al campo: indirizzo da cercare sulla mappa (vuoto = niente pulsante) */
+  mappa?: (dati: Record<string, unknown>) => string;
   // Campi a scelta: colore del quadratino accanto a ogni valore (es. stato del documento)
   colori?: Record<string, string>;
   // Campi a scelta: scegliendo un'opzione copia questi valori dalla sua riga (es. importi della tariffa)
@@ -289,7 +291,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     campi: [
       { chiave: "nome", etichetta: "Nome Cliente", obbligatorio: true, larghezza: 2 },
       { chiave: "email", etichetta: "E-Mail", larghezza: 2 },
-      { chiave: "indirizzo_fatturazione", etichetta: "Indirizzo Fatturazione", larghezza: 2, finisciRiga: true },
+      { chiave: "indirizzo_fatturazione", etichetta: "Indirizzo Fatturazione", larghezza: 2, finisciRiga: true, mappa: (d) => String(d.indirizzo_fatturazione ?? "") },
       { chiave: "_dati_contatto", etichetta: "Dati contatto", tipo: "titolo" },
       { chiave: "nome_contatto", etichetta: "Nome contatto", larghezza: 2 },
       { chiave: "telefono", etichetta: "Telefono", tipo: "telefono", larghezza: 1 },
@@ -325,7 +327,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "nome", etichetta: "Nome Fornitore", obbligatorio: true, larghezza: 2 },
       { chiave: "codice_fiscale", etichetta: "Codice fiscale", larghezza: 1 },
       { chiave: "piva", etichetta: "P.IVA", larghezza: 1 },
-      { chiave: "indirizzo", etichetta: "Indirizzo", larghezza: 2 },
+      { chiave: "indirizzo", etichetta: "Indirizzo", larghezza: 2, mappa: (d) => [[d.indirizzo, d.civico].filter(Boolean).join(" "), d.cap, d.comune, d.provincia].filter(Boolean).join(", ") },
       { chiave: "civico", etichetta: "Civico", larghezza: 0.5 },
       { chiave: "cap", etichetta: "Cap", larghezza: 1, finisciRiga: true },
       { chiave: "comune", etichetta: "Comune", larghezza: 1 },
@@ -926,7 +928,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "urgente", etichetta: "Urgente", tipo: "booleano", larghezza: 1, finisciRiga: true },
       { chiave: "nominativo", etichetta: "Nominativo (se non è in anagrafica)", larghezza: 2, segnaposto: "es. Giorgio, cliente nuovo" },
       { chiave: "telefono", etichetta: "Telefono", tipo: "telefono", larghezza: 1 },
-      { chiave: "indirizzo", etichetta: "Indirizzo", larghezza: 1, finisciRiga: true },
+      { chiave: "indirizzo", etichetta: "Indirizzo", larghezza: 1, finisciRiga: true, mappa: (d) => String(d.indirizzo ?? "") },
       { chiave: "descrizione", etichetta: "Descrizione richiesta", tipo: "area", larghezza: 4, obbligatorio: true, dettatura: true },
       { chiave: "tecnico_id", etichetta: "Tecnico assegnato", tipo: "riferimento", riferimentoA: "tecnici", larghezza: 2 },
       { chiave: "stato", etichetta: "Stato", tipo: "scelta", opzioniFisse: ["Da assegnare", "Assegnata", "In carico", "Completata", "Annullata"], colori: COLORI_STATO, larghezza: 1, finisciRiga: true },
