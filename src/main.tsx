@@ -15,8 +15,10 @@ import Agenda from "./pages/Agenda";
 import { seguiTastiera } from "./telefono";
 import "./styles.css";
 import CercaOvunque from "./pages/CercaOvunque";
+import { controllaAggiornamenti } from "./aggiornamento";
 
 seguiTastiera();
+controllaAggiornamenti();
 
 function App() {
   const { stato, esci } = useAuth();

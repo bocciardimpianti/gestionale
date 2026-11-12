@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { eVersioneVecchia, ricaricaPerAggiornamento } from "../aggiornamento";
 import { GIORNI_COMPLETO, segnaBackup, situazioneBackup } from "../backupStato";
 
 // Finestra mostrata all'uscita (admin, da PC): salva il backup completo prima di uscire.
@@ -53,6 +54,11 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
       setFatto(true);
     } catch (e) {
       setInCorso(false);
+      if (eVersioneVecchia(e)) {
+        setStato("È uscita una nuova versione del gestionale: ricarico la pagina, poi rifai il backup…");
+        setTimeout(() => { if (!ricaricaPerAggiornamento()) setStato("Errore: ricarica la pagina (F5) e rifai il backup"); }, 1500);
+        return;
+      }
       setStato("Errore durante il backup: " + (e as Error).message);
     }
   };
