@@ -1214,3 +1214,7 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .solo-stampa.piede-riservato { display: block; position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #b5431f; }
   .pagina-agenda .testata h1 { display: none; }
 }
+
+/* Conferma del backup effettuato */
+.backup-confermato { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; margin-top: 8px; border-radius: 8px; background: #eaf6ec; border: 1px solid #a9d8b2; }
+.backup-confermato b { color: #1e7a32; font-size: 16px; }

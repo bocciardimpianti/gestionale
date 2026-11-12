@@ -13,7 +13,7 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
   // Backup salvato: restano solo i pulsanti per chiudere la finestra (o uscire)
   const [fatto, setFatto] = useState(false);
   // Incrementale (solo le modifiche dall'ultimo backup) oppure completo, dovuto almeno una volta a settimana
-  const situazione = situazioneBackup();
+  const [situazione] = useState(situazioneBackup);
   const [completo, setCompleto] = useState(situazione.serveCompleto);
   // Le foto dei materiali sono molte e cambiano poco: si possono escludere (scelta ricordata su questo PC)
   const [fotoMateriali, setFotoMateriali] = useState(() => {
@@ -49,9 +49,8 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
       segnaBackup(inizio, incrementale);
       setStato(`Backup salvato: ${nome}`);
       setInCorso(false);
+      // Si resta sulla conferma: si esce (o si chiude la finestra) solo premendo "Chiudi"
       setFatto(true);
-      // All'uscita si esce da soli dopo un attimo; il pulsante "Esci" resta comunque disponibile
-      if (!soloBackup) setTimeout(onEsci, 1500);
     } catch (e) {
       setInCorso(false);
       setStato("Errore durante il backup: " + (e as Error).message);
@@ -59,7 +58,7 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
   };
 
   return (
-    <div className="velo" onMouseDown={() => !inCorso && onAnnulla()}>
+    <div className="velo" onMouseDown={() => !inCorso && !fatto && onAnnulla()}>
       <div className="finestra finestra-backup" onMouseDown={(e) => e.stopPropagation()}>
         <div className="finestra-titolo">{soloBackup ? "Backup completo" : "Uscita"}</div>
         <div className="finestra-corpo">
@@ -91,14 +90,18 @@ export default function UscitaBackup({ soloBackup, onEsci, onAnnulla }: {
             <input type="checkbox" checked={fotoMateriali} disabled={inCorso} onChange={(e) => cambiaFotoMateriali(e.target.checked)} />
             Includi le foto dei materiali <span className="piccolo">(backup più grande e più lento)</span>
           </label>
-          {stato && <p className={stato.startsWith("Errore") ? "errore" : "ok"}>{stato}</p>}
+          {fatto ? (
+            <div className="backup-confermato">
+              <b>✓ Backup effettuato</b>
+              <span>{stato.replace(/^Backup salvato: /, "File: ")}</span>
+              {!soloBackup && <span className="piccolo">Premi Chiudi per uscire dal gestionale.</span>}
+            </div>
+          ) : stato && <p className={stato.startsWith("Errore") ? "errore" : "ok"}>{stato}</p>}
         </div>
         {fatto ? (
           <div className="finestra-piede">
             <span style={{ flex: 1 }} />
-            {soloBackup
-              ? <button type="button" className="btn blu" autoFocus onClick={onAnnulla}>Chiudi</button>
-              : <button type="button" className="btn blu" autoFocus onClick={onEsci}>Esci</button>}
+            <button type="button" className="btn blu" autoFocus onClick={soloBackup ? onAnnulla : onEsci}>Chiudi</button>
           </div>
         ) : (
         <div className="finestra-piede">
