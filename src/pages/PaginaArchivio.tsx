@@ -186,7 +186,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     () => (categoriaRapida ? righeVista.filter((r) => categoriaDiRiga(r) === categoriaRapida) : righeVista),
     [righeVista, categoriaRapida],
   );
-  // Senza il permesso "Prezzi" le colonne con importi non compaiono (né nella griglia né nell'esportazione Excel)
+  // Senza il permesso "Totali" le colonne con totali e importi non compaiono (né nella griglia né nell'esportazione Excel)
   const colonne = useMemo(() => senzaPrezzi(cfg.colonne, vedePrezzi).filter((c) => !nascoste.includes(c.chiave)), [cfg.colonne, nascoste, vedePrezzi]);
   const rigaSel = righeVista.find((r) => r.id === selezionata);
   // Nome leggibile nelle conferme: il cliente o la descrizione invece, per esempio, della data

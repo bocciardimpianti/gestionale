@@ -132,7 +132,7 @@ export default function Utenti() {
 
       <table className="griglia">
         <thead>
-          <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Mansione</th><th>Fa interventi (tecnico)</th><th>Stato</th><th>WhatsApp</th><th>Prezzi</th><th></th></tr>
+          <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Mansione</th><th>Fa interventi (tecnico)</th><th>Stato</th><th>WhatsApp</th><th>Totali</th><th></th></tr>
         </thead>
         <tbody>
           {utenti.map((u) => (
@@ -176,7 +176,7 @@ export default function Utenti() {
                 </label>
               </td>
               <td>
-                <label className="interruttore" title="Vede prezzi, ricarichi, costi, tariffe e totali">
+                <label className="interruttore" title="Vede totali dei documenti, imponibili e importi (i prezzi dei materiali li vedono tutti)">
                   <input type="checkbox" checked={u.ruolo === "admin" || !!u.prezzi} disabled={u.ruolo === "admin"}
                     onChange={(e) => aggiornaProfilo(u, { prezzi: e.target.checked })} />
                   {u.ruolo === "admin" ? "Sempre" : u.prezzi ? "Visibili" : "Nascosti"}
@@ -238,7 +238,7 @@ function NuovoUtente({ sezioni, tecnici, onChiudi, onCreato }: {
       }
       if (id && prezzi && dati.ruolo === "standard") {
         const { error } = await supabase.from("profili").update({ prezzi: true }).eq("id", id);
-        if (error) avvisi.push(`il permesso Prezzi non è stato salvato (esegui su Supabase lo script 0024_prezzi_utenti.sql: ${error.message})`);
+        if (error) avvisi.push(`il permesso Totali non è stato salvato (esegui su Supabase lo script 0024_prezzi_utenti.sql: ${error.message})`);
       }
       if (id && mansione) {
         const { error } = await supabase.from("profili").update({ mansione }).eq("id", id);
@@ -305,7 +305,7 @@ function NuovoUtente({ sezioni, tecnici, onChiudi, onCreato }: {
       </label>
       <label className="interruttore">
         <input type="checkbox" checked={dati.ruolo === "admin" || prezzi} disabled={dati.ruolo === "admin"} onChange={(e) => setPrezzi(e.target.checked)} />
-        Vede prezzi, ricarichi, costi e totali{dati.ruolo === "admin" ? " (sempre per gli admin)" : ""}
+        Vede totali dei documenti, imponibili e importi{dati.ruolo === "admin" ? " (sempre per gli admin)" : ""}
       </label>
       <p className="piccolo">Al primo accesso l'utente dovrà attivare la verifica in due passaggi.</p>
       {errore && <p className="errore">{errore}</p>}
@@ -418,7 +418,7 @@ function ModificaUtente({ utente, onChiudi, onSalvato }: { utente: Profilo; onCh
         <label>Email di accesso<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
       </div>
       <p className="piccolo">
-        Ruolo, mansione, "fa interventi", stato, WhatsApp e prezzi si cambiano direttamente nella riga dell'utente; i permessi con il pulsante Permessi.
+        Ruolo, mansione, "fa interventi", stato, WhatsApp e totali si cambiano direttamente nella riga dell'utente; i permessi con il pulsante Permessi.
         Cambiando l'email, l'utente entrerà con quella nuova (password e verifica in due passaggi restano le stesse).
       </p>
       {errore && <p className="errore">{errore}</p>}

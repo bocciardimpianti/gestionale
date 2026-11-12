@@ -39,7 +39,7 @@ const NUMERI_OBBLIGATORI = new Set([
 
 export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta, onRipristina }: Props) {
   const { puo, profilo, puoWhatsapp, vedePrezzi } = useAuth();
-  // Senza il permesso "Prezzi" campi, colonne e totali con importi non compaiono (restano salvati com'erano)
+  // Senza il permesso "Totali" totali, imponibili e importi non compaiono (restano salvati com'erano)
   const campiVisibili = senzaPrezzi(cfg.campi, vedePrezzi);
   const nuovo = valori.id === undefined;
   const modificabile = !nelCestino && (nuovo ? puo(cfg.sezione, "creare") : puo(cfg.sezione, "modificare"));
@@ -440,7 +440,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const sottoMateriali = telefono && cfg.righe ? principaliTutti.filter((c) => c.sottoMaterialiSuTelefono && !c.primoSuTelefono) : [];
 
   const righeMateriali = () => {
-    const rc = { ...cfg.righe!, colonne: senzaPrezzi(cfg.righe!.colonne, vedePrezzi) };
+    // Le righe dei materiali mostrano sempre i prezzi; i totali del documento solo a chi ha il permesso
+    const rc = cfg.righe!;
     const piede = cfg.piede && senzaPrezzi(cfg.piede, vedePrezzi);
     const piedeGruppi = cfg.piedeGruppi?.map((g) => ({ ...g, campi: senzaPrezzi(g.campi, vedePrezzi) })).filter((g) => g.campi.length);
     return (
@@ -664,7 +665,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <div className="scheda-corpo">
               <div className="linguette">
                 {["Principale", ...(cfg.linguette ?? [])]
-                  // Linguette fatte solo di prezzi (es. Tariffe) nascoste a chi non li vede
+                  // Linguette fatte solo di totali nascoste a chi non li vede
                   .filter((l) => !cfg.campi.some((c) => c.linguetta === l) || campiVisibili.some((c) => c.linguetta === l) || cfg.figli?.some((f) => f.linguetta === l))
                   .map((l) => (
                   <button type="button" key={l} className={l === linguetta ? "attiva" : ""} onClick={() => setLinguetta(l)}>{l}</button>

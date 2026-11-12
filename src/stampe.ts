@@ -42,8 +42,7 @@ const num = (v: unknown) =>
 
 // Rapporto di intervento, impaginato come il PDF del programma originale
 export function stampaRapporto(d: Record<string, unknown>, righe: Record<string, unknown>[], senzaPrezzi = false) {
-  // Senza il permesso "Prezzi": niente totali, tariffe e importi nella stampa
-  const e = (v: unknown) => (senzaPrezzi ? "" : euro(v));
+  // Senza il permesso "Totali": i materiali con i loro prezzi sì, i totali del documento no
   const ore = Number(d.totale_ore ?? 0) * Number(d.tariffa_oraria ?? 0);
   const km = Number(d.km_percorsi ?? 0) * Number(d.tariffa_km ?? 0);
   const imponibile = Number(d.imponibile ?? 0);
@@ -134,9 +133,9 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   <div><div class="etichetta">Matricola</div>${esc(d.matricola)}</div>
 </div>
 <table class="materiali">
-  <thead><tr><th style="width: 42%">Descrizione</th><th style="width: 10%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 18%"></th><th>${senzaPrezzi ? "" : "Totale"}</th></tr></thead>
+  <thead><tr><th style="width: 42%">Descrizione</th><th style="width: 10%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 18%"></th><th>Totale</th></tr></thead>
   <tbody>
-    ${righe.map((r) => `<tr><td>${esc(r.descrizione || r.nome_articolo)}</td><td>${num(r.quantita)}</td><td style="text-align: center">${esc(r.unita_misura)}</td><td></td><td style="text-align: right">${e(r.totale)}</td></tr>`).join("")}
+    ${righe.map((r) => `<tr><td>${esc(r.descrizione || r.nome_articolo)}</td><td>${num(r.quantita)}</td><td style="text-align: center">${esc(r.unita_misura)}</td><td></td><td style="text-align: right">${euro(r.totale)}</td></tr>`).join("")}
     <tr class="riempi"><td></td><td></td><td></td><td></td><td></td></tr>
   </tbody>
 </table>
@@ -164,7 +163,6 @@ ${senzaPrezzi ? "" : `<div class="tariffe">
 
 // Preventivo, con la stessa grafica del rapporto di intervento
 export function stampaPreventivo(d: Record<string, unknown>, righe: Record<string, unknown>[], senzaPrezzi = false) {
-  const e = (v: unknown) => (senzaPrezzi ? "" : euro(v));
   const titolo = `PREVENTIVO ${d.numero ?? ""} DEL ${dataIt(d.data)}`;
   const n = (v: unknown) => Number(v ?? 0);
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(titolo)}</title>
@@ -219,9 +217,9 @@ export function stampaPreventivo(d: Record<string, unknown>, righe: Record<strin
   </div>
 </div>
 <table class="righe">
-  <thead><tr><th style="width: 52%">Descrizione</th><th style="width: 9%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 14%">${senzaPrezzi ? "" : "Prezzo"}</th><th>${senzaPrezzi ? "" : "Totale"}</th></tr></thead>
+  <thead><tr><th style="width: 52%">Descrizione</th><th style="width: 9%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 14%">Prezzo</th><th>Totale</th></tr></thead>
   <tbody>
-    ${righe.map((r) => `<tr><td>${esc(r.descrizione)}</td><td>${num(r.quantita)}</td><td style="text-align:center">${esc(r.unita_misura)}</td><td class="destra">${e(r.prezzo)}</td><td class="destra">${e(r.totale)}</td></tr>`).join("")}
+    ${righe.map((r) => `<tr><td>${esc(r.descrizione)}</td><td>${num(r.quantita)}</td><td style="text-align:center">${esc(r.unita_misura)}</td><td class="destra">${euro(r.prezzo)}</td><td class="destra">${euro(r.totale)}</td></tr>`).join("")}
     <tr class="riempi"><td></td><td></td><td></td><td></td><td></td></tr>
   </tbody>
 </table>

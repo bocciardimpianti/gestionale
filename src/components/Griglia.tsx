@@ -64,7 +64,7 @@ export const mostra = (c: Colonna, r: Riga): string =>
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
 export default function Griglia({ colonne: tutteColonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga, selezionabile = false, onSelezionate }: Props) {
-  // Senza il permesso "Prezzi" le colonne con importi non compaiono
+  // Senza il permesso "Totali" le colonne con totali e importi non compaiono
   const { vedePrezzi } = useAuth();
   const colonne = useMemo(() => senzaPrezzi(tutteColonne, vedePrezzi), [tutteColonne, vedePrezzi]);
   const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
