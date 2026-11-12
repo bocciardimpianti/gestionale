@@ -127,7 +127,7 @@ export interface Archivio {
     esegui: (dati: Record<string, unknown>, ctx: { aggiorna: () => void }) => void;
   }[];
   // Documento da stampare dalla scheda (HTML)
-  stampa?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => string;
+  stampa?: (dati: Record<string, unknown>, righe: Record<string, unknown>[], senzaPrezzi?: boolean) => string;
 }
 
 // Mesi di ogni periodicità, per proporre la data del prossimo intervento

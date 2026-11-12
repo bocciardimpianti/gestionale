@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../auth";
 import { leggiTutto } from "../supabase";
 import { calcolaConsigli, parolaChiave, type RigaStorico } from "../consigli";
 import { euro } from "./Griglia";
@@ -16,6 +17,7 @@ export default function MaterialiConsigliati({ righe, onAggiungi, onChiudi }: {
   onAggiungi: (scelti: Materiale[]) => void;
   onChiudi: () => void;
 }) {
+  const { vedePrezzi } = useAuth();
   const [dati, setDati] = useState<Dati | null>(null);
   const [errore, setErrore] = useState("");
   const [tolti, setTolti] = useState<Set<number>>(new Set());
@@ -83,7 +85,7 @@ export default function MaterialiConsigliati({ righe, onAggiungi, onChiudi }: {
                   <b>{String(m.descrizione ?? "")}</b>
                   <span className="piccolo">Usato in {c.volte} rapportini su {c.su}, di solito {c.quantita.toLocaleString("it-IT")} {String(m.unita_misura ?? "")}</span>
                 </span>
-                <span className="consiglio-prezzo">{euro(m.prezzo_ricaricato)}</span>
+                {vedePrezzi && <span className="consiglio-prezzo">{euro(m.prezzo_ricaricato)}</span>}
               </label>
             );
           })}

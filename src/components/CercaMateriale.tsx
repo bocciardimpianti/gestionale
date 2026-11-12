@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../auth";
 import { leggiTutto } from "../supabase";
 import { euro } from "./Griglia";
 import { Miniatura } from "./CampoImmagine";
@@ -69,6 +70,8 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   testoIniziale?: string;
   titolo?: string;
 }) {
+  // Senza il permesso "Prezzi" la colonna Prezzo non compare
+  const { vedePrezzi } = useAuth();
   const [materiali, setMateriali] = useState<Materiale[] | null>(inMemoria);
   const [testo, setTesto] = useState(testoIniziale);
   const [filtri, setFiltri] = useState<Filtri>(FILTRI_VUOTI);
@@ -246,7 +249,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
                       <span className="riga-telefono-dettaglio"><span className="pallino-categoria" style={{ background: coloreCategoria(categoriaDi(m)) }} />{categoriaDi(m)}</span>
                       <span className="riga-telefono-alta">
                         <span className="riga-telefono-dettaglio">Giacenza {Number(m.giacenza ?? 0).toLocaleString("it-IT")} {String(m.unita_misura ?? "")}</span>
-                        <b className="importo">{euro(m.prezzo_ricaricato)}</b>
+                        {vedePrezzi && <b className="importo">{euro(m.prezzo_ricaricato)}</b>}
                       </span>
                     </span>
                   </button>
@@ -255,10 +258,10 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
             ) : (
             <table className="griglia">
               <thead>
-                <tr><th style={{ width: 44 }} /><th>Codice</th><th>Descrizione</th><th>Fornitore</th><th>UM</th><th className="destra">Prezzo</th><th className="destra">Giacenza</th></tr>
+                <tr><th style={{ width: 44 }} /><th>Codice</th><th>Descrizione</th><th>Fornitore</th><th>UM</th>{vedePrezzi && <th className="destra">Prezzo</th>}<th className="destra">Giacenza</th></tr>
                 <tr className="riga-filtri">
                   <th />
-                  {(["codice", "descrizione", "fornitore", "um", "prezzo", "giacenza"] as (keyof Filtri)[]).map((k) => (
+                  {(["codice", "descrizione", "fornitore", "um", "prezzo", "giacenza"] as (keyof Filtri)[]).filter((k) => vedePrezzi || k !== "prezzo").map((k) => (
                     <th key={k}>
                       <input
                         value={filtri[k]}
@@ -279,7 +282,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
                     <td>{String(m.descrizione ?? "")}</td>
                     <td>{[m.fornitore1, m.fornitore2].map((x) => String(x ?? "").trim()).filter((x) => x.replace(/[/\s]/g, "")).join(" / ")}</td>
                     <td>{String(m.unita_misura ?? "")}</td>
-                    <td className="destra">{euro(m.prezzo_ricaricato)}</td>
+                    {vedePrezzi && <td className="destra">{euro(m.prezzo_ricaricato)}</td>}
                     <td className="destra">{Number(m.giacenza ?? 0).toLocaleString("it-IT")}</td>
                   </tr>
                 ))}

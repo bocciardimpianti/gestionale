@@ -5,6 +5,8 @@ import { Miniatura } from "./CampoImmagine";
 import { useTelefono } from "../telefono";
 import { coloreCategoria } from "../categorie";
 import { pulisciRicerca } from "../testo";
+import { useAuth } from "../auth";
+import { senzaPrezzi } from "../prezzi";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
@@ -61,7 +63,10 @@ export const mostra = (c: Colonna, r: Riga): string =>
   : c.tipo === "numero" ? (r[c.chiave] === null || r[c.chiave] === undefined ? "" : Number(r[c.chiave]).toLocaleString("it-IT")) : c.tipo === "booleano" ? (r[c.chiave] ? "sì" : "no") : testo(r[c.chiave]);
 
 // Griglia come nel programma originale: intestazioni ordinabili, riga filtri, riga selezionata arancione
-export default function Griglia({ colonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga, selezionabile = false, onSelezionate }: Props) {
+export default function Griglia({ colonne: tutteColonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga, selezionabile = false, onSelezionate }: Props) {
+  // Senza il permesso "Prezzi" le colonne con importi non compaiono
+  const { vedePrezzi } = useAuth();
+  const colonne = useMemo(() => senzaPrezzi(tutteColonne, vedePrezzi), [tutteColonne, vedePrezzi]);
   const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
   // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record

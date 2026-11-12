@@ -41,7 +41,9 @@ const num = (v: unknown) =>
   v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Rapporto di intervento, impaginato come il PDF del programma originale
-export function stampaRapporto(d: Record<string, unknown>, righe: Record<string, unknown>[]) {
+export function stampaRapporto(d: Record<string, unknown>, righe: Record<string, unknown>[], senzaPrezzi = false) {
+  // Senza il permesso "Prezzi": niente totali, tariffe e importi nella stampa
+  const e = (v: unknown) => (senzaPrezzi ? "" : euro(v));
   const ore = Number(d.totale_ore ?? 0) * Number(d.tariffa_oraria ?? 0);
   const km = Number(d.km_percorsi ?? 0) * Number(d.tariffa_km ?? 0);
   const imponibile = Number(d.imponibile ?? 0);
@@ -132,13 +134,13 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   <div><div class="etichetta">Matricola</div>${esc(d.matricola)}</div>
 </div>
 <table class="materiali">
-  <thead><tr><th style="width: 42%">Descrizione</th><th style="width: 10%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 18%"></th><th>Totale</th></tr></thead>
+  <thead><tr><th style="width: 42%">Descrizione</th><th style="width: 10%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 18%"></th><th>${senzaPrezzi ? "" : "Totale"}</th></tr></thead>
   <tbody>
-    ${righe.map((r) => `<tr><td>${esc(r.descrizione || r.nome_articolo)}</td><td>${num(r.quantita)}</td><td style="text-align: center">${esc(r.unita_misura)}</td><td></td><td style="text-align: right">${euro(r.totale)}</td></tr>`).join("")}
+    ${righe.map((r) => `<tr><td>${esc(r.descrizione || r.nome_articolo)}</td><td>${num(r.quantita)}</td><td style="text-align: center">${esc(r.unita_misura)}</td><td></td><td style="text-align: right">${e(r.totale)}</td></tr>`).join("")}
     <tr class="riempi"><td></td><td></td><td></td><td></td><td></td></tr>
   </tbody>
 </table>
-<div class="tariffe">
+${senzaPrezzi ? "" : `<div class="tariffe">
   <div><div class="etichetta">Diritto di chiamata</div><div class="valore">${euro(d.diritto_chiamata)}</div></div>
   <div><div class="etichetta">Tariffa fissa</div><div class="valore">${euro(d.tariffa_fissa)}</div></div>
   <div><div class="etichetta">Tariffa oraria</div><div class="valore">${euro(d.tariffa_oraria)}</div></div>
@@ -152,7 +154,7 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   <div><div style="font-size: 13px">Imponibile</div><div class="valore">${euro(imponibile) || "0,00 €"}</div></div>
   <div style="background: none; min-height: 30px"><div class="etichetta">Iva ${iva ? num(iva) + "%" : ""}</div></div>
   <div class="documento"><div class="etichetta">Totale Documento</div><div class="valore">${euro(totale) || "0,00 €"}</div></div>
-</div>
+</div>`}
 <div class="annotazioni"><div class="etichetta">Annotazioni</div>${esc(d.note).replace(/\n/g, "<br>")}</div>
 <div class="firma"><div class="etichetta">Firma Cliente</div>${d._firma_url ? `<img src="${esc(d._firma_url)}" alt="" style="max-height: 70px; max-width: 100%">` : ""}</div>
 <div class="pagina">Pagina: 1 / 1</div>
@@ -161,7 +163,8 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
 }
 
 // Preventivo, con la stessa grafica del rapporto di intervento
-export function stampaPreventivo(d: Record<string, unknown>, righe: Record<string, unknown>[]) {
+export function stampaPreventivo(d: Record<string, unknown>, righe: Record<string, unknown>[], senzaPrezzi = false) {
+  const e = (v: unknown) => (senzaPrezzi ? "" : euro(v));
   const titolo = `PREVENTIVO ${d.numero ?? ""} DEL ${dataIt(d.data)}`;
   const n = (v: unknown) => Number(v ?? 0);
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(titolo)}</title>
@@ -216,18 +219,18 @@ export function stampaPreventivo(d: Record<string, unknown>, righe: Record<strin
   </div>
 </div>
 <table class="righe">
-  <thead><tr><th style="width: 52%">Descrizione</th><th style="width: 9%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 14%">Prezzo</th><th>Totale</th></tr></thead>
+  <thead><tr><th style="width: 52%">Descrizione</th><th style="width: 9%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 14%">${senzaPrezzi ? "" : "Prezzo"}</th><th>${senzaPrezzi ? "" : "Totale"}</th></tr></thead>
   <tbody>
-    ${righe.map((r) => `<tr><td>${esc(r.descrizione)}</td><td>${num(r.quantita)}</td><td style="text-align:center">${esc(r.unita_misura)}</td><td class="destra">${euro(r.prezzo)}</td><td class="destra">${euro(r.totale)}</td></tr>`).join("")}
+    ${righe.map((r) => `<tr><td>${esc(r.descrizione)}</td><td>${num(r.quantita)}</td><td style="text-align:center">${esc(r.unita_misura)}</td><td class="destra">${e(r.prezzo)}</td><td class="destra">${e(r.totale)}</td></tr>`).join("")}
     <tr class="riempi"><td></td><td></td><td></td><td></td><td></td></tr>
   </tbody>
 </table>
-<div class="totali">
+${senzaPrezzi ? "" : `<div class="totali">
   <div><span>Imponibile</span><span>${euro(d.imponibile) || "0,00 €"}</span></div>
   ${n(d.sconto) ? `<div><span>Sconto ${num(d.sconto)}%</span><span>- ${euro(d.sconto_totale)}</span></div>` : ""}
   ${n(d.iva) ? `<div><span>Iva ${num(d.iva)}%</span><span>${euro(d.iva_totale)}</span></div>` : ""}
   <div class="documento"><span>Totale</span><span>${euro(d.totale) || "0,00 €"}</span></div>
-</div>
+</div>`}
 ${d.tipologia_pagamento || d.modalita_pagamento ? `<p>Pagamento: ${esc([d.modalita_pagamento, d.tipologia_pagamento].filter(Boolean).join(" - "))}</p>` : ""}
 <div class="annotazioni"><div class="etichetta">Annotazioni</div>${esc(d.note).replace(/\n/g, "<br>")}</div>
 <div class="firma"><div class="etichetta">Firma per accettazione</div>${d._firma_url ? `<img src="${esc(d._firma_url)}" alt="" style="max-height: 70px; max-width: 100%">` : ""}</div>

@@ -132,7 +132,7 @@ export default function Utenti() {
 
       <table className="griglia">
         <thead>
-          <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Mansione</th><th>Fa interventi (tecnico)</th><th>Stato</th><th>WhatsApp</th><th></th></tr>
+          <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Mansione</th><th>Fa interventi (tecnico)</th><th>Stato</th><th>WhatsApp</th><th>Prezzi</th><th></th></tr>
         </thead>
         <tbody>
           {utenti.map((u) => (
@@ -175,6 +175,13 @@ export default function Utenti() {
                   {u.ruolo === "admin" ? "Sempre" : u.whatsapp ? "Sì" : "No"}
                 </label>
               </td>
+              <td>
+                <label className="interruttore" title="Vede prezzi, ricarichi, costi, tariffe e totali">
+                  <input type="checkbox" checked={u.ruolo === "admin" || !!u.prezzi} disabled={u.ruolo === "admin"}
+                    onChange={(e) => aggiornaProfilo(u, { prezzi: e.target.checked })} />
+                  {u.ruolo === "admin" ? "Sempre" : u.prezzi ? "Visibili" : "Nascosti"}
+                </label>
+              </td>
               <td className="azioni">
                 <button onClick={() => { setNuovo(false); setInModifica(u); }}>Modifica</button>
                 {u.ruolo === "standard" && <button onClick={() => setSelezionato(u)}>Permessi</button>}
@@ -213,6 +220,7 @@ function NuovoUtente({ sezioni, tecnici, onChiudi, onCreato }: {
 }) {
   const [dati, setDati] = useState({ nome: "", email: "", password: "", ruolo: "standard" });
   const [whatsapp, setWhatsapp] = useState(false);
+  const [prezzi, setPrezzi] = useState(false);
   const [mansione, setMansione] = useState("");
   const [faInterventi, setFaInterventi] = useState(false);
   const [errore, setErrore] = useState("");
@@ -227,6 +235,10 @@ function NuovoUtente({ sezioni, tecnici, onChiudi, onCreato }: {
       if (id && whatsapp && dati.ruolo === "standard") {
         const { error } = await supabase.from("profili").update({ whatsapp: true }).eq("id", id);
         if (error) avvisi.push(`il permesso WhatsApp non è stato salvato (${error.message})`);
+      }
+      if (id && prezzi && dati.ruolo === "standard") {
+        const { error } = await supabase.from("profili").update({ prezzi: true }).eq("id", id);
+        if (error) avvisi.push(`il permesso Prezzi non è stato salvato (esegui su Supabase lo script 0024_prezzi_utenti.sql: ${error.message})`);
       }
       if (id && mansione) {
         const { error } = await supabase.from("profili").update({ mansione }).eq("id", id);
@@ -290,6 +302,10 @@ function NuovoUtente({ sezioni, tecnici, onChiudi, onCreato }: {
       <label className="interruttore">
         <input type="checkbox" checked={dati.ruolo === "admin" || whatsapp} disabled={dati.ruolo === "admin"} onChange={(e) => setWhatsapp(e.target.checked)} />
         Può scrivere su WhatsApp a clienti e fornitori{dati.ruolo === "admin" ? " (sempre attivo per gli admin)" : ""}
+      </label>
+      <label className="interruttore">
+        <input type="checkbox" checked={dati.ruolo === "admin" || prezzi} disabled={dati.ruolo === "admin"} onChange={(e) => setPrezzi(e.target.checked)} />
+        Vede prezzi, ricarichi, costi e totali{dati.ruolo === "admin" ? " (sempre per gli admin)" : ""}
       </label>
       <p className="piccolo">Al primo accesso l'utente dovrà attivare la verifica in due passaggi.</p>
       {errore && <p className="errore">{errore}</p>}
@@ -402,7 +418,7 @@ function ModificaUtente({ utente, onChiudi, onSalvato }: { utente: Profilo; onCh
         <label>Email di accesso<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
       </div>
       <p className="piccolo">
-        Ruolo, mansione, "fa interventi", stato e WhatsApp si cambiano direttamente nella riga dell'utente; i permessi con il pulsante Permessi.
+        Ruolo, mansione, "fa interventi", stato, WhatsApp e prezzi si cambiano direttamente nella riga dell'utente; i permessi con il pulsante Permessi.
         Cambiando l'email, l'utente entrerà con quella nuova (password e verifica in due passaggi restano le stesse).
       </p>
       {errore && <p className="errore">{errore}</p>}

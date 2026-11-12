@@ -15,6 +15,8 @@ export interface Profilo {
   ruolo: "admin" | "standard";
   attivo: boolean;
   whatsapp?: boolean;
+  // Vede prezzi, ricarichi, costi, tariffe e totali (gli admin sempre)
+  prezzi?: boolean;
   // Titolare, Tecnico, Commerciale, Amministrativo, Magazzino (solo descrittiva; i permessi restano quelli scelti)
   mansione?: string | null;
 }

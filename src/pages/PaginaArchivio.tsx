@@ -6,6 +6,7 @@ import {
   RotateCcw, Search, Sheet, Trash2, Undo2,
 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
+import { senzaPrezzi } from "../prezzi";
 import { useAuth } from "../auth";
 import Griglia, { mostra as mostraValore } from "../components/Griglia";
 import Scheda from "../components/Scheda";
@@ -58,7 +59,7 @@ function leggiNascoste(sezione: string): string[] {
 }
 
 export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
-  const { puo, profilo, puoWhatsapp } = useAuth();
+  const { puo, profilo, puoWhatsapp, vedePrezzi } = useAuth();
   // Casella spuntata direttamente nella griglia (es. Pagato nello scadenziario): salvataggio immediato
   const spunta = async (r: Riga, chiave: string, valore: boolean) => {
     setRighe((rr) => rr.map((x) => (x.id === r.id ? { ...x, [chiave]: valore } : x)));
@@ -185,7 +186,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     () => (categoriaRapida ? righeVista.filter((r) => categoriaDiRiga(r) === categoriaRapida) : righeVista),
     [righeVista, categoriaRapida],
   );
-  const colonne = useMemo(() => cfg.colonne.filter((c) => !nascoste.includes(c.chiave)), [cfg.colonne, nascoste]);
+  // Senza il permesso "Prezzi" le colonne con importi non compaiono (né nella griglia né nell'esportazione Excel)
+  const colonne = useMemo(() => senzaPrezzi(cfg.colonne, vedePrezzi).filter((c) => !nascoste.includes(c.chiave)), [cfg.colonne, nascoste, vedePrezzi]);
   const rigaSel = righeVista.find((r) => r.id === selezionata);
   // Nome leggibile nelle conferme: il cliente o la descrizione invece, per esempio, della data
   const colonnaNome = cfg.colonne.find((c) => /nome|fornitore|cliente|descrizione|impianto/i.test(c.chiave)) ?? cfg.colonne[0];
@@ -488,7 +490,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
               <button className={`btn giallo${galleria ? "" : " attivo"}`} onClick={() => setGalleria(false)}>Tabella</button>
             </>
           )}
-          {cfg.sezione === "ddt_acquisto" && !nelCestino && puo(cfg.sezione, "creare") && (
+          {cfg.sezione === "ddt_acquisto" && !nelCestino && vedePrezzi && puo(cfg.sezione, "creare") && (
             <button className="btn blu" onClick={() => setImportaPdf(true)} title="Legge il DDT dal PDF del fornitore">Da PDF</button>
           )}
           {puo(cfg.sezione, "creare") && !nelCestino && (
@@ -641,7 +643,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
             <div className="finestra-titolo">Colonne visibili<button className="chiudi" onClick={() => setSceltaColonne(false)}>×</button></div>
             <div className="finestra-corpo elenco-colonne">
-              {cfg.colonne.map((c) => (
+              {senzaPrezzi(cfg.colonne, vedePrezzi).map((c) => (
                 <label key={c.chiave} className="interruttore">
                   <input
                     type="checkbox"

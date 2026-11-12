@@ -12,6 +12,7 @@ import LettoreCodice from "./LettoreCodice";
 import MicDettatura from "./MicDettatura";
 import MaterialiConsigliati from "./MaterialiConsigliati";
 import { useIndietroChiude, useTelefono } from "../telefono";
+import { senzaPrezzi } from "../prezzi";
 import { linkWhatsapp } from "../whatsapp";
 import Autocompleta from "./Autocompleta";
 
@@ -37,7 +38,9 @@ const NUMERI_OBBLIGATORI = new Set([
 ]);
 
 export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, cartelle, nelCestino, onSposta, onRipristina }: Props) {
-  const { puo, profilo, puoWhatsapp } = useAuth();
+  const { puo, profilo, puoWhatsapp, vedePrezzi } = useAuth();
+  // Senza il permesso "Prezzi" campi, colonne e totali con importi non compaiono (restano salvati com'erano)
+  const campiVisibili = senzaPrezzi(cfg.campi, vedePrezzi);
   const nuovo = valori.id === undefined;
   const modificabile = !nelCestino && (nuovo ? puo(cfg.sezione, "creare") : puo(cfg.sezione, "modificare"));
   const [gestione, setGestione] = useState<Campo | null>(null);
@@ -429,7 +432,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   };
 
   // Sul telefono alcuni campi (es. il cliente del rapportino) vanno in cima alla scheda
-  const principaliTutti = cfg.campi.filter((c) => !c.linguetta);
+  const principaliTutti = campiVisibili.filter((c) => !c.linguetta);
   const principali = telefono
     ? [...principaliTutti.filter((c) => c.primoSuTelefono), ...principaliTutti.filter((c) => !c.primoSuTelefono && !(cfg.righe && c.sottoMaterialiSuTelefono))]
     : principaliTutti;
@@ -437,7 +440,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const sottoMateriali = telefono && cfg.righe ? principaliTutti.filter((c) => c.sottoMaterialiSuTelefono && !c.primoSuTelefono) : [];
 
   const righeMateriali = () => {
-    const rc = cfg.righe!;
+    const rc = { ...cfg.righe!, colonne: senzaPrezzi(cfg.righe!.colonne, vedePrezzi) };
+    const piede = cfg.piede && senzaPrezzi(cfg.piede, vedePrezzi);
+    const piedeGruppi = cfg.piedeGruppi?.map((g) => ({ ...g, campi: senzaPrezzi(g.campi, vedePrezzi) })).filter((g) => g.campi.length);
     return (
       <div className="area-righe">
         {modificabile && telefono && (
@@ -560,9 +565,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <Barcode size={22} />
           </div>
         )}
-        {cfg.piedeGruppi && (
+        {!!piedeGruppi?.length && (
           <div className="piede-gruppi">
-            {cfg.piedeGruppi.map((g) => (
+            {piedeGruppi.map((g) => (
               <div key={g.titolo} className="gruppo-piede">
                 <div className="titolo-gruppo">{g.titolo}</div>
                 {g.campi.map((c) => (
@@ -587,9 +592,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             ))}
           </div>
         )}
-        {cfg.piede && (
+        {!!piede?.length && (
           <div className="piede-totali">
-            {cfg.piede.map((c) => (
+            {piede.map((c) => (
               <label key={c.chiave} className={`voce-piede${c.tipo === "booleano" ? "" : " valore"}`}>
                 <span>{c.etichetta}</span>
                 {c.tipo === "booleano" ? (
@@ -624,7 +629,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     else if (typeof firma === "string" && firma) {
       collegati._firma_url = await urlFirmato(cfg.sezione, firma);
     }
-    finestra.document.write(cfg.stampa!({ ...dati, ...totali, ...testoRifNomi(), ...collegati }, righe));
+    finestra.document.write(cfg.stampa!({ ...dati, ...totali, ...testoRifNomi(), ...collegati }, righe, !vedePrezzi));
     finestra.document.close();
   };
 
@@ -658,7 +663,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           <>
             <div className="scheda-corpo">
               <div className="linguette">
-                {["Principale", ...(cfg.linguette ?? [])].map((l) => (
+                {["Principale", ...(cfg.linguette ?? [])]
+                  // Linguette fatte solo di prezzi (es. Tariffe) nascoste a chi non li vede
+                  .filter((l) => !cfg.campi.some((c) => c.linguetta === l) || campiVisibili.some((c) => c.linguetta === l) || cfg.figli?.some((f) => f.linguetta === l))
+                  .map((l) => (
                   <button type="button" key={l} className={l === linguetta ? "attiva" : ""} onClick={() => setLinguetta(l)}>{l}</button>
                 ))}
               </div>
@@ -673,7 +681,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                   </>
                 ) : cfg.campi.some((c) => c.linguetta === linguetta) ? (
                   <div className="griglia-campi">
-                    {cfg.campi.filter((c) => c.linguetta === linguetta).map((c, i, a) => campo(c, !!a[i - 1]?.finisciRiga))}
+                    {campiVisibili.filter((c) => c.linguetta === linguetta).map((c, i, a) => campo(c, !!a[i - 1]?.finisciRiga))}
                   </div>
                 ) : cfg.figli?.some((f) => f.linguetta === linguetta) ? (
                   <>
@@ -820,6 +828,8 @@ function LogRecord({ sezione, id }: { sezione: string; id?: number }) {
 
 // Record collegati mostrati in una linguetta (es. gli impianti del cliente)
 function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]>[number]; id?: number }) {
+  const { vedePrezzi } = useAuth();
+  const colonne = senzaPrezzi(figlio.colonne, vedePrezzi);
   const { puo } = useAuth();
   const [righe, setRighe] = useState<Record<string, unknown>[] | null>(null);
   const [aperto, setAperto] = useState<{ cfg: Archivio; valori: Record<string, unknown> } | null>(null);
@@ -872,11 +882,11 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
       />
     )}
     <table className={`griglia${apribile ? " righe-apribili" : ""}`}>
-      <thead><tr>{figlio.colonne.map((c) => <th key={c.chiave}>{c.titolo}</th>)}</tr></thead>
+      <thead><tr>{colonne.map((c) => <th key={c.chiave}>{c.titolo}</th>)}</tr></thead>
       <tbody>
         {righe.map((r, i) => (
           <tr key={i} onClick={() => apri(r)} title={apribile ? `Clicca per aprire (${ARCHIVI[figlio.apri!.sezione].titolo})` : undefined}>
-            {figlio.colonne.map((c) => (
+            {colonne.map((c) => (
               <td key={c.chiave}>{(() => {
                 // Chiavi annidate, es. "rapporto.numero"
                 const v = c.chiave.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], r);
