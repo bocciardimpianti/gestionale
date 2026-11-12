@@ -405,7 +405,11 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     );
   };
 
-  const principali = cfg.campi.filter((c) => !c.linguetta);
+  // Sul telefono alcuni campi (es. il cliente del rapportino) vanno in cima alla scheda
+  const principaliTutti = cfg.campi.filter((c) => !c.linguetta);
+  const principali = telefono
+    ? [...principaliTutti.filter((c) => c.primoSuTelefono), ...principaliTutti.filter((c) => !c.primoSuTelefono)]
+    : principaliTutti;
 
   const righeMateriali = () => {
     const rc = cfg.righe!;

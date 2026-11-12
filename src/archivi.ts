@@ -9,6 +9,8 @@ export interface Campo {
   chiave: string;
   etichetta: string;
   tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma" | "email" | "pdf";
+  // Sul telefono il campo va in cima alla scheda (es. il cliente nel rapportino)
+  primoSuTelefono?: boolean;
   // Microfono nel campo per dettare il testo (si aggiunge a quello già scritto)
   dettatura?: boolean;
   // Campi a scelta: colore del quadratino accanto a ogni valore (es. stato del documento)
@@ -469,7 +471,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "ora_fine", etichetta: "Ora fine", tipo: "ora", larghezza: 1 },
       { chiave: "ore_pausa", etichetta: "Ore Pausa", tipo: "numero", larghezza: 1 },
       { chiave: "totale_ore", etichetta: "Totale ore", tipo: "numero", larghezza: 1, solaLettura: true },
-      { chiave: "cliente_id", etichetta: "Nome cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2 },
+      { chiave: "cliente_id", etichetta: "Nome cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2, primoSuTelefono: true },
       {
         chiave: "tipo_impianto", etichetta: "Tipo impianto", larghezza: 2,
         suggerisciDa: {
