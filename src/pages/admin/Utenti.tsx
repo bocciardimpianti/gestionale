@@ -36,6 +36,7 @@ export default function Utenti() {
   const [utenti, setUtenti] = useState<Profilo[]>([]);
   const [selezionato, setSelezionato] = useState<Profilo | null>(null);
   const [nuovo, setNuovo] = useState(false);
+  const [inModifica, setInModifica] = useState<Profilo | null>(null);
   const [messaggio, setMessaggio] = useState("");
   // Tecnici collegati agli utenti (chi "fa interventi" compare nei rapportini, prende in carico le richieste, riceve le notifiche)
   const [tecnici, setTecnici] = useState<{ id: number; nome: string; utente_id: string | null }[]>([]);
@@ -122,6 +123,10 @@ export default function Utenti() {
       </div>
       {messaggio && <p className={messaggio.startsWith("Errore") ? "errore" : "ok"}>{messaggio}</p>}
 
+      {inModifica && (
+        <ModificaUtente utente={inModifica} onChiudi={() => setInModifica(null)}
+          onSalvato={(m) => { setInModifica(null); setMessaggio(m); carica(); }} />
+      )}
       {nuovo && <NuovoUtente sezioni={sezioni} tecnici={tecnici} onChiudi={() => setNuovo(false)}
         onCreato={(avvisi) => { setNuovo(false); setMessaggio(avvisi.length ? "Errore: utente creato, ma " + avvisi.join("; ") : "Utente creato"); carica(); }} />}
 
@@ -171,6 +176,7 @@ export default function Utenti() {
                 </label>
               </td>
               <td className="azioni">
+                <button onClick={() => { setNuovo(false); setInModifica(u); }}>Modifica</button>
                 {u.ruolo === "standard" && <button onClick={() => setSelezionato(u)}>Permessi</button>}
                 <button onClick={() => {
                   const pw = prompt(`Nuova password per ${u.email} (minimo 10 caratteri):`);
@@ -357,5 +363,50 @@ function MatricePermessi({ utente, sezioni, onChiudi }: {
       {salvato && <p className={salvato.startsWith("Errore") ? "errore" : "ok"}>{salvato}</p>}
       <button className="primario" onClick={salva}>Salva permessi</button> <button onClick={onChiudi}>Chiudi</button>
     </div>
+  );
+}
+
+// Modifica di nome ed email di accesso (l'email passa dalla funzione server, che aggiorna anche l'accesso)
+function ModificaUtente({ utente, onChiudi, onSalvato }: { utente: Profilo; onChiudi: () => void; onSalvato: (messaggio: string) => void }) {
+  const [nome, setNome] = useState(utente.nome ?? "");
+  const [email, setEmail] = useState(utente.email);
+  const [errore, setErrore] = useState("");
+  const [inCorso, setInCorso] = useState(false);
+
+  const salva = async (e: FormEvent) => {
+    e.preventDefault();
+    setErrore("");
+    setInCorso(true);
+    try {
+      if (email.trim().toLowerCase() !== utente.email.toLowerCase()) {
+        await adminUtenti("modifica", { id: utente.id, email: email.trim(), nome: nome.trim() });
+      } else {
+        const { error } = await supabase.from("profili").update({ nome: nome.trim() || null }).eq("id", utente.id);
+        if (error) throw error;
+      }
+      onSalvato("Utente modificato");
+    } catch (err) {
+      const m = (err as Error).message;
+      setErrore(/azione|sconosciut|non riconosciut|400/i.test(m)
+        ? `Per cambiare l'email va ripubblicata la funzione "admin-utenti" su Supabase (${m})`
+        : m);
+    }
+    setInCorso(false);
+  };
+
+  return (
+    <form className="pannello" onSubmit={salva}>
+      <h3>Modifica utente</h3>
+      <div className="campi">
+        <label>Nome<input value={nome} onChange={(e) => setNome(e.target.value)} required /></label>
+        <label>Email di accesso<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
+      </div>
+      <p className="piccolo">
+        Ruolo, mansione, "fa interventi", stato e WhatsApp si cambiano direttamente nella riga dell'utente; i permessi con il pulsante Permessi.
+        Cambiando l'email, l'utente entrerà con quella nuova (password e verifica in due passaggi restano le stesse).
+      </p>
+      {errore && <p className="errore">{errore}</p>}
+      <button className="primario" disabled={inCorso}>{inCorso ? "Salvataggio…" : "Salva"}</button> <button type="button" onClick={onChiudi}>Annulla</button>
+    </form>
   );
 }

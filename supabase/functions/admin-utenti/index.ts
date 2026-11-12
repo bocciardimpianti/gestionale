@@ -50,6 +50,18 @@ Deno.serve(async (req) => {
         await registra(admin, io?.id, "utente_eliminato", { id: p.id });
         return risposta({ ok: true });
       }
+      case "modifica": {
+        // Nome ed email di accesso (l'email resta confermata: l'utente entra subito con quella nuova)
+        const email = String(p.email ?? "").trim().toLowerCase();
+        const nome = String(p.nome ?? "").trim();
+        if (!email) throw new Error("Email mancante");
+        const { error } = await admin.auth.admin.updateUserById(p.id, { email, email_confirm: true, user_metadata: { nome } });
+        if (error) throw error;
+        const { error: e2 } = await admin.from("profili").update({ email, nome: nome || null }).eq("id", p.id);
+        if (e2) throw e2;
+        await registra(admin, io?.id, "utente_modificato", { id: p.id, email, nome });
+        return risposta({ ok: true });
+      }
       case "password": {
         const { error } = await admin.auth.admin.updateUserById(p.id, { password: p.password });
         if (error) throw error;
