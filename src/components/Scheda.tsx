@@ -9,6 +9,7 @@ import GestioneElenco from "./GestioneElenco";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
 import CampoImmagine, { immagineDa, Miniatura, urlFirmato } from "./CampoImmagine";
 import { useFotoMateriali } from "../fotoMateriali";
+import { dirittoPerCliente } from "../distanze";
 import CercaMateriale from "./CercaMateriale";
 import LettoreCodice from "./LettoreCodice";
 import MicDettatura from "./MicDettatura";
@@ -164,6 +165,26 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     ricarico: m.ricarico ?? 0,
     nome_articolo: m.nome_articolo ?? null,
   });
+
+  // Rapportino: diritto di chiamata dalla distanza del cliente dalla sede (fasce in Amministrazione → Diritto di chiamata).
+  // Si ricalcola quando si sceglie/cambia il cliente o la tariffa (la tariffa altrimenti metterebbe il suo); resta correggibile a mano.
+  const clientePrima = useRef<unknown>(nuovo ? undefined : valori.cliente_id);
+  const tariffaPrima = useRef<unknown>(valori.tariffa);
+  useEffect(() => {
+    if (cfg.sezione !== "rapporti" || !modificabile) return;
+    const cambiato = dati.cliente_id !== clientePrima.current || dati.tariffa !== tariffaPrima.current;
+    clientePrima.current = dati.cliente_id;
+    tariffaPrima.current = dati.tariffa;
+    if (!cambiato || !dati.cliente_id) return;
+    let attivo = true;
+    dirittoPerCliente(Number(dati.cliente_id)).then((r) => {
+      if (!attivo) return;
+      if ("errore" in r) { if (r.errore) setStato(`Diritto di chiamata non calcolato: ${r.errore}`); return; }
+      setDati((d) => ({ ...d, diritto_chiamata: r.importo }));
+      setStato(`Diritto di chiamata ${euro(r.importo)}: cliente a ${Math.round(r.km)} km dalla sede${r.precisione === "comune" ? " (posizione del solo comune)" : ""}`);
+    }).catch(() => {});
+    return () => { attivo = false; };
+  }, [dati.cliente_id, dati.tariffa]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Materiali scelti da un DDT di acquisto: con il materiale di magazzino (prezzi attuali) o come riga libera
   const aggiungiDaDdt = async (scelti: MaterialeDaDdt[]) => {

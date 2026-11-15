@@ -1501,3 +1501,14 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .finestra-scheda .comandi-piede .link { border-radius: 12px; }
   .finestra-scheda .comandi-piede .link.blu { background: linear-gradient(120deg, #0e7c86, #12919c); box-shadow: 0 3px 10px rgba(14, 124, 134, .35); }
 }
+/* Diritto di chiamata */
+.pagina-chiamata { max-width: 860px; }
+.riquadro-chiamata { background: var(--carta, #fff); border: 1px solid var(--bordo, #dde); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+.riquadro-chiamata h2 { font-size: 16px; margin: 0 0 10px; color: var(--petrolio); }
+.riga-sede { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.riga-sede input { flex: 1; min-width: 220px; height: 36px; padding: 0 10px; border: 1px solid var(--bordo-forte, #ccd); border-radius: 6px; font-size: 14px; }
+.riga-sede .btn { display: inline-flex; align-items: center; gap: 6px; }
+.fasce-chiamata { width: 100%; max-width: 620px; }
+.fasce-chiamata td { padding: 6px 10px; vertical-align: middle; }
+.fasce-chiamata input { width: 90px; height: 32px; text-align: right; padding: 0 8px; border: 1px solid var(--bordo-forte, #ccd); border-radius: 6px; font-size: 14px; }
+.non-trovati { max-height: 260px; overflow: auto; font-size: 13px; }
