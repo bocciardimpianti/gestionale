@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { svuotaCache } from "./cacheMateriali";
+import { svuotaCache } from "./cacheElenchi";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, type Azione, type Permesso, type Profilo, type Sezione } from "./supabase";
 

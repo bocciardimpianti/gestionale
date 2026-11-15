@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { elencoAggiornato, elencoSalvato } from "../cacheElenchi";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
 import {
@@ -97,10 +98,14 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [categoriaRapida, setCategoriaRapida] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const carica = useCallback(async () => {
+  // Elenco: subito la copia salvata sul dispositivo, poi in sottofondo solo le righe cambiate
+  // ("completo" riscarica tutto, es. dopo un'eliminazione definitiva)
+  const carica = useCallback(async (completo = false) => {
     try {
+      const salvate = completo ? null : await elencoSalvato(cfg.tabella, cfg.select);
+      if (salvate) setRighe(salvate as Riga[]);
       const [tutte, { data: arch }] = await Promise.all([
-        leggiTutto(cfg.tabella, cfg.select) as Promise<Riga[]>,
+        elencoAggiornato(cfg.tabella, cfg.select, completo) as Promise<Riga[]>,
         supabase.from("archivi").select("id, nome").eq("sezione", cfg.sezione).order("nome"),
       ]);
       setRighe(tutte);
@@ -108,7 +113,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     } catch (e) {
       setMessaggio("Errore: " + (e as Error).message);
     }
-  }, [cfg.tabella, cfg.sezione]);
+  }, [cfg.tabella, cfg.sezione, cfg.select]);
 
   useEffect(() => {
     carica();
@@ -249,7 +254,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     if (error) return setMessaggio("Errore: " + error.message);
     await registra(`${cfg.sezione}_eliminato_definitivamente`, { id: r.id, nome: nomeDi(r) });
     setSelezionata(null);
-    carica();
+    carica(true);
   };
 
   // Più righe spuntate insieme: nel Cestino, ripristino, eliminazione definitiva
@@ -275,7 +280,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     await registra(`${cfg.sezione}_${fatto}`, { id: ids, nomi: elenco.slice(0, 50).map(nomeDi) });
     setMessaggio(`${elenco.length === 1 ? "1 elemento" : `${elenco.length} elementi`} ${{ cestino: "spostati nel Cestino", ripristina: "ripristinati", definitivo: "eliminati definitivamente" }[azione]}`);
     setSelezionata(null);
-    carica();
+    carica(azione === "definitivo");
   };
 
   const spostaInArchivio = async (r: Riga, archivio: Cartella | null) => {
@@ -500,7 +505,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
             <button className="btn verde" onClick={() => setMenu(menu ? "" : "azioni")}>Azioni <span className="punta">⌵</span></button>
             {(menu === "azioni" || menu === "tabella") && (
               <div className="voci con-icone">
-                {voce(RefreshCw, "#b59b1b", "Aggiorna", carica)}
+                {voce(RefreshCw, "#b59b1b", "Aggiorna", () => carica(true))}
                 {cfg.sezione === "materiali" && voce(Filter, "#3a7dc0", "Assegna categorie automatiche", assegnaCategorie, profilo?.ruolo === "admin")}
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
                 {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
@@ -639,8 +644,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         />
       )}
 
-      {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={carica} />}
-      {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={carica} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}
+      {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={() => carica(true)} />}
+      {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={() => carica()} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}
       {sceltaColonne && (
         <div className="velo" onMouseDown={() => setSceltaColonne(false)}>
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>

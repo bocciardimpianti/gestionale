@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { materialiAggiornati } from "../cacheMateriali";
+import { materialiAggiornati } from "../cacheElenchi";
 import { Miniatura } from "./CampoImmagine";
 import { leggiTutto } from "../supabase";
 import { calcolaConsigli, parolaChiave, type RigaStorico } from "../consigli";

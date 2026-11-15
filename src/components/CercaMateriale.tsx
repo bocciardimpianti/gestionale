@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { materialiAggiornati, materialiSalvati, usiMateriali } from "../cacheMateriali";
+import { materialiAggiornati, materialiSalvati, usiMateriali } from "../cacheElenchi";
 import { euro } from "./Griglia";
 import { Miniatura } from "./CampoImmagine";
 import { useIndietroChiude, useTelefono } from "../telefono";

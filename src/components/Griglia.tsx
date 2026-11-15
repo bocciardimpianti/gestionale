@@ -123,7 +123,9 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
   const sinonimi = useSinonimi();
   const doveTutte = useMemo(() => colonne.filter((c) => c.tipo !== "booleano" && c.tipo !== "immagine" && c.tipo !== "miniatura"), [colonne]);
   // Testo di ogni riga per la ricerca furba (calcolato una volta per elenco)
-  const testiFurbi = useMemo(() => ricercaFurba ? new Map(righe.map((r) => [r, normalizza(doveTutte.map((c) => mostra(c, r)).join(" "))])) : null, [ricercaFurba, righe, doveTutte]);
+  // (preparato solo quando si scrive qualcosa nella ricerca: aprire l'elenco resta immediato)
+  const cercaQualcosa = !!pulisciRicerca(ricerca);
+  const testiFurbi = useMemo(() => ricercaFurba && cercaQualcosa ? new Map(righe.map((r) => [r, normalizza(doveTutte.map((c) => mostra(c, r)).join(" "))])) : null, [ricercaFurba, cercaQualcosa, righe, doveTutte]);
   const paroleFurbe = useMemo(() => (testiFurbi ? vocabolario([...testiFurbi.values()]) : new Map<string, number>()), [testiFurbi]);
   const correzioni = useRef<string[]>([]);
 
