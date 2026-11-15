@@ -294,7 +294,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "telefono", titolo: "Telefono", excel: "Telefono", larghezza: 79 },
       { chiave: "cellulare", titolo: "Cellulare", excel: "Cellulare", larghezza: 117 },
       { chiave: "piva", titolo: "P.IVA", excel: "P.IVA", larghezza: 91 },
-      { chiave: "note", titolo: "Note", excel: "Note", larghezza: 200 },
+      { chiave: "note", titolo: "Note", excel: "Note", larghezza: 200, nascostaInElenco: true },
       { chiave: "tipologia_pagamento", titolo: "Tipologia Pagamento", excel: "Tipologia Pagamento", larghezza: 178 },
     ],
     campi: [
