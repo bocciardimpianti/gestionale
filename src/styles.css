@@ -1554,3 +1554,28 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .cornice-immagine .suggerimento-foto { white-space: normal; }
   .cornice-immagine .contenuto-immagine { flex-wrap: wrap; min-width: 0; }
 }
+/* Agenda, colonne strette: blocchi tinti del colore del tecnico, ora d'inizio e cliente in verticale */
+.vista-ore .colonna-giorno.stretta { container-type: inline-size; }
+.impegno .cliente-verticale, .impegno .inizio-breve { display: none; }
+@container (max-width: 74px) {
+  .impegno.posizionato { padding: 2px 1px 2px 3px; align-items: center; overflow: hidden; }
+  .impegno.posizionato .orario, .impegno.posizionato .cliente, .impegno.posizionato .attivita, .impegno.posizionato b { display: none; }
+  .impegno.posizionato .inizio-breve { display: block; font-size: 9.5px; font-weight: 700; line-height: 1.1; color: #33464b; }
+  .impegno.posizionato .cliente-verticale { display: block; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11.5px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: calc(100% - 14px); color: #1d2b2f; letter-spacing: .02em; }
+}
+
+/* Agenda al telefono: 1 o 2 giorni, anteprima del rapportino toccato */
+.giorni-telefono { margin-left: auto; }
+.velo-anteprima { place-items: end center; padding: 0; z-index: 120; }
+.anteprima-impegno { width: min(560px, 100%); background: #fff; border-radius: 16px 16px 0 0; border-top: 5px solid var(--ottanio);
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 30px rgba(5, 25, 30, .3); display: flex; flex-direction: column; gap: 10px; }
+.anteprima-testa { display: flex; align-items: flex-start; gap: 8px; }
+.anteprima-testa b { flex: 1; font-size: 18px; color: var(--petrolio); }
+.anteprima-testa button { background: none; border: 0; padding: 4px; color: var(--tenue); }
+.anteprima-dati { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: #33464b; }
+.anteprima-dati span:first-child::first-letter { text-transform: uppercase; }
+.anteprima-attivita { margin: 0; padding: 10px 12px; background: #f2f6f6; border-radius: 10px; font-size: 14px; white-space: pre-wrap; max-height: 30vh; overflow: auto; }
+.anteprima-piede { display: flex; gap: 8px; }
+.anteprima-piede .btn { flex: 1; min-height: 46px; border-radius: 10px; }
+.anteprima-piede .btn.blu { flex: 2; }

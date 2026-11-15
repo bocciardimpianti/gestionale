@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QUERY as QUERY_TELEFONO } from "../telefono";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Printer, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, RefreshCw, X } from "lucide-react";
 import { dataIso, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { ARCHIVI } from "../archivi";
@@ -99,13 +99,16 @@ export default function Agenda() {
 
   // Telefono: 2 giorni lavorativi alla volta, a partire dal giorno scelto (sabato e domenica si saltano)
   const lavorativo = (d: Date, verso = 1) => { let x = d; while (x.getDay() === 0 || x.getDay() === 6) x = piuGiorni(x, verso); return x; };
+  const [quantiGiorni, setQuantiGiorni] = useState<number>(() => leggi("agenda-giorni-telefono", 2));
   const giorniTelefono = useMemo(() => {
     const primo = lavorativo(giorno);
-    return [primo, lavorativo(piuGiorni(primo, 1))];
-  }, [giorno]); // eslint-disable-line react-hooks/exhaustive-deps
+    return quantiGiorni === 1 ? [primo] : [primo, lavorativo(piuGiorni(primo, 1))];
+  }, [giorno, quantiGiorni]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Telefono: anteprima del rapportino toccato (si legge tutto senza aprire la scheda)
+  const [anteprima, setAnteprima] = useState<Impegno | null>(null);
   const { da, a } = useMemo(() => {
     if (vista === "giorno") return { da: giorno, a: giorno };
-    if (vista === "tecnici" && telefono) return { da: giorniTelefono[0], a: giorniTelefono[1] };
+    if (vista === "tecnici" && telefono) return { da: giorniTelefono[0], a: giorniTelefono[giorniTelefono.length - 1] };
     if (vista === "lavorativa" || vista === "tecnici") return { da: lunedi(giorno), a: piuGiorni(lunedi(giorno), 4) };
     if (vista === "settimana") return { da: lunedi(giorno), a: piuGiorni(lunedi(giorno), 6) };
     const primo = new Date(giorno.getFullYear(), giorno.getMonth(), 1);
@@ -163,7 +166,7 @@ export default function Agenda() {
     // Telefono, settimana per tecnico: avanti/indietro di 2 giorni lavorativi
     else if (vista === "tecnici" && telefono) setGiorno((g) => {
       let x = lavorativo(g);
-      for (let k = 0; k < 2; k++) x = lavorativo(piuGiorni(x, verso), verso);
+      for (let k = 0; k < quantiGiorni; k++) x = lavorativo(piuGiorni(x, verso), verso);
       return x;
     });
     else if (vista === "mese") setGiorno((g) => new Date(g.getFullYear(), g.getMonth() + verso, 1));
@@ -298,6 +301,13 @@ export default function Agenda() {
             <button onClick={() => setGiorno(new Date())}>Oggi</button>
             <button onClick={() => sposta(1)} title="Avanti"><ChevronRight size={18} /></button>
             <strong className="titolo-periodo">{titolo}</strong>
+            {telefono && vista === "tecnici" && (
+              <button className="giorni-telefono" title="Quanti giorni vedere" onClick={() => {
+                const n = quantiGiorni === 2 ? 1 : 2;
+                setQuantiGiorni(n);
+                scrivi("agenda-giorni-telefono", n);
+              }}>{quantiGiorni === 2 ? "1 giorno" : "2 giorni"}</button>
+            )}
             <span style={{ flex: 1 }} />
             <button onClick={() => vaiImpegno(-1)}>◀ Impegno precedente</button>
             <button onClick={() => vaiImpegno(1)}>Impegno successivo ▶</button>
@@ -330,7 +340,7 @@ export default function Agenda() {
               mostraTecnico={vista !== "giorno" && vista !== "tecnici"}
               colore={colore}
               nomeTecnico={nomeTecnico}
-              onApri={apri}
+              onApri={telefono && vista === "tecnici" ? (id) => setAnteprima(impegni.find((i) => i.id === id) ?? null) : apri}
               onNuovo={puo("rapporti", "creare") ? nuovoIntervento : undefined}
               strette={vista === "tecnici"}
             />
@@ -338,6 +348,27 @@ export default function Agenda() {
         </section>
       </div>
 
+      {anteprima && (
+        <div className="velo velo-anteprima" onMouseDown={() => setAnteprima(null)}>
+          <div className="anteprima-impegno" onMouseDown={(e) => e.stopPropagation()} style={{ borderTopColor: colore(anteprima.tecnico_id) }}>
+            <div className="anteprima-testa">
+              <b>{anteprima.cliente?.nome ?? "(senza cliente)"}</b>
+              <button type="button" aria-label="Chiudi" onClick={() => setAnteprima(null)}><X size={20} /></button>
+            </div>
+            <div className="anteprima-dati">
+              <span>🕒 {new Date(`${anteprima.data}T12:00:00`).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
+                {anteprima.ora_inizio ? `, ${hhmm(anteprima.ora_inizio)}${anteprima.ora_fine && hhmm(anteprima.ora_fine) !== hhmm(anteprima.ora_inizio) ? ` – ${hhmm(anteprima.ora_fine)}` : ""}` : ""}</span>
+              <span style={{ color: colore(anteprima.tecnico_id), fontWeight: 700 }}>👷 {nomeTecnico(anteprima.tecnico_id)}</span>
+              {anteprima.numero ? <span>Rapportino n. {anteprima.numero}{anteprima.stato ? ` · ${anteprima.stato}` : ""}</span> : null}
+            </div>
+            {anteprima.attivita && <p className="anteprima-attivita">{anteprima.attivita}</p>}
+            <div className="anteprima-piede">
+              <button type="button" className="btn grigio" onClick={() => setAnteprima(null)}>Chiudi</button>
+              <button type="button" className="btn blu" onClick={() => { const id = anteprima.id; setAnteprima(null); apri(id); }}>Apri rapportino</button>
+            </div>
+          </div>
+        </div>
+      )}
       {scheda && (
         <Scheda
           cfg={ARCHIVI.rapporti}
@@ -540,6 +571,7 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
                     left: `${(posizioni[k].corsia / posizioni[k].totale) * 100}%`,
                     width: `calc(${100 / posizioni[k].totale}% - 4px)`,
                     borderLeftColor: colore(e.i.tecnico_id),
+                    ...(strette ? { background: `${colore(e.i.tecnico_id)}1f` } : {}),
                   }}
                   title={`${strette ? `${nomeTecnico(e.i.tecnico_id)}\n` : ""}${etichetta(e.i)}\n${e.i.attivita ?? ""}${e.i.stato ? `\nStato: ${e.i.stato}` : ""}`}
                   onClick={() => onApri(e.i.id)}
@@ -547,6 +579,8 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
                   {mostraTecnico && <b>{nomeTecnico(e.i.tecnico_id)}</b>}
                   <span className="orario">{orario(e.i)}</span>
                   <span className="cliente">{e.i.cliente?.nome ?? "(senza cliente)"}</span>
+                  {strette && <span className="inizio-breve">{hhmm(e.i.ora_inizio)}</span>}
+                  {strette && <span className="cliente-verticale">{e.i.cliente?.nome ?? "(senza cliente)"}</span>}
                   {e.fine - e.inizio >= 90 && e.i.attivita && <span className="attivita">{e.i.attivita}</span>}
                 </button>
               ))}
