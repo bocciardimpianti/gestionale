@@ -1440,3 +1440,9 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .laterale { overflow: hidden; }
 .laterale nav { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent; }
 .laterale .azienda, .laterale .azioni-menu, .laterale .utente { flex: none; }
+/* Telefono: titolo della sezione al centro in rosso mattone; la scorciatoia in basso della sezione aperta in rosso mattone */
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .testata h1 { flex-basis: 100%; width: 100%; text-align: center; color: var(--ruggine); }
+  .barra-bassa .gruppo-icone a.scorciatoia.active { color: var(--ruggine); }
+  .barra-bassa .gruppo-icone a.scorciatoia.active .etichetta-telefono { font-weight: 700; color: var(--ruggine); }
+}

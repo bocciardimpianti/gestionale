@@ -144,7 +144,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const scorciatoia = (chiave: string, Icona: LucideIcon, titolo: string) =>
     puo(chiave, "vedere") && (
-      <Link to={percorso(chiave)} title={titolo}><Icona size={20} strokeWidth={1.5} /><span className="etichetta-telefono">{titolo}</span></Link>
+      <NavLink to={percorso(chiave)} title={titolo} className="scorciatoia"><Icona size={20} strokeWidth={1.5} /><span className="etichetta-telefono">{titolo}</span></NavLink>
     );
 
   return (
