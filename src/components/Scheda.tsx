@@ -561,10 +561,31 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   // ...e altri sotto i materiali
   const sottoMateriali = telefono && cfg.righe ? principaliTutti.filter((c) => c.sottoMaterialiSuTelefono && !c.primoSuTelefono) : [];
 
+  // Totali in fondo alla scheda (Pagamento in contanti … Totale)
+  const piedeTotali = () => {
+    const piede = cfg.piede && senzaPrezzi(cfg.piede, vedePrezzi);
+    return !!piede?.length && (
+          <div className="piede-totali">
+            {piede.map((c) => (
+              <label key={c.chiave} className={`voce-piede${c.tipo === "booleano" ? "" : " valore"}`}>
+                <span>{c.etichetta}</span>
+                {c.tipo === "booleano" ? (
+                  <input type="checkbox" checked={!!dati[c.chiave]} disabled={!modificabile} onChange={(e) => cambia(c.chiave, e.target.checked)} />
+                ) : c.solaLettura ? (
+                  <b>{euro(c.chiave in totali ? totali[c.chiave] : dati[c.chiave] ?? 0)}</b>
+                ) : (
+                  <input type="number" step="0.01" className="destra" value={String(dati[c.chiave] ?? "")} readOnly={!modificabile}
+                    onChange={(e) => cambia(c.chiave, e.target.value)} />
+                )}
+              </label>
+            ))}
+          </div>
+        );
+  };
+
   const righeMateriali = () => {
     // Le righe dei materiali mostrano sempre i prezzi; i totali del documento solo a chi ha il permesso
     const rc = cfg.righe!;
-    const piede = cfg.piede && senzaPrezzi(cfg.piede, vedePrezzi);
     const piedeGruppi = cfg.piedeGruppi?.map((g) => ({ ...g, campi: senzaPrezzi(g.campi, vedePrezzi) })).filter((g) => g.campi.length);
     return (
       <div className="area-righe">
@@ -720,23 +741,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             ))}
           </div>
         )}
-        {!!piede?.length && (
-          <div className="piede-totali">
-            {piede.map((c) => (
-              <label key={c.chiave} className={`voce-piede${c.tipo === "booleano" ? "" : " valore"}`}>
-                <span>{c.etichetta}</span>
-                {c.tipo === "booleano" ? (
-                  <input type="checkbox" checked={!!dati[c.chiave]} disabled={!modificabile} onChange={(e) => cambia(c.chiave, e.target.checked)} />
-                ) : c.solaLettura ? (
-                  <b>{euro(c.chiave in totali ? totali[c.chiave] : dati[c.chiave] ?? 0)}</b>
-                ) : (
-                  <input type="number" step="0.01" className="destra" value={String(dati[c.chiave] ?? "")} readOnly={!modificabile}
-                    onChange={(e) => cambia(c.chiave, e.target.value)} />
-                )}
-              </label>
-            ))}
-          </div>
-        )}
+        {/* Sul telefono i totali vanno in fondo, dopo i campi sotto i materiali */}
+        {!(telefono && sottoMateriali.length) && piedeTotali()}
       </div>
     );
   };
@@ -814,6 +820,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                     {sottoMateriali.length > 0 && (
                       <div className="griglia-campi sotto-materiali">{sottoMateriali.map((c, i) => campo(c, !!sottoMateriali[i - 1]?.finisciRiga))}</div>
                     )}
+                    {sottoMateriali.length > 0 && piedeTotali()}
                   </>
                 ) : cfg.campi.some((c) => c.linguetta === linguetta) ? (
                   <div className="griglia-campi">
