@@ -1579,3 +1579,31 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .anteprima-piede { display: flex; gap: 8px; }
 .anteprima-piede .btn { flex: 1; min-height: 46px; border-radius: 10px; }
 .anteprima-piede .btn.blu { flex: 2; }
+/* Materiali per tecnico */
+.pagina-registro { max-width: 1100px; }
+.periodo-registro { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+.periodo-registro .btn { height: 32px; padding: 0 12px; }
+.periodo-registro label { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+.periodo-registro input { height: 32px; border: 1px solid var(--bordo-forte, #ccd); border-radius: 6px; padding: 0 6px; }
+.schede-tecnici { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin: 10px 0; }
+.scheda-tecnico { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--bordo, #dde); border-radius: 10px; background: #fff; cursor: pointer; }
+.scheda-tecnico b { display: flex; align-items: center; gap: 6px; color: var(--petrolio); }
+.scheda-tecnico span { font-size: 13px; }
+.scheda-tecnico.attiva { border: 2px solid var(--ottanio); background: var(--ottanio-tenue, #dcf0f1); }
+.scheda-tecnico.magazzino { background: #fbf7e4; border-color: #e8dfb4; }
+.scheda-tecnico.magazzino.attiva { border-color: #b59b1b; background: #f6edc4; }
+.barra-registro { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+.barra-registro label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.barra-registro .btn, .tabella-registro .btn { display: inline-flex; align-items: center; gap: 5px; }
+.tabella-registro { width: 100%; font-size: 13px; }
+.tabella-registro td { padding: 5px 8px; vertical-align: middle; }
+.tabella-registro tr.rimasto td:nth-last-child(2) b { color: #b5431f; }
+.tabella-registro tr.in-piu td:nth-last-child(2) b { color: #6b7d82; }
+.tabella-registro .piccolo-btn { height: 28px; padding: 0 8px; font-size: 12px; }
+.dettaglio-registro td { background: #f6f9f9; font-size: 12.5px; }
+.campi-sposta label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; margin-bottom: 8px; }
+.campi-sposta input, .campi-sposta select { height: 36px; border: 1px solid var(--bordo-forte, #ccd); border-radius: 6px; padding: 0 8px; font-size: 14px; }
+@media (max-width: 760px) {
+  .tabella-registro th:nth-child(5), .tabella-registro td:nth-child(5), .tabella-registro th:nth-child(7), .tabella-registro td:nth-child(7) { display: none; }
+}
+.barra-registro label, .periodo-registro label { flex-direction: row !important; align-items: center; }

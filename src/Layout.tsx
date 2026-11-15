@@ -4,7 +4,7 @@ import {
   Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
   LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
   Search, Settings, Smartphone, Star, Type, User, UserRound, Users, Wrench, X, type LucideIcon,
-  ChevronDown, MapPin, PanelLeftClose, PanelLeftOpen, Plus,
+  ChevronDown, MapPin, PackageSearch, PanelLeftClose, PanelLeftOpen, Plus,
 } from "lucide-react";
 import TavolozzaComandi, { type Comando } from "./components/TavolozzaComandi";
 import { ARCHIVI } from "./archivi";
@@ -119,12 +119,13 @@ export default function Layout({ children }: { children: ReactNode }) {
       nome: "AMMINISTRAZIONE",
       voci: [
         { chiave: "admin/utenti", etichetta: "Utenti, permessi e tecnici", gruppo: "", ordine: 0 },
+        { chiave: "admin/materiali-tecnici", etichetta: "Materiali per tecnico", gruppo: "", ordine: 0 },
         { chiave: "admin/chiamata", etichetta: "Diritto di chiamata", gruppo: "", ordine: 0 },
         { chiave: "admin/registro", etichetta: "Registro attività", gruppo: "", ordine: 0 },
       ],
     });
   }
-  const iconaAdmin: Record<string, LucideIcon> = { "admin/utenti": Users, "admin/registro": ScrollText, "admin/chiamata": MapPin };
+  const iconaAdmin: Record<string, LucideIcon> = { "admin/utenti": Users, "admin/registro": ScrollText, "admin/chiamata": MapPin, "admin/materiali-tecnici": PackageSearch };
   const percorso = (chiave: string) => (chiave === "home" ? "/" : chiave.startsWith("admin/") ? `/${chiave}` : `/s/${chiave}`);
 
   // Voci di "Vai a…": tutte le sezioni del menu, i "Nuovo…" permessi e alcune azioni

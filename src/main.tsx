@@ -8,6 +8,7 @@ import CambioPassword from "./pages/CambioPassword";
 import Utenti from "./pages/admin/Utenti";
 import Registro from "./pages/admin/Registro";
 import DirittoChiamata from "./pages/admin/DirittoChiamata";
+import MaterialiTecnici from "./pages/admin/MaterialiTecnici";
 import Dashboard from "./pages/Dashboard";
 import Layout from "./Layout";
 import PaginaArchivio from "./pages/PaginaArchivio";
@@ -68,6 +69,7 @@ function Struttura() {
         {admin && <Route path="/admin/utenti" element={<Utenti />} />}
         {admin && <Route path="/admin/registro" element={<Registro />} />}
         {admin && <Route path="/admin/chiamata" element={<DirittoChiamata />} />}
+        {admin && <Route path="/admin/materiali-tecnici" element={<MaterialiTecnici />} />}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Layout>
