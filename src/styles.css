@@ -1345,3 +1345,98 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .foto-riga .miniatura { width: 32px; height: 32px; object-fit: cover; }
 .finestra-da-ddt .riga-telefono-foto, .consiglio .riga-telefono-foto { flex: none; width: 44px; height: 44px; border-radius: 8px; background: #e7eeef; overflow: hidden; display: grid; place-items: center; }
 .finestra-da-ddt .riga-telefono-foto .miniatura, .consiglio .riga-telefono-foto .miniatura { width: 44px; height: 44px; object-fit: cover; }
+
+/* =====================================================================
+   Menu laterale moderno: Vai a… (Ctrl+K), Nuovo rapportino, contatori, menu riducibile a icone
+   ===================================================================== */
+.laterale { background: linear-gradient(180deg, #133f4a 0%, #0f323b 100%); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent; }
+.laterale .azienda { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 8px 0 14px; border-bottom: 1px solid rgba(255,255,255,.08); justify-content: flex-start; }
+.marchio { width: 30px; height: 30px; flex: none; border-radius: 8px; background: var(--ruggine); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 16px; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.nome-azienda { flex: 1; font-size: 14.5px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.riduci-menu { background: none; border: 0; color: rgba(255,255,255,.55); width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.riduci-menu:hover { background: rgba(255,255,255,.1); color: #fff; }
+
+.azioni-menu { display: grid; gap: 8px; padding: 12px 10px 6px; }
+.vai-a { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: 8px; cursor: pointer;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.7); font-size: 13.5px; text-align: left; }
+.vai-a:hover { background: rgba(255,255,255,.12); color: #fff; }
+.vai-a .testo-voce { flex: 1; }
+.vai-a kbd, .tavolozza kbd { font: 600 10.5px/1 system-ui, sans-serif; padding: 3px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,.25); color: rgba(255,255,255,.65); }
+.nuovo-rapido { display: flex; align-items: center; justify-content: center; gap: 7px; height: 38px; border: 0; border-radius: 8px; cursor: pointer;
+  background: var(--ottanio); color: #fff; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.nuovo-rapido:hover { background: #12919c; }
+
+.laterale nav { padding-bottom: 8px; }
+.laterale .gruppo { padding: 14px 18px 4px; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: rgba(255,255,255,.42); cursor: pointer; }
+.laterale .gruppo span:first-child { text-transform: uppercase; }
+.laterale .gruppo span:first-child::first-letter { text-transform: uppercase; }
+.laterale .gruppo .freccia { color: rgba(255,255,255,.4); opacity: 0; transition: opacity .15s, transform .15s; }
+.laterale .gruppo:hover .freccia, .laterale .gruppo .freccia.chiusa { opacity: 1; }
+.laterale .gruppo .freccia.chiusa { transform: rotate(-90deg); }
+.laterale .voce { margin: 1px 8px; height: 34px; padding: 0 10px; gap: 10px; border-radius: 8px; color: rgba(255,255,255,.8); font-size: 13.5px; box-shadow: none; }
+.laterale .voce svg { flex: none; opacity: .85; }
+.laterale .voce:hover { background: rgba(255,255,255,.08); color: #fff; }
+.laterale .voce.active { background: rgba(255,255,255,.15); color: #fff; font-weight: 600; box-shadow: none; }
+.laterale .voce.active::before { content: ""; position: absolute; left: -8px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--ruggine); }
+.laterale .voce.active svg { opacity: 1; }
+.testo-voce { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.voce .testo-voce { flex: 1; }
+.contatore { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #e5484d; color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; line-height: 1; }
+
+.laterale .utente { padding: 12px 10px; border-top: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.12); }
+.scheda-utente { display: flex; align-items: center; gap: 10px; padding: 0 4px; min-width: 0; }
+.avatar { width: 34px; height: 34px; flex: none; border-radius: 50%; background: var(--ottanio); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.scheda-utente .testo-voce { display: flex; flex-direction: column; min-width: 0; }
+.scheda-utente b { font-size: 13px; color: #fff; overflow: hidden; text-overflow: ellipsis; }
+.scheda-utente .ruolo { font-size: 11.5px; color: rgba(255,255,255,.55); }
+.comandi-utente { display: flex; gap: 6px; margin-top: 10px; }
+.comandi-utente button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 32px; border: 0; border-radius: 8px; cursor: pointer;
+  background: rgba(255,255,255,.08); color: rgba(255,255,255,.85); font-size: 12.5px; padding: 0 6px; }
+.comandi-utente button:hover { background: rgba(255,255,255,.16); color: #fff; }
+.comandi-utente .esci-menu:hover { background: var(--errore); }
+
+/* Menu ridotto a sole icone (solo PC) */
+@media (min-width: 901px) {
+  .app:has(.laterale.stretto) { grid-template-columns: 68px 1fr; }
+  .laterale.stretto .testo-voce, .laterale.stretto .nome-azienda, .laterale.stretto .vai-a kbd, .laterale.stretto .gruppo span, .laterale.stretto .gruppo .freccia { display: none; }
+  .laterale.stretto .azienda { flex-direction: column; justify-content: center; gap: 2px; height: 76px; padding: 6px 0; }
+  .laterale.stretto .azioni-menu { padding: 10px 10px 4px; }
+  .laterale.stretto .vai-a, .laterale.stretto .nuovo-rapido { justify-content: center; padding: 0; }
+  .laterale.stretto .gruppo { padding: 6px 0; justify-content: center; pointer-events: none; }
+  .laterale.stretto .gruppo::before { content: ""; width: 28px; height: 1px; background: rgba(255,255,255,.15); }
+  .laterale.stretto .voce { justify-content: center; padding: 0; position: relative; }
+  .laterale.stretto .contatore { position: absolute; top: 2px; right: 4px; min-width: 16px; height: 16px; font-size: 9.5px; padding: 0 4px; }
+  .laterale.stretto .scheda-utente { justify-content: center; padding: 0; }
+  .laterale.stretto .comandi-utente { flex-direction: column; }
+}
+@media (max-width: 900px) {
+  .riduci-menu { display: none; }
+  .vai-a kbd { display: none; }
+  .laterale .voce { height: 44px; font-size: 15px; }
+  .laterale .gruppo { padding-top: 16px; }
+}
+
+/* Vai a… (Ctrl+K) */
+.velo-tavolozza { place-items: start center; padding-top: 12vh; z-index: 130; }
+.tavolozza { width: min(620px, 100%); background: var(--carta, #fff); border-radius: 12px; box-shadow: 0 24px 60px rgba(5, 25, 30, .45); overflow: hidden; display: flex; flex-direction: column; max-height: 70vh; }
+.tavolozza-cerca { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--bordo, #dde); color: var(--tenue, #667); }
+.tavolozza-cerca input { flex: 1; border: 0; outline: 0; height: 52px; font-size: 16px; background: transparent; color: var(--testo, #123); }
+.tavolozza kbd { border-color: var(--bordo-forte, #ccd); color: var(--tenue, #667); }
+.tavolozza-elenco { overflow-y: auto; padding: 6px; }
+.tavolozza-gruppo { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--tenue, #667); padding: 10px 10px 4px; }
+.tavolozza-elenco button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 14px; color: var(--testo, #123); cursor: pointer; }
+.tavolozza-elenco button svg { color: var(--ottanio, #0e7c86); flex: none; }
+.tavolozza-elenco button span { flex: 1; }
+.tavolozza-elenco button.attiva { background: var(--ottanio-tenue, #dcf0f1); }
+.tavolozza-elenco button .invio { color: var(--tenue, #667); }
+.tavolozza-piede { padding: 8px 14px; border-top: 1px solid var(--bordo, #dde); color: var(--tenue, #667); }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .velo-tavolozza { padding: 0; place-items: stretch; }
+  .tavolozza { border-radius: 0; max-height: none; height: 100%; }
+  .tavolozza-piede { display: none; }
+  .tavolozza-elenco button { padding: 12px 10px; font-size: 15px; }
+}
+/* Intestazione e utente sempre visibili: scorre solo l'elenco delle voci */
+.laterale { overflow: hidden; }
+.laterale nav { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent; }
+.laterale .azienda, .laterale .azioni-menu, .laterale .utente { flex: none; }

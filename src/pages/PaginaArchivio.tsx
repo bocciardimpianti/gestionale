@@ -123,7 +123,14 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   useEffect(() => {
     const apriDaIndirizzo = () => {
       const [percorso, query] = location.hash.split("?");
-      const id = new URLSearchParams(query ?? "").get("apri");
+      const parametri = new URLSearchParams(query ?? "");
+      // "?nuovo=1" (es. "Nuovo rapportino" nel menu o in "Vai a…"): si apre subito la scheda vuota
+      if (parametri.has("nuovo")) {
+        history.replaceState(null, "", location.pathname + location.search + percorso);
+        if (puo(cfg.sezione, "creare")) apriNuovo();
+        return;
+      }
+      const id = parametri.get("apri");
       if (!id) return;
       history.replaceState(null, "", location.pathname + location.search + percorso);
       supabase.from(cfg.tabella).select(cfg.select ?? "*").eq("id", Number(id)).maybeSingle().then(({ data }) => {
