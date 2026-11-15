@@ -34,9 +34,9 @@ interface Impegno {
 interface Tecnico { id: number; nome: string }
 
 const ALTEZZA_ORA = 46;
-// Orario mostrato: dalle 8 alle 18 (si allarga solo se ci sono interventi prima o dopo)
+// Orario mostrato: righe dalle 8 alle 18 comprese (fino alle 19), si allarga solo se ci sono interventi prima o dopo
 const ORA_DA = 8;
-const ORA_A = 18;
+const ORA_A = 19;
 // "Gronchi Michael" → "Michael G." (colonne strette della settimana per tecnico)
 const nomeBreve = (nome: string) => {
   const p = nome.trim().split(/\s+/);
