@@ -3,8 +3,9 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
   LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
-  Search, Settings, Smartphone, Star, User, UserRound, Users, Wrench, X, type LucideIcon,
+  Search, Settings, Smartphone, Star, Type, User, UserRound, Users, Wrench, X, type LucideIcon,
 } from "lucide-react";
+import FinestraAspetto from "./components/FinestraAspetto";
 import { useAuth } from "./auth";
 import UscitaBackup from "./components/UscitaBackup";
 import PulsanteVoce from "./components/PulsanteVoce";
@@ -48,6 +49,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   useIndietroChiude(menuAperto, () => setMenuAperto(false));
   // All'uscita l'admin che usa un PC (mouse) può salvare il backup completo
   const [finestraBackup, setFinestraBackup] = useState<"" | "uscita" | "backup">("");
+  const [aspetto, setAspetto] = useState(false);
   const daPc = typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches;
   const richiediUscita = () => (admin && daPc ? setFinestraBackup("uscita") : esci());
   // Notifiche: il dispositivo resta collegato all'utente entrato; toccando una notifica si apre la richiesta
@@ -145,6 +147,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div>{profilo?.nome || profilo?.email}</div>
           <div className="ruolo">{admin ? "Amministratore" : "Utente standard"}</div>
           {admin && <button className="esci" onClick={() => setFinestraBackup("backup")}><Database size={15} /> Backup completo</button>}
+          <button className="esci" onClick={() => { setMenuAperto(false); setAspetto(true); }}><Type size={15} /> Aspetto e dimensioni</button>
           <button className="esci" onClick={richiediUscita}><LogOut size={15} /> Esci / Cambia utente</button>
         </div>
       </aside>
@@ -168,6 +171,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </footer>
       {/* Microfono mobile dei comandi vocali solo nella Home; le ricerche hanno il loro microfono fisso */}
       {inHome && <PulsanteVoce />}
+      {aspetto && <FinestraAspetto onChiudi={() => setAspetto(false)} />}
       {finestraBackup && (
         <UscitaBackup
           soloBackup={finestraBackup === "backup"}

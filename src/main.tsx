@@ -16,7 +16,9 @@ import { seguiTastiera } from "./telefono";
 import "./styles.css";
 import CercaOvunque from "./pages/CercaOvunque";
 import { controllaAggiornamenti } from "./aggiornamento";
+import { applicaAspetto } from "./aspetto";
 
+applicaAspetto();
 seguiTastiera();
 controllaAggiornamenti();
 

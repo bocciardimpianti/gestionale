@@ -32,8 +32,10 @@ export function seguiTastiera() {
     }
     massima = Math.max(massima, altezza);
     radice.classList.toggle("tastiera-aperta", altezza < massima * 0.75);
-    radice.style.setProperty("--altezza-visibile", `${Math.round(altezza)}px`);
-    radice.style.setProperty("--scarto-visibile", `${Math.round(vv?.offsetTop ?? 0)}px`);
+    // Con lo zoom scelto in "Aspetto" le misure della pagina sono più piccole/grandi di quelle dello schermo
+    const zoom = parseFloat(getComputedStyle(radice).getPropertyValue("--zoom")) || 1;
+    radice.style.setProperty("--altezza-visibile", `${Math.round(altezza / zoom)}px`);
+    radice.style.setProperty("--scarto-visibile", `${Math.round((vv?.offsetTop ?? 0) / zoom)}px`);
   };
   aggiorna();
   vv?.addEventListener("resize", aggiorna);

@@ -45,7 +45,7 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 .piccolo { font-size: 12px; color: var(--tenue); }
 
 /* Accesso */
-.schermo-accesso { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.schermo-accesso { min-height: calc(100vh / var(--zoom, 1)); display: grid; place-items: center; padding: 16px; }
 .riquadro {
   width: 100%; max-width: 380px; background: var(--carta); padding: 28px;
   border-radius: 8px; border: 1px solid var(--bordo); display: flex; flex-direction: column; gap: 14px;
@@ -55,7 +55,7 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 
 /* Struttura */
 .app {
-  display: grid; height: 100vh;
+  display: grid; height: calc(100vh / var(--zoom, 1));
   grid-template-columns: 247px 1fr;
   grid-template-rows: 39px 1fr 41px;
   grid-template-areas: "alto alto" "lato centro" "basso basso";
@@ -147,7 +147,7 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
 
 @media (max-width: 900px) {
   /* Cellulare/tablet: il menu laterale diventa un pannello a scomparsa (pulsante ☰ Menu) */
-  .app { grid-template-columns: 1fr; grid-template-rows: 44px 1fr 41px; grid-template-areas: "alto" "centro" "basso"; height: 100dvh; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 44px 1fr 41px; grid-template-areas: "alto" "centro" "basso"; height: calc(100dvh / var(--zoom, 1)); }
   .laterale {
     position: fixed; top: 44px; bottom: 0; left: 0; width: min(300px, 85vw); z-index: 40;
     transform: translateX(-100%); transition: transform .2s ease; box-shadow: 2px 0 12px rgba(0,0,0,.3);
@@ -227,7 +227,7 @@ label.interruttore { flex-direction: row; align-items: center; gap: 6px; }
   width: min(1010px, 100%); max-height: 94vh; display: flex; flex-direction: column;
   background: #f0f0f0; border: 1px solid #2e3138; box-shadow: 0 10px 30px rgba(0,0,0,.35); font-size: 12px;
 }
-.finestra-scheda.ingrandita { width: 100vw; height: 100vh; max-height: none; }
+.finestra-scheda.ingrandita { width: calc(100vw / var(--zoom, 1)); height: calc(100vh / var(--zoom, 1)); max-height: none; }
 .velo:has(.ingrandita) { padding: 0; }
 .scheda-titolo {
   background: #33363d; color: #fff; height: 28px; padding: 0 8px; font-size: 14px;
@@ -893,7 +893,7 @@ input, select, button { border-radius: 6px; }
   .laterale .gruppo { min-height: 40px; }
   .comando-voce { left: auto; right: 12px; bottom: calc(72px + env(safe-area-inset-bottom)); transform: none; align-items: flex-end; }
   .voce-pulsante { width: 50px; height: 50px; }
-  .voce-messaggio { max-width: calc(100vw - 24px); }
+  .voce-messaggio { max-width: calc(100vw / var(--zoom, 1) - 24px); }
   /* Con una finestra aperta il microfono sta nella barra del titolo, senza coprire l'elenco */
   body:has(.velo) .comando-voce { top: calc(var(--scarto-visibile, 0px) + 4px); bottom: auto; right: 56px; flex-direction: column-reverse; }
   body:has(.velo) .voce-pulsante { width: 44px; height: 44px; background: var(--petrolio-chiaro); box-shadow: none; }
@@ -969,7 +969,7 @@ input, select, button { border-radius: 6px; }
   .galleria { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 
   /* Finestre e schede a tutto schermo, nello spazio lasciato dalla tastiera */
-  .velo { padding: 0; inset: auto 0 auto 0; top: var(--scarto-visibile, 0); height: var(--altezza-visibile, 100dvh); place-items: stretch; }
+  .velo { padding: 0; inset: auto 0 auto 0; top: var(--scarto-visibile, 0); height: var(--altezza-visibile, calc(100dvh / var(--zoom, 1))); place-items: stretch; }
   .finestra, .finestra-scheda, .finestra.stretta, .finestra-backup, .finestra-materiali, .finestra-ddt-pdf { width: 100%; height: 100%; max-height: none; border-radius: 0; }
   .finestra-corpo { flex: 1; min-height: 0; }
   .finestra-ddt-pdf .finestra-corpo { max-height: none; }
@@ -1070,7 +1070,7 @@ input, select, button { border-radius: 6px; }
 
   /* Ricerche: risultati sempre visibili sopra la tastiera */
   .ricerca-telefono {
-    position: fixed; left: 0; right: 0; top: var(--scarto-visibile, 0); height: var(--altezza-visibile, 100dvh); z-index: 90;
+    position: fixed; left: 0; right: 0; top: var(--scarto-visibile, 0); height: var(--altezza-visibile, calc(100dvh / var(--zoom, 1))); z-index: 90;
     background: var(--carta); display: flex; flex-direction: column;
   }
   .ricerca-telefono-testa { flex: none; display: flex; gap: 8px; padding: 8px 12px; background: var(--petrolio); }
@@ -1111,7 +1111,7 @@ input, select, button { border-radius: 6px; }
   .agenda { padding-bottom: 8px; }
   .agenda-navigazione button { min-height: 42px; min-width: 42px; }
   .titolo-periodo { flex-basis: 100%; margin: 4px 0 0; }
-  .intestazione-colonna, .colonna-giorno { flex-basis: calc(100vw - 80px); min-width: calc(100vw - 80px); }
+  .intestazione-colonna, .colonna-giorno { flex-basis: calc(100vw / var(--zoom, 1) - 80px); min-width: calc(100vw / var(--zoom, 1) - 80px); }
   .impegno { min-height: 40px; }
   .agenda-sinistra.aperta { left: 8px; right: 8px; width: auto; top: 110px; }
   .mini-mese td button { width: 38px; height: 38px; }
@@ -1137,7 +1137,7 @@ body:has(.lettore-codice) .comando-voce { display: none; }
 /* Microfono spostato dall'utente: il pulsante resta dov'è, il messaggio compare sopra o sotto */
 .comando-voce.spostato { position: fixed; display: block; width: 50px; }
 .comando-voce.spostato .voce-pulsante { width: 50px; height: 50px; touch-action: none; }
-.comando-voce.spostato .voce-messaggio { position: absolute; bottom: calc(100% + 6px); left: 0; width: max-content; max-width: min(520px, calc(100vw - 24px)); }
+.comando-voce.spostato .voce-messaggio { position: absolute; bottom: calc(100% + 6px); left: 0; width: max-content; max-width: min(520px, calc(100vw / var(--zoom, 1) - 24px)); }
 .comando-voce.spostato.messaggio-a-destra .voce-messaggio { left: auto; right: 0; }
 .comando-voce.spostato.messaggio-sotto .voce-messaggio { bottom: auto; top: calc(100% + 6px); }
 .voce-pulsante { touch-action: none; }
@@ -1291,3 +1291,12 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .blocco-collegati .griglia td.cella-tecnico { margin-left: 18px; }
   .blocco-collegati .griglia td.cella-tecnico::before { font-weight: normal; }
 }
+/* Aspetto e dimensioni */
+.finestra-aspetto { width: min(460px, 100%); }
+.preset-aspetto { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.preset-aspetto button { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 12px; border: 1px solid var(--bordo, #ccd); border-radius: 10px; background: var(--carta, #fff); cursor: pointer; }
+.preset-aspetto button.attivo { border-color: var(--ottanio, #0e7c86); background: var(--ottanio-tenue, #e3f1f1); }
+.preset-aspetto button > svg { margin-left: auto; color: var(--ottanio, #0e7c86); flex: none; }
+.anteprima-aspetto { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 8px; background: #e7eeef; font-weight: 700; }
+.testi-aspetto { display: flex; flex-direction: column; gap: 2px; }
+.testi-aspetto > span { font-size: 13px; color: var(--tenue, #667); }
