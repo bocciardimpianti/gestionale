@@ -6,6 +6,7 @@ import { useAuth } from "../auth";
 import { ARCHIVI, type Archivio, type Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
+import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
 import CampoImmagine, { immagineDa, urlFirmato } from "./CampoImmagine";
 import CercaMateriale from "./CercaMateriale";
 import LettoreCodice from "./LettoreCodice";
@@ -67,6 +68,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [codice, setCodice] = useState("");
   const [cercaMateriale, setCercaMateriale] = useState(false);
   const [consigliati, setConsigliati] = useState(false);
+  // Rapportino: materiali presi da un DDT di acquisto
+  const [daDdt, setDaDdt] = useState(false);
   const telefono = useTelefono();
   // Modifiche fatte dall'utente e non ancora salvate: alla chiusura si chiede se salvarle
   const modificata = useRef(false);
@@ -147,6 +150,20 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     ricarico: m.ricarico ?? 0,
     nome_articolo: m.nome_articolo ?? null,
   });
+
+  // Materiali scelti da un DDT di acquisto: con il materiale di magazzino (prezzi attuali) o come riga libera
+  const aggiungiDaDdt = async (scelti: MaterialeDaDdt[]) => {
+    const ids = [...new Set(scelti.map((x) => x.riga.materiale_id).filter((v): v is number => !!v))];
+    const { data, error } = ids.length ? await supabase.from("materiali").select("*").in("id", ids) : { data: [], error: null };
+    if (error) throw new Error("Materiali non leggibili: " + error.message);
+    const perId = new Map((data ?? []).map((m) => [Number(m.id), m as Record<string, unknown>]));
+    for (const { riga, quantita } of scelti) {
+      const m = riga.materiale_id ? perId.get(riga.materiale_id) : undefined;
+      aggiungiRiga(m ? { ...rigaDaMateriale(m), quantita }
+        : { descrizione: riga.descrizione, unita_misura: riga.unita_misura, codice_barre: riga.codice_barre, quantita });
+    }
+    setStato(`Aggiunti ${scelti.length} ${scelti.length === 1 ? "materiale" : "materiali"} dal DDT`);
+  };
 
   // Telefono: codice a barre letto con la fotocamera
   const [lettore, setLettore] = useState(false);
@@ -491,6 +508,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         {modificabile && telefono && (
           <div className="barra-righe-telefono">
             <button type="button" className="btn blu" onClick={() => setCercaMateriale(true)}>Aggiungi materiale</button>
+            {cfg.sezione === "rapporti" && <button type="button" className="btn blu da-ddt" onClick={() => setDaDdt(true)}>Aggiungi da DDT</button>}
             <button type="button" className="btn grigio" onClick={() => aggiungiRiga()}>Riga libera</button>
             {cfg.sezione === "rapporti" && <button type="button" className="btn verde consigliati" onClick={() => setConsigliati(true)}><Sparkles size={17} /> Materiali consigliati</button>}
           </div>
@@ -554,6 +572,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <button type="button" title="Sposta giù" onClick={() => spostaRiga(1)}><ArrowDown size={22} strokeWidth={2} className="cerchiata" /></button>
             <button type="button" title="Sposta su" onClick={() => spostaRiga(-1)}><ArrowUp size={22} strokeWidth={2} className="cerchiata" /></button>
             <button type="button" title="Aggiungi una riga libera da compilare a mano" onClick={() => aggiungiRiga()}><PencilLine size={22} strokeWidth={2} className="cerchiata" /></button>
+            {cfg.sezione === "rapporti" && <button type="button" className="btn blu da-ddt" title="Aggiungi i materiali di un DDT di acquisto" onClick={() => setDaDdt(true)}>Aggiungi da DDT</button>}
             {cfg.sezione === "rapporti" && <button type="button" className="btn verde consigliati" title="Materiali usati di solito insieme a quelli inseriti" onClick={() => setConsigliati(true)}><Sparkles size={16} /> Materiali consigliati</button>}
           </div>
         )}
@@ -819,6 +838,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         <div onMouseDown={(e) => e.stopPropagation()}>
           <CercaMateriale chiediQuantita onChiudi={() => setCercaMateriale(false)}
             onScegli={(m, q) => aggiungiRiga({ ...rigaDaMateriale(m), ...(q !== undefined ? { quantita: q } : {}) })} onRigaVuota={() => aggiungiRiga()} />
+        </div>
+      )}
+      {daDdt && (
+        <div onMouseDown={(e) => e.stopPropagation()}>
+          <AggiungiDaDdt tecnicoId={dati.tecnico_id ? Number(dati.tecnico_id) : null} data={String(dati.data ?? "")}
+            onChiudi={() => setDaDdt(false)} onAggiungi={aggiungiDaDdt} />
         </div>
       )}
       {consigliati && (

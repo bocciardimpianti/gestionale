@@ -1302,3 +1302,39 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .testi-aspetto > span { font-size: 13px; color: var(--tenue, #667); }
 .tecnico-ddt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; margin: 4px 0; }
 .tecnico-ddt select { min-width: 180px; }
+/* Aggiungi da DDT */
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .barra-righe-telefono:has(.da-ddt) { grid-template-columns: 1fr 1fr; }
+  .barra-righe-telefono:has(.da-ddt) .btn.consigliati { grid-column: auto; }
+  .barra-righe-telefono .btn.consigliati { font-size: 14px; }
+}
+.btn.da-ddt { white-space: nowrap; }
+.finestra-da-ddt { width: min(640px, 100%); }
+.finestra-da-ddt .finestra-titolo { display: flex; align-items: center; gap: 8px; }
+.finestra-da-ddt .finestra-titolo .chiudi { margin-left: auto; }
+.indietro-ddt { background: none; border: 0; color: inherit; cursor: pointer; display: grid; place-items: center; min-width: 36px; min-height: 36px; padding: 0; }
+.finestra-da-ddt .finestra-corpo { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+.scelta-vista-ddt { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.scelta-vista-ddt button { min-height: 42px; border: 1px solid var(--bordo, #ccd); border-radius: 8px; background: var(--carta, #fff); font-weight: 600; cursor: pointer; }
+.scelta-vista-ddt button.attiva { background: var(--petrolio, #123b45); border-color: var(--petrolio, #123b45); color: #fff; }
+.giorno-ddt { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.giorno-ddt input { min-height: 40px; }
+.cerca-ddt { display: flex; align-items: center; gap: 6px; border: 1px solid var(--bordo, #ccd); border-radius: 8px; padding: 0 10px; background: #fff; }
+.cerca-ddt input { flex: 1; border: 0; outline: 0; min-height: 42px; font-size: 16px; background: transparent; }
+.legenda-ddt { display: flex; align-items: center; gap: 6px; margin: 0; }
+.campione-mio { width: 18px; height: 12px; border: 2px solid #d9342b; border-radius: 3px; }
+.elenco-ddt { display: flex; flex-direction: column; gap: 8px; }
+.carta-ddt { text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--bordo, #ccd); border-radius: 10px; background: #fff; cursor: pointer; }
+.carta-ddt > span { font-size: 13px; color: var(--tenue, #667); }
+.carta-ddt > span.cella-tecnico { color: #1f5fbf; }
+.carta-ddt.mio { border: 2px solid #d9342b; }
+.tutti-ddt { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.righe-ddt { display: flex; flex-direction: column; gap: 6px; }
+.riga-ddt { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--bordo, #ccd); border-radius: 8px; background: #fff; }
+.riga-ddt.scelta { border-color: var(--ottanio, #0e7c86); background: var(--ottanio-tenue, #e3f1f1); }
+.riga-ddt label { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; }
+.riga-ddt input[type="checkbox"] { width: 22px; height: 22px; flex: none; }
+.quantita-ddt { display: flex; align-items: center; gap: 4px; flex: none; font-size: 13px; }
+.quantita-ddt input { width: 64px; min-height: 38px; text-align: right; font-size: 16px; }
+.finestra-da-ddt .riga-ddt label, .finestra-da-ddt .tutti-ddt, .finestra-da-ddt .giorno-ddt { flex-direction: row !important; justify-content: flex-start; align-items: center; text-align: left; }
+.finestra-da-ddt .tutti-ddt input { width: 22px; height: 22px; margin: 0; }
