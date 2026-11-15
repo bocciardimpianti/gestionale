@@ -6,8 +6,8 @@ import { useAuth } from "../auth";
 import Autocompleta from "../components/Autocompleta";
 import { stampaPreventivo } from "../stampe";
 import {
-  leggiCatalogo, NOMI_TIPO, prezzoVoce, totaleAmbiente,
-  type AmbienteFoglio, type AmbienteTipo, type Foglio, type TipoImpianto, type VoceImpianto,
+  accessoriAmbiente, leggiCatalogo, leggiSerie, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
+  type AmbienteFoglio, type AmbienteTipo, type Foglio, type SerieCivile, type TipoImpianto, type VoceImpianto,
 } from "../impianti";
 
 // Preventivo guidato: si sceglie elettrico o idraulico, poi su un foglio largo si aggiungono gli ambienti
@@ -40,6 +40,8 @@ export default function PreventivoGuidato() {
   const [modificato, setModificato] = useState(false);
   const [prezziVoci, setPrezziVoci] = useState(true);
   const [vediMateriali, setVediMateriali] = useState(false);
+  const [serieCivili, setSerieCivili] = useState<SerieCivile[] | null>(null);
+  const [erroreSerie, setErroreSerie] = useState("");
 
   useEffect(() => { leggiTutto("clienti", "id, nome", true).then((c) => setClienti(c as unknown as { id: number; nome: string }[])).catch(() => {}); }, []);
 
@@ -61,8 +63,17 @@ export default function PreventivoGuidato() {
 
   useEffect(() => {
     if (!foglio?.tipo) return;
-    leggiCatalogo(foglio.tipo).then(setCatalogo).catch((e) => setErrore((e as Error).message));
+    leggiCatalogo(foglio.tipo).then((c) => {
+      setCatalogo(c);
+      // Fogli salvati prima dei "moduli": si prendono dal catalogo
+      setFoglio((x) => x && ({ ...x, ambienti: x.ambienti.map((a) => ({ ...a, voci: a.voci.map((v) => (v.moduli === undefined ? { ...v, moduli: c.voci.find((y) => y.id === v.voce_id)?.moduli ?? 0 } : v)) })) }));
+    }).catch((e) => setErrore((e as Error).message));
+    if (foglio.tipo === "elettrico") leggiSerie().then(setSerieCivili).catch((e) => { setSerieCivili([]); setErroreSerie((e as Error).message); });
   }, [foglio?.tipo]);
+
+  const sceltaSerie = (s: SerieCivile | null) => {
+    cambia((x) => ({ ...x, serie: s && { id: s.id, nome: s.nome, prezzo_supporto_3: s.prezzo_supporto_3, prezzo_supporto_4: s.prezzo_supporto_4, prezzo_placca_3: s.prezzo_placca_3, prezzo_placca_4: s.prezzo_placca_4, prezzo_copriforo: s.prezzo_copriforo } }));
+  };
 
   const cliente = clienti.find((c) => c.nome.trim().toLowerCase() === testoCliente.trim().toLowerCase()) ?? null;
   const cambia = (f: (x: Foglio) => Foglio) => { setFoglio((x) => (x ? f(x) : x)); setModificato(true); };
@@ -76,14 +87,21 @@ export default function PreventivoGuidato() {
     const stessi = foglio.ambienti.filter((a) => a.nome === base || a.nome.startsWith(`${base} `)).length;
     const voci = (t?.voci ?? []).map((x) => catalogo.voci.find((v) => v.id === x.voce_id) && { v: catalogo.voci.find((v) => v.id === x.voce_id)!, q: x.quantita })
       .filter((x): x is { v: VoceImpianto; q: number } => !!x)
-      .map(({ v, q }) => ({ voce_id: v.id, nome: v.nome, unita: v.unita, prezzo: prezzoVoce(v), quantita: q }));
+      .map(({ v, q }) => ({ voce_id: v.id, nome: v.nome, unita: v.unita, prezzo: prezzoVoce(v), quantita: q, moduli: v.moduli }));
     const chiave = nuovaChiave();
-    cambia((x) => ({ ...x, ambienti: [...x.ambienti, { chiave, nome: stessi ? `${base} ${stessi + 1}` : base, voci }] }));
+    // Scatole: quelle dell'ambiente tipo, altrimenti una stima dai moduli
+    const nuovo: AmbienteFoglio = { chiave, nome: stessi ? `${base} ${stessi + 1}` : base, voci };
+    if (foglio.tipo === "elettrico") {
+      const conTipo = (t?.scatole_3 ?? 0) + (t?.scatole_4 ?? 0) > 0;
+      nuovo.scatole_3 = conTipo ? t!.scatole_3 : stimaScatole(moduliOccupati(nuovo));
+      nuovo.scatole_4 = conTipo ? t!.scatole_4 : 0;
+    }
+    cambia((x) => ({ ...x, ambienti: [...x.ambienti, nuovo] }));
     setTimeout(() => document.getElementById(chiave)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
   };
 
   const totali = useMemo(() => {
-    const imponibile = r2((foglio?.ambienti ?? []).reduce((t, a) => t + totaleAmbiente(a), 0));
+    const imponibile = r2((foglio?.ambienti ?? []).reduce((t, a) => t + totaleAmbiente(a, foglio?.serie), 0));
     const scontoTotale = r2(imponibile * (numero(sconto) || 0) / 100);
     const scontato = r2(imponibile - scontoTotale);
     const ivaTotale = r2(scontato * (numero(iva) || 0) / 100);
@@ -92,7 +110,7 @@ export default function PreventivoGuidato() {
 
   // Materiali da ordinare: i kit delle voci moltiplicati per le quantità
   const materialiDaOrdinare = useMemo(() => {
-    const m = new Map<number, { descrizione: string; unita: string; quantita: number }>();
+    const m = new Map<number | string, { descrizione: string; unita: string; quantita: number }>();
     for (const a of foglio?.ambienti ?? []) for (const v of a.voci) {
       const voce = catalogo?.voci.find((x) => x.id === v.voce_id);
       for (const k of voce?.kit ?? []) {
@@ -100,6 +118,11 @@ export default function PreventivoGuidato() {
         r.quantita += k.quantita * v.quantita;
         m.set(k.materiale_id, r);
       }
+    }
+    for (const a of foglio?.ambienti ?? []) for (const x of accessoriAmbiente(a, foglio?.serie)) {
+      const r = m.get(x.nome) ?? { descrizione: x.nome, unita: "pz", quantita: 0 };
+      r.quantita += x.quantita;
+      m.set(x.nome, r);
     }
     return [...m.values()].sort((a, b) => a.descrizione.localeCompare(b.descrizione));
   }, [foglio, catalogo]);
@@ -120,7 +143,10 @@ export default function PreventivoGuidato() {
     const nuovoId = ris.data.id as number;
     // Righe del preventivo: "Ambiente – Voce", ricreate a ogni salvataggio
     await supabase.from("righe_preventivo").delete().eq("preventivo_id", nuovoId);
-    const righe = foglio.ambienti.flatMap((a) => a.voci.filter((v) => v.quantita > 0).map((v) => ({
+    const righe = foglio.ambienti.flatMap((a) => [
+      ...a.voci.filter((v) => v.quantita > 0).map((v) => ({ nome: v.nome, unita: v.unita, quantita: v.quantita, prezzo: v.prezzo })),
+      ...accessoriAmbiente(a, foglio.serie).map((x) => ({ ...x, unita: "pz" })),
+    ].map((v) => ({
       descrizione: `${a.nome} – ${v.nome}`, unita_misura: v.unita, quantita: v.quantita, prezzo_base: v.prezzo, ricarico: 0, prezzo: v.prezzo, totale: r2(v.prezzo * v.quantita),
     }))).map((r, i) => ({ ...r, preventivo_id: nuovoId, ordine: i }));
     if (righe.length) {
@@ -140,8 +166,8 @@ export default function PreventivoGuidato() {
     const { data: c } = cliente ? await supabase.from("clienti").select("nome, indirizzo_fatturazione, piva, codice_fiscale, email").eq("id", cliente.id).maybeSingle() : { data: null };
     // Ogni ambiente: riga del titolo (con il suo totale se i prezzi delle voci sono nascosti), poi le voci
     const righe = foglio.ambienti.flatMap((a) => [
-      { descrizione: `▸ ${a.nome.toUpperCase()}`, quantita: null, prezzo: null, totale: prezziVoci ? null : totaleAmbiente(a) },
-      ...a.voci.filter((v) => v.quantita > 0).map((v) => ({
+      { descrizione: `▸ ${a.nome.toUpperCase()}`, quantita: null, prezzo: null, totale: prezziVoci ? null : totaleAmbiente(a, foglio.serie) },
+      ...[...a.voci.filter((v) => v.quantita > 0), ...accessoriAmbiente(a, foglio.serie).map((x) => ({ ...x, unita: "pz" }))].map((v) => ({
         descrizione: `   ${v.nome}`, quantita: v.quantita, unita_misura: v.unita,
         prezzo: prezziVoci ? v.prezzo : null, totale: prezziVoci ? r2(v.prezzo * v.quantita) : null,
       })),
@@ -174,6 +200,27 @@ export default function PreventivoGuidato() {
     );
   }
 
+  // ---- Elettrico: prima la serie civile (placche, supporti, copriforo) ----
+  if (foglio.tipo === "elettrico" && foglio.serie === undefined) {
+    return (
+      <div className="pagina-guidato">
+        <div className="testata"><h1>⚡ Che serie civile si monta?</h1></div>
+        <p className="piccolo">Dalla serie e dalle scatole di ogni stanza calcolo da solo supporti, placche e copriforo.</p>
+        {erroreSerie && <p className="errore">{erroreSerie}</p>}
+        {!serieCivili && <p className="piccolo">Caricamento…</p>}
+        <div className="scelta-serie">
+          {serieCivili?.filter((s) => s.attiva).map((s) => (
+            <button key={s.id} className="carta-serie" onClick={() => sceltaSerie(s)}>
+              <b>{s.nome}</b>
+              <span className="piccolo">placca 3M {euro(s.prezzo_placca_3)} · supporto {euro(s.prezzo_supporto_3)}</span>
+            </button>
+          ))}
+          <button className="carta-serie vuota" onClick={() => sceltaSerie(null)}><b>Nessuna / decido dopo</b><span className="piccolo">niente placche e supporti</span></button>
+        </div>
+      </div>
+    );
+  }
+
   // ---- Foglio ----
   return (
     <div className="pagina-guidato foglio">
@@ -183,6 +230,15 @@ export default function PreventivoGuidato() {
           <label>Cliente<Autocompleta id="cliente-guidato" valore={testoCliente} opzioni={clienti.map((c) => c.nome)} onCambia={(t) => { setTestoCliente(t); setModificato(true); }} placeholder="Scrivi le prime lettere…" nonTrovato={!!testoCliente.trim() && !cliente} /></label>
           <label>Oggetto<input value={oggetto} onChange={(e) => { setOggetto(e.target.value); setModificato(true); }} /></label>
           <label>Data<input type="date" value={data} onChange={(e) => { setData(e.target.value); setModificato(true); }} /></label>
+          {foglio.tipo === "elettrico" && (
+            <label>Serie civile
+              <select value={foglio.serie?.id ?? ""} onChange={(e) => sceltaSerie(serieCivili?.find((s) => s.id === Number(e.target.value)) ?? null)}>
+                <option value="">Nessuna</option>
+                {foglio.serie && !serieCivili?.some((s) => s.id === foglio.serie!.id) && <option value={foglio.serie.id}>{foglio.serie.nome}</option>}
+                {serieCivili?.filter((s) => s.attiva || s.id === foglio.serie?.id).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </label>
+          )}
         </div>
       </div>
       {errore && <p className="errore">{errore}</p>}
@@ -231,12 +287,13 @@ export default function PreventivoGuidato() {
                 ))}
                 <select value="" onChange={(e) => {
                   const v = catalogo?.voci.find((x) => x.id === Number(e.target.value));
-                  if (v) cambiaAmbiente(a.chiave, (x) => ({ ...x, voci: [...x.voci, { voce_id: v.id, nome: v.nome, unita: v.unita, prezzo: prezzoVoce(v), quantita: 1 }] }));
+                  if (v) cambiaAmbiente(a.chiave, (x) => ({ ...x, voci: [...x.voci, { voce_id: v.id, nome: v.nome, unita: v.unita, prezzo: prezzoVoce(v), quantita: 1, moduli: v.moduli }] }));
                 }}>
                   <option value="">+ aggiungi voce…</option>
                   {catalogo?.voci.filter((v) => v.attiva && !a.voci.some((x) => x.voce_id === v.id)).map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
                 </select>
-                <div className="totale-ambiente"><span>Totale {a.nome}</span><b>{euro(totaleAmbiente(a))}</b></div>
+                {foglio.tipo === "elettrico" && <Scatole a={a} serie={foglio.serie} onCambia={(s3, s4) => cambiaAmbiente(a.chiave, (x) => ({ ...x, scatole_3: s3, scatole_4: s4 }))} />}
+                <div className="totale-ambiente"><span>Totale {a.nome}</span><b>{euro(totaleAmbiente(a, foglio.serie))}</b></div>
               </div>
             ))}
           </div>
@@ -244,7 +301,7 @@ export default function PreventivoGuidato() {
 
         <aside className="riepilogo-foglio">
           <div className="titolo-tavolozza">Riepilogo</div>
-          {foglio.ambienti.map((a) => <div key={a.chiave} className="riga-riepilogo"><span>{a.nome}</span><span>{euro(totaleAmbiente(a))}</span></div>)}
+          {foglio.ambienti.map((a) => <div key={a.chiave} className="riga-riepilogo"><span>{a.nome}</span><span>{euro(totaleAmbiente(a, foglio.serie))}</span></div>)}
           <div className="riga-riepilogo forte"><span>Imponibile</span><span>{euro(totali.imponibile)}</span></div>
           <label className="riga-riepilogo"><span>Sconto %</span><input inputMode="decimal" value={sconto} onChange={(e) => { setSconto(e.target.value); setModificato(true); }} /></label>
           {totali.sconto_totale > 0 && <div className="riga-riepilogo"><span>Sconto</span><span>− {euro(totali.sconto_totale)}</span></div>}
@@ -275,6 +332,41 @@ export default function PreventivoGuidato() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Scatole dell'ambiente (3 e 4 moduli) e righe automatiche di supporti, placche e copriforo
+function Scatole({ a, serie, onCambia }: { a: AmbienteFoglio; serie: Foglio["serie"]; onCambia: (s3: number, s4: number) => void }) {
+  const s3 = a.scatole_3 ?? 0, s4 = a.scatole_4 ?? 0;
+  const occupati = moduliOccupati(a), posti = postiScatole(a);
+  const contatore = (v: number, set: (n: number) => void, nome: string) => (
+    <span className="contatore-voce">
+      <button aria-label={`Meno scatole ${nome}`} onClick={() => set(Math.max(0, v - 1))}><Minus size={14} /></button>
+      <input inputMode="numeric" value={v} aria-label={`Scatole ${nome}`} onChange={(e) => { const n = parseInt(e.target.value || "0", 10); if (!Number.isNaN(n) && n >= 0) set(n); }} />
+      <button aria-label={`Più scatole ${nome}`} onClick={() => set(v + 1)}><Plus size={14} /></button>
+    </span>
+  );
+  return (
+    <div className="scatole-ambiente">
+      <div className="riga-scatole">
+        <span>Scatole{serie ? <small> · {serie.nome}</small> : null}</span>
+        <span className="tipo-scatola">3M {contatore(s3, (n) => onCambia(n, s4), "3 moduli")}</span>
+        <span className="tipo-scatola">4M {contatore(s4, (n) => onCambia(s3, n), "4 moduli")}</span>
+      </div>
+      <div className={`moduli-scatole${occupati > posti ? " pochi" : ""}`}>
+        {occupati > posti ? `⚠ ${occupati} moduli ma solo ${posti} posti: aggiungi scatole` : `${occupati} moduli su ${posti} posti`}
+      </div>
+      {accessoriAmbiente(a, serie).map((x) => (
+        <div key={x.nome} className="voce-foglio auto" title="Calcolato da serie e scatole">
+          <span className="nome-voce">{x.breve}</span>
+          <span className="quantita-auto">{x.quantita}</span>
+          <span className="prezzo-auto">{String(x.prezzo).replace(".", ",")}</span>
+          <span className="totale-voce">{euro(x.prezzo * x.quantita)}</span>
+          <span />
+        </div>
+      ))}
+      {!serie && <div className="piccolo">Scegli la serie civile in alto per calcolare placche e supporti.</div>}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Package, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "../../supabase";
-import { leggiCatalogo, NOMI_TIPO, prezzoVoce, type AmbienteTipo, type TipoImpianto, type VoceImpianto } from "../../impianti";
+import { leggiCatalogo, leggiSerie, NOMI_TIPO, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
 import CercaMateriale from "../../components/CercaMateriale";
 
 // Impostazioni del preventivo guidato: voci d'impianto (prezzo a punto e/o kit di materiali) e ambienti tipo.
@@ -15,6 +15,8 @@ export default function ImpiantiTipo() {
   const [errore, setErrore] = useState("");
   const [kitDi, setKitDi] = useState<VoceImpianto | null>(null);
   const [cercaKit, setCercaKit] = useState(false);
+  const [serie, setSerie] = useState<SerieCivile[]>([]);
+  const [erroreSerie, setErroreSerie] = useState("");
 
   const carica = useCallback(async () => {
     try {
@@ -24,6 +26,7 @@ export default function ImpiantiTipo() {
       setKitDi((k) => (k ? c.voci.find((v) => v.id === k.id) ?? null : null));
       setErrore("");
     } catch (e) { setErrore((e as Error).message); }
+    if (tipo === "elettrico") leggiSerie().then((x) => { setSerie(x); setErroreSerie(""); }).catch((e) => setErroreSerie((e as Error).message));
   }, [tipo]);
   useEffect(() => { carica(); }, [carica]);
 
@@ -48,12 +51,14 @@ export default function ImpiantiTipo() {
       <section className="riquadro-chiamata">
         <h2>Voci</h2>
         <table className="griglia tabella-voci">
-          <thead><tr><th>Voce</th><th>Unità</th><th>Prezzo a punto</th><th>Kit di materiali</th><th>Attiva</th><th /></tr></thead>
+          <thead><tr><th>Voce</th><th>Unità</th>{tipo === "elettrico" && <th title="Quanti posti occupa nella scatola (presa Schuko 2, interruttore 1, punto luce 0)">Moduli</th>}<th>Prezzo a punto</th><th>Kit di materiali</th><th>Attiva</th><th /></tr></thead>
           <tbody>
             {voci.map((v) => (
               <tr key={v.id} className={v.attiva ? "" : "spenta"}>
                 <td><input defaultValue={v.nome} onBlur={(e) => e.target.value.trim() && e.target.value !== v.nome && esegui(supabase.from("voci_impianto").update({ nome: e.target.value.trim() }).eq("id", v.id))} /></td>
                 <td><input className="corto" defaultValue={v.unita} onBlur={(e) => e.target.value !== v.unita && esegui(supabase.from("voci_impianto").update({ unita: e.target.value.trim() || "pz" }).eq("id", v.id))} /></td>
+                {tipo === "elettrico" && <td><input className="corto destra" inputMode="decimal" defaultValue={String(v.moduli).replace(".", ",")}
+                  onBlur={(e) => { const m = numero(e.target.value || "0"); if (!Number.isNaN(m) && m >= 0 && m !== v.moduli) esegui(supabase.from("voci_impianto").update({ moduli: m }).eq("id", v.id)); }} /></td>}
                 <td>
                   <input className="corto destra" inputMode="decimal" placeholder={v.kit.length ? "dal kit" : "0,00"} defaultValue={v.prezzo === null ? "" : String(v.prezzo).replace(".", ",")}
                     onBlur={(e) => {
@@ -103,6 +108,16 @@ export default function ImpiantiTipo() {
                   <option value="">+ aggiungi voce…</option>
                   {voci.filter((v) => v.attiva && !a.voci.some((x) => x.voce_id === v.id)).map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
                 </select>
+                {tipo === "elettrico" && (
+                  <div className="voce-ambiente scatole-tipo">
+                    <span>Scatole 3M / 4M</span>
+                    <span className="due-input">
+                      <input inputMode="numeric" defaultValue={a.scatole_3} aria-label="Scatole 3 moduli" onBlur={(e) => { const n = parseInt(e.target.value || "0", 10); if (n >= 0 && n !== a.scatole_3) esegui(supabase.from("ambienti_tipo").update({ scatole_3: n }).eq("id", a.id)); }} />
+                      <input inputMode="numeric" defaultValue={a.scatole_4} aria-label="Scatole 4 moduli" onBlur={(e) => { const n = parseInt(e.target.value || "0", 10); if (n >= 0 && n !== a.scatole_4) esegui(supabase.from("ambienti_tipo").update({ scatole_4: n }).eq("id", a.id)); }} />
+                    </span>
+                    <span />
+                  </div>
+                )}
                 <div className="piccolo totale-ambiente-tipo">Totale ambiente: <b>{euro(totale)}</b></div>
               </div>
             );
@@ -113,6 +128,35 @@ export default function ImpiantiTipo() {
           if (nome) esegui(supabase.from("ambienti_tipo").insert({ tipo, nome, ordine: ordineNuovo(ambienti) }));
         }}><Plus size={15} /> Nuovo ambiente</button>
       </section>
+
+      {tipo === "elettrico" && (
+        <section className="riquadro-chiamata">
+          <h2>Serie civili</h2>
+          <p className="piccolo">Prezzi a pezzo usati dal preventivo guidato per calcolare supporti e placche (uno per scatola) e copriforo (posti liberi nelle scatole).</p>
+          {erroreSerie && <p className="errore">{erroreSerie}</p>}
+          <table className="griglia tabella-voci">
+            <thead><tr><th>Serie</th><th>Supporto 3M</th><th>Placca 3M</th><th>Supporto 4M</th><th>Placca 4M</th><th>Copriforo</th><th>Attiva</th><th /></tr></thead>
+            <tbody>
+              {serie.map((x) => (
+                <tr key={x.id} className={x.attiva ? "" : "spenta"}>
+                  <td><input defaultValue={x.nome} onBlur={(e) => e.target.value.trim() && e.target.value !== x.nome && esegui(supabase.from("serie_civili").update({ nome: e.target.value.trim() }).eq("id", x.id))} /></td>
+                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_supporto_3).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_supporto_3) esegui(supabase.from("serie_civili").update({ prezzo_supporto_3: p }).eq("id", x.id)); }} /></td>
+                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_placca_3).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_placca_3) esegui(supabase.from("serie_civili").update({ prezzo_placca_3: p }).eq("id", x.id)); }} /></td>
+                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_supporto_4).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_supporto_4) esegui(supabase.from("serie_civili").update({ prezzo_supporto_4: p }).eq("id", x.id)); }} /></td>
+                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_placca_4).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_placca_4) esegui(supabase.from("serie_civili").update({ prezzo_placca_4: p }).eq("id", x.id)); }} /></td>
+                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_copriforo).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_copriforo) esegui(supabase.from("serie_civili").update({ prezzo_copriforo: p }).eq("id", x.id)); }} /></td>
+                  <td><input type="checkbox" checked={x.attiva} onChange={(e) => esegui(supabase.from("serie_civili").update({ attiva: e.target.checked }).eq("id", x.id))} /></td>
+                  <td><button className="link rosso" title="Elimina la serie" onClick={() => confirm(`Eliminare la serie "${x.nome}"?`) && esegui(supabase.from("serie_civili").delete().eq("id", x.id))}><Trash2 size={15} /></button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button className="btn blu" onClick={() => {
+            const nome = prompt("Nome della serie (es. BTicino Living Now bianca):")?.trim();
+            if (nome) esegui(supabase.from("serie_civili").insert({ nome, ordine: Math.max(0, ...serie.map((x) => x.ordine)) + 10 }));
+          }}><Plus size={15} /> Nuova serie</button>
+        </section>
+      )}
 
       {kitDi && (
         <div className="velo" onMouseDown={() => setKitDi(null)}>

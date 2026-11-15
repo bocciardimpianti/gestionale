@@ -1696,3 +1696,25 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .voce-foglio .totale-voce { display: none; }
   .tabella-voci { font-size: 12.5px; }
 }
+/* Serie civile e scatole */
+.scelta-serie { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; max-width: 1000px; }
+.carta-serie { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; padding: 16px; border: 2px solid var(--bordo); border-radius: 12px; background: var(--carta); cursor: pointer; font-size: 16px; color: var(--testo); }
+.carta-serie:hover { border-color: #e0a100; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,.08); }
+.carta-serie.vuota { border-style: dashed; }
+.dati-foglio select { height: 32px; border: 1px solid var(--bordo); border-radius: 6px; padding: 0 6px; font-size: 14px; background: var(--carta); color: var(--testo); }
+.scatole-ambiente { margin-top: 6px; padding: 6px 8px; background: #fbf7ec; border-radius: 8px; display: flex; flex-direction: column; gap: 3px; }
+.riga-scatole { display: flex; align-items: center; gap: 10px; font-size: 13.5px; flex-wrap: wrap; }
+.riga-scatole > span:first-child { font-weight: 600; flex-basis: 100%; }
+.tipo-scatola { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--tenue); }
+.moduli-scatole { font-size: 12px; color: var(--tenue); }
+.moduli-scatole.pochi { color: var(--errore); font-weight: 600; }
+.voce-foglio.auto { color: #6a5a2a; font-style: italic; border-bottom-color: #efe6cc; }
+.quantita-auto { text-align: center; font-weight: 700; font-style: normal; min-width: 78px; }
+.prezzo-auto { text-align: right; font-size: 13px; padding-right: 4px; }
+.scatole-tipo .due-input { display: flex; gap: 4px; }
+.scatole-tipo .due-input input { width: 50%; }
+.voce-ambiente.scatole-tipo { grid-template-columns: minmax(0, 1fr) 90px 22px; margin-top: 4px; font-weight: 600; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .voce-foglio.auto .quantita-auto { min-width: 40px; }
+}
+.riga-scatole small { font-weight: 400; color: var(--tenue); }
