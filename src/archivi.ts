@@ -285,6 +285,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       ],
     }],
     chiaveImport: "nome",
+    // Codice SDI sempre in maiuscolo e senza spazi
+    quandoCambia: (d, chiave) => (chiave === "codice_sdi" ? { codice_sdi: String(d.codice_sdi ?? "").toUpperCase().replace(/\s+/g, "") } : null),
     colonne: [
       { chiave: "nome", titolo: "Nome Cliente", excel: "Nome Cliente", larghezza: 345 },
       { chiave: "codice_fiscale", titolo: "CODICE FISCALE", excel: "CODICE FISCALE", larghezza: 121 },
@@ -294,6 +296,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "telefono", titolo: "Telefono", excel: "Telefono", larghezza: 79 },
       { chiave: "cellulare", titolo: "Cellulare", excel: "Cellulare", larghezza: 117 },
       { chiave: "piva", titolo: "P.IVA", excel: "P.IVA", larghezza: 91 },
+      { chiave: "codice_sdi", titolo: "Codice SDI", excel: "Codice SDI", larghezza: 80 },
       { chiave: "note", titolo: "Note", excel: "Note", larghezza: 200, nascostaInElenco: true },
       { chiave: "tipologia_pagamento", titolo: "Tipologia Pagamento", excel: "Tipologia Pagamento", larghezza: 178 },
     ],
@@ -309,6 +312,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
       { chiave: "codice_fiscale", etichetta: "CODICE FISCALE", larghezza: 2 },
       { chiave: "tipologia_pagamento", etichetta: "Tipologia Pagamento", tipo: "scelta", opzioniDa: "tipologie_pagamento", titoloOpzioni: "Tipologie Pagamento", larghezza: 2 },
+      // Codice destinatario per la fatturazione elettronica (7 caratteri; 0000000 per i privati)
+      { chiave: "codice_sdi", etichetta: "Codice SDI", larghezza: 1, segnaposto: "es. M5UXCR1" },
     ],
   },
   fornitori: {
