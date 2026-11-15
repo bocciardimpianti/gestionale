@@ -139,8 +139,19 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   const aggiungiRiga = (extra: Record<string, unknown> = {}) => {
     segna();
-    setRighe((rr) => [...rr, cfg.righe!.ricalcola({ quantita: 1, ...extra })]);
-    setRigaSel(righe.length);
+    // Rapportino: lo stesso materiale aggiunto di nuovo non fa una seconda riga, si somma la quantità
+    const stesso = (r: Record<string, unknown>) => cfg.sezione === "rapporti" && !!extra.materiale_id && r.materiale_id === extra.materiale_id;
+    const gia = righe.findIndex(stesso);
+    setRighe((rr) => {
+      const i = rr.findIndex(stesso);
+      if (i < 0) return [...rr, cfg.righe!.ricalcola({ quantita: 1, ...extra })];
+      const somma = Math.round((Number(rr[i].quantita ?? 0) + Number(extra.quantita ?? 1)) * 1000) / 1000;
+      return rr.map((r, j) => (j === i ? cfg.righe!.ricalcola({ ...r, quantita: somma }, "quantita") : r));
+    });
+    if (gia >= 0) {
+      setStato(`${String(extra.descrizione ?? "Materiale")} era già presente: quantità aggiornata`);
+      setRigaSel(gia);
+    } else setRigaSel(righe.length);
   };
   // Riga compilata da un materiale di magazzino
   const rigaDaMateriale = (m: Record<string, unknown>) => cfg.righe?.daMateriale?.(m) ?? ({
