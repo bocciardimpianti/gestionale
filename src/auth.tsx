@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { svuotaCache } from "./cacheMateriali";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, type Azione, type Permesso, type Profilo, type Sezione } from "./supabase";
 
@@ -161,6 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // L'uscita deve riuscire sempre: se il server non risponde o l'operazione resta bloccata,
   // la sessione viene cancellata da questo browser e la pagina ricaricata.
   const esci = async () => {
+    // La copia dei materiali salvata sul dispositivo non resta dopo l'uscita
+    svuotaCache();
     const riuscita = await Promise.race([
       supabase.auth.signOut().then(({ error }) => !error).catch(() => false),
       new Promise<boolean>((fine) => setTimeout(() => fine(false), 5000)),

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { materialiAggiornati } from "../cacheMateriali";
 import { Miniatura } from "./CampoImmagine";
 import { leggiTutto } from "../supabase";
 import { calcolaConsigli, parolaChiave, type RigaStorico } from "../consigli";
@@ -26,7 +27,8 @@ export default function MaterialiConsigliati({ righe, onAggiungi, onChiudi }: {
   useEffect(() => {
     Promise.all([
       leggiTutto("righe_rapporto", "id, rapporto_id, materiale_id, quantita, rapporto:rapporti(eliminato_il)"),
-      leggiTutto("materiali", "id, codice_interno, descrizione, nome_articolo, codice_barre, unita_misura, prezzo_base, ricarico, prezzo_ricaricato, giacenza, foto", true),
+      // Materiali dalla copia sul dispositivo (si scaricano solo quelli cambiati)
+      materialiAggiornati(),
     ])
       .then(([storico, materiali]) => setDati({
         storico: storico.filter((r) => !(r.rapporto as { eliminato_il?: unknown } | null)?.eliminato_il) as unknown as RigaStorico[],

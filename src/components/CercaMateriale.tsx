@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { leggiTutto } from "../supabase";
+import { materialiAggiornati, materialiSalvati, usiMateriali } from "../cacheMateriali";
 import { euro } from "./Griglia";
 import { Miniatura } from "./CampoImmagine";
 import { useIndietroChiude, useTelefono } from "../telefono";
@@ -104,21 +104,27 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const parolePresenti = useMemo(() => (materiali ? vocabolario(materiali.map(testoDi)) : new Map<string, number>()), [materiali]);
 
   useEffect(() => {
-    leggiTutto("materiali", "*", true)
-      .then((m) => {
+    let attivo = true;
+    (async () => {
+      // Subito la copia salvata sul dispositivo, poi in sottofondo solo i materiali cambiati
+      const salvati = await materialiSalvati();
+      if (attivo && salvati && !inMemoria) { inMemoria = salvati as Materiale[]; setMateriali(inMemoria); }
+      try {
+        const m = await materialiAggiornati();
         inMemoria = m as Materiale[];
-        setMateriali(inMemoria);
-      })
-      .catch((e) => setErrore("Errore nel caricamento dei materiali: " + (e as Error).message));
-    // Se non riesce restano in ordine alfabetico: non è un errore da mostrare
-    leggiTutto("righe_rapporto", "id, materiale_id")
-      .then((righe) => {
-        const conta = new Map<number, number>();
-        for (const r of righe) if (r.materiale_id) conta.set(Number(r.materiale_id), (conta.get(Number(r.materiale_id)) ?? 0) + 1);
-        usiInMemoria = conta;
-        setUsi(conta);
-      })
-      .catch(() => {});
+        if (attivo) setMateriali(inMemoria);
+      } catch (e) {
+        if (attivo && !inMemoria) setErrore("Errore nel caricamento dei materiali: " + (e as Error).message);
+      }
+    })();
+    // Quanto è usato ogni materiale (per mettere in cima i più usati): se non riesce restano in ordine alfabetico
+    usiMateriali().then(async ({ subito, aggiorna }) => {
+      if (subito && attivo && !usiInMemoria) { usiInMemoria = subito; setUsi(subito); }
+      const conta = await aggiorna();
+      usiInMemoria = conta;
+      if (attivo) setUsi(conta);
+    }).catch(() => {});
+    return () => { attivo = false; };
   }, []);
 
   // Marche presenti nella categoria scelta, dalle più numerose
