@@ -2,10 +2,10 @@
 // Ogni telefono/PC ricorda la sua scelta.
 
 export const PRESET_ASPETTO = [
-  { chiave: "compatto", nome: "Compatto", zoom: 0.82, descrizione: "Testo piccolo: il massimo di righe sullo schermo" },
-  { chiave: "ridotto", nome: "Ridotto", zoom: 0.9, descrizione: "Un po' più piccolo del normale" },
+  { chiave: "compatto", nome: "Compatto", zoom: 0.73, descrizione: "Testo piccolo: il massimo di righe sullo schermo" },
+  { chiave: "ridotto", nome: "Ridotto", zoom: 0.83, descrizione: "Un po' più piccolo del normale" },
   { chiave: "normale", nome: "Normale", zoom: 1, descrizione: "Grandezza standard" },
-  { chiave: "grande", nome: "Grande", zoom: 1.12, descrizione: "Testo più grande, più facile da leggere" },
+  { chiave: "grande", nome: "Grande", zoom: 1.13, descrizione: "Testo più grande, più facile da leggere" },
 ] as const;
 
 const CHIAVE = "gestionale-aspetto";
