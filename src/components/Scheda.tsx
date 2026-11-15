@@ -709,6 +709,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                 {["Principale", ...(cfg.linguette ?? [])]
                   // Linguette fatte solo di totali nascoste a chi non li vede
                   .filter((l) => !cfg.campi.some((c) => c.linguetta === l) || campiVisibili.some((c) => c.linguetta === l) || cfg.figli?.some((f) => f.linguetta === l))
+                  // Su un record nuovo non c'è ancora niente di collegato né di registrato (es. Storico, Impianti, Log Cloud)
+                  .filter((l) => !nuovo || l === "Principale" || cfg.campi.some((c) => c.linguetta === l) || !!cfg.figli?.some((f) => f.linguetta === l && f.valoreDa))
                   .map((l) => (
                   <button type="button" key={l} className={l === linguetta ? "attiva" : ""} onClick={() => setLinguetta(l)}>{l}</button>
                 ))}
