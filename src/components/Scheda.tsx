@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect, useState, type FormEvent } from "react";
-import { MapPin, MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { MapPin, PackagePlus, Truck, MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -467,7 +467,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     else controllo = <input {...props} />;
 
     return (
-      <div key={c.chiave} className={`cornice${c.finisciRiga ? " fine-riga" : ""}`}
+      <div key={c.chiave} className={`cornice${c.finisciRiga ? " fine-riga" : ""}`} data-chiave={c.chiave} data-larghezza={c.larghezza ?? 2}
         style={{ gridColumn: c.larghezza === 4 ? "1 / -1" : `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
         <label htmlFor={props.id}>{c.etichetta}</label>
         {controllo}
@@ -521,9 +521,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       <div className="area-righe">
         {modificabile && telefono && (
           <div className="barra-righe-telefono">
-            <button type="button" className="btn blu" onClick={() => setCercaMateriale(true)}>Aggiungi materiale</button>
-            {cfg.sezione === "rapporti" && <button type="button" className="btn blu da-ddt" onClick={() => setDaDdt(true)}>Aggiungi da DDT</button>}
-            <button type="button" className="btn grigio" onClick={() => aggiungiRiga()}>Riga libera</button>
+            <button type="button" className="btn blu" onClick={() => setCercaMateriale(true)}><PackagePlus size={18} /> Aggiungi materiale</button>
+            {cfg.sezione === "rapporti" && <button type="button" className="btn blu da-ddt" onClick={() => setDaDdt(true)}><Truck size={18} /> Aggiungi da DDT</button>}
+            <button type="button" className="btn grigio" onClick={() => aggiungiRiga()}><PencilLine size={17} /> Riga libera</button>
             {cfg.sezione === "rapporti" && <button type="button" className="btn verde consigliati" onClick={() => setConsigliati(true)}><Sparkles size={17} /> Materiali consigliati</button>}
           </div>
         )}

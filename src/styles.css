@@ -1459,3 +1459,45 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .elenco-telefono-barra select { height: 34px; }
   .elenco-telefono-barra .verso { width: 34px; height: 34px; }
 }
+
+/* =====================================================================
+   Telefono: schede (es. Nuovo intervento tecnico) più belle e compatte
+   sfondo tenue, campi come riquadri bianchi, campi piccoli affiancati, cliente in evidenza
+   ===================================================================== */
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .finestra-scheda .scheda-titolo { background: linear-gradient(120deg, #123b45 0%, #0f5964 100%); box-shadow: 0 2px 10px rgba(5, 30, 36, .25); position: relative; z-index: 2; }
+  .finestra-scheda .scheda-corpo { background: linear-gradient(180deg, #e9f2f3 0%, #f1f6f5 45%, #f5f7f4 100%); }
+  .finestra-scheda .linguette { border-bottom: 0; gap: 6px; padding: 10px 0 6px; overflow-x: auto; scrollbar-width: none; }
+  .finestra-scheda .linguette button { flex: none; border-radius: 99px; padding: 7px 14px; background: rgba(255, 255, 255, .75); border: 1px solid #d6e3e5; color: #4a6970; font-size: 14px; box-shadow: none; }
+  .finestra-scheda .linguette button.attiva { background: var(--petrolio); border-color: var(--petrolio); color: #fff; box-shadow: 0 2px 6px rgba(18, 59, 69, .25); }
+  .finestra-scheda .pannello-linguetta { background: transparent; }
+
+  /* Campi: riquadri bianchi arrotondati con un'ombra leggera */
+  .finestra-scheda .griglia-campi { gap: 10px; }
+  .finestra-scheda .cornice { background: #fff; border: 1px solid #d8e4e6; border-radius: 12px; padding: 6px 12px 3px;
+    box-shadow: 0 1px 2px rgba(18, 59, 69, .05), 0 3px 10px rgba(18, 59, 69, .04); transition: border-color .15s, box-shadow .15s; }
+  .finestra-scheda .cornice label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5b858b; }
+  .finestra-scheda .cornice:focus-within { border-color: var(--ottanio); box-shadow: 0 0 0 3px rgba(14, 124, 134, .16); }
+  .finestra-scheda .cornice:focus-within label { color: var(--ottanio); }
+  .finestra-scheda .cornice:has(input[readonly]:not([type="checkbox"])) { background: #f2f6f6; }
+  /* Campi piccoli affiancati due per riga (Numero e Data, Ora inizio e Ora fine, Modello e Matricola…) */
+  .finestra-scheda .griglia-campi .cornice[data-larghezza="1"], .finestra-scheda .griglia-campi .cornice[data-larghezza="0.5"] { grid-column: auto !important; }
+  .finestra-scheda .cornice[data-larghezza="1"] input[type="date"], .finestra-scheda .cornice[data-larghezza="1"] input[type="time"] { font-size: 15px; }
+
+  /* Cliente in evidenza: barretta e sfumatura rosso mattone */
+  .finestra-scheda .cornice[data-chiave="cliente_id"] { border-left: 4px solid var(--ruggine); background: linear-gradient(90deg, #fbefea 0%, #fff 55%); }
+  .finestra-scheda .cornice[data-chiave="cliente_id"] label { color: var(--ruggine); }
+  .finestra-scheda .cornice[data-chiave="cliente_id"] input, .finestra-scheda .cornice[data-chiave="cliente_id"] .campo-ricerca { font-size: 17px; font-weight: 600; }
+
+  /* Pulsanti dei materiali con icona */
+  .barra-righe-telefono .btn { border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 2px 8px rgba(18, 59, 69, .14); }
+  .barra-righe-telefono .btn.grigio { background: #fff; border: 1px solid #d6e3e5; color: var(--petrolio); }
+  .riga-materiale-telefono { background: #fff; border-color: #d8e4e6; border-radius: 12px; box-shadow: 0 1px 3px rgba(18, 59, 69, .05); }
+  .finestra-scheda .voce-piede, .finestra-scheda .gruppo-piede { border-radius: 12px; overflow: hidden; border-color: #d8e4e6; background: #fff; }
+  .finestra-scheda .voce-piede > span { background: #f2f6f6; }
+
+  /* Piede: leggermente trasparente, staccato dal contenuto */
+  .finestra-scheda .scheda-piede { background: rgba(255, 255, 255, .94); backdrop-filter: blur(6px); border-top: 0; box-shadow: 0 -4px 16px rgba(18, 59, 69, .08); }
+  .finestra-scheda .comandi-piede .link { border-radius: 12px; }
+  .finestra-scheda .comandi-piede .link.blu { background: linear-gradient(120deg, #0e7c86, #12919c); box-shadow: 0 3px 10px rgba(14, 124, 134, .35); }
+}
