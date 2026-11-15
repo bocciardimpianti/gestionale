@@ -1512,3 +1512,5 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .fasce-chiamata td { padding: 6px 10px; vertical-align: middle; }
 .fasce-chiamata input { width: 90px; height: 32px; text-align: right; padding: 0 8px; border: 1px solid var(--bordo-forte, #ccd); border-radius: 6px; font-size: 14px; }
 .non-trovati { max-height: 260px; overflow: auto; font-size: 13px; }
+.piede-diritto { flex-wrap: wrap; gap: 6px; }
+.chiedi-salva.finestra-diritto { width: min(600px, 100%); }

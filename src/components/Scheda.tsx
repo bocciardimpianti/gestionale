@@ -168,6 +168,11 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   // Rapportino: diritto di chiamata dalla distanza del cliente dalla sede (fasce in Amministrazione → Diritto di chiamata).
   // Si ricalcola quando si sceglie/cambia il cliente o la tariffa (la tariffa altrimenti metterebbe il suo); resta correggibile a mano.
+  // Diritto di chiamata messo in automatico: al salvataggio si chiede conferma (es. solo un materiale portato, senza uscita)
+  const dirittoAuto = useRef<{ importo: number; km: number } | null>(null);
+  const dirittoDeciso = useRef(false);
+  const [chiediDiritto, setChiediDiritto] = useState(false);
+  const salvaDopoDiritto = useRef(false);
   const clientePrima = useRef<unknown>(nuovo ? undefined : valori.cliente_id);
   const tariffaPrima = useRef<unknown>(valori.tariffa);
   useEffect(() => {
@@ -181,6 +186,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       if (!attivo) return;
       if ("errore" in r) { if (r.errore) setStato(`Diritto di chiamata non calcolato: ${r.errore}`); return; }
       setDati((d) => ({ ...d, diritto_chiamata: r.importo }));
+      dirittoAuto.current = { importo: r.importo, km: r.km };
+      dirittoDeciso.current = false;
       setStato(`Diritto di chiamata ${euro(r.importo)}: cliente a ${Math.round(r.km)} km dalla sede${r.precisione === "comune" ? " (posizione del solo comune)" : ""}`);
     }).catch(() => {});
     return () => { attivo = false; };
@@ -241,6 +248,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   const cambia = (chiave: string, valore: unknown) => {
     segna();
+    // Diritto di chiamata scritto a mano: non serve più chiedere conferma
+    if (chiave === "diritto_chiamata") dirittoAuto.current = null;
     setDati((d) => {
       const nuovi = { ...d, [chiave]: valore };
       return { ...nuovi, ...(cfg.quandoCambia?.(nuovi, chiave) ?? {}) };
@@ -272,6 +281,11 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const salva = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!modificabile) return;
+    if (dirittoAuto.current && !dirittoDeciso.current && dirittoAuto.current.importo > 0
+      && Number(dati.diritto_chiamata) === dirittoAuto.current.importo) {
+      setChiediDiritto(true);
+      return;
+    }
     const record: Record<string, unknown> = {};
     for (const c of tuttiCampi.filter((c) => c.tipo !== "titolo" && !(c.solaLettura && c.chiave in totali))) {
       const v = dati[c.chiave];
@@ -349,6 +363,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const salvaDopoFoto = useRef(false);
   const salvaRif = useRef(salva);
   salvaRif.current = salva;
+  // "Senza diritto di chiamata": prima si azzera il campo, poi (con i dati aggiornati) si salva
+  useEffect(() => {
+    if (!salvaDopoDiritto.current) return;
+    salvaDopoDiritto.current = false;
+    salvaRif.current();
+  }, [dati]);
   useEffect(() => {
     if (!fotoVeloce || !modificabile) return;
     const incolla = async (e: ClipboardEvent) => {
@@ -855,6 +875,31 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           </>
         )}
       </form>
+      {chiediDiritto && dirittoAuto.current && (
+        <div className="velo chiedi-salva-velo" onMouseDown={(e) => { e.stopPropagation(); setChiediDiritto(false); }}>
+          <div className="finestra chiedi-salva finestra-diritto" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo">Applicare il diritto di chiamata?</div>
+            <div className="finestra-corpo">
+              <p>Il diritto di chiamata di <b>{euro(dirittoAuto.current.importo)}</b> è stato messo in automatico: il cliente è a circa <b>{Math.round(dirittoAuto.current.km)} km</b> dalla sede.</p>
+              <p className="piccolo">Se non c'è stata un'uscita (per esempio hai solo consegnato del materiale), salva senza diritto di chiamata.</p>
+            </div>
+            <div className="finestra-piede piede-diritto">
+              <button type="button" className="btn grigio" onClick={() => setChiediDiritto(false)}>Annulla</button>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="btn rosso" onClick={() => {
+                setChiediDiritto(false);
+                dirittoDeciso.current = true;
+                dirittoAuto.current = null;
+                salvaDopoDiritto.current = true;
+                setDati((d) => ({ ...d, diritto_chiamata: 0 }));
+              }}>Senza diritto di chiamata</button>
+              <button type="button" className="btn blu" autoFocus onClick={() => { setChiediDiritto(false); dirittoDeciso.current = true; salva(); }}>
+                Sì, applica {euro(dirittoAuto.current.importo)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {chiediSalva && (
         <div className="velo chiedi-salva-velo" onMouseDown={(e) => { e.stopPropagation(); setChiediSalva(false); }}>
           <div className="finestra chiedi-salva" onMouseDown={(e) => e.stopPropagation()}>
