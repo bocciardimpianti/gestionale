@@ -646,7 +646,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
             <div className="finestra-titolo">Colonne visibili<button className="chiudi" onClick={() => setSceltaColonne(false)}>×</button></div>
             <div className="finestra-corpo elenco-colonne">
-              {senzaPrezzi(cfg.colonne, vedePrezzi).map((c) => (
+              {senzaPrezzi(cfg.colonne, vedePrezzi).filter((c) => !c.nascostaInElenco).map((c) => (
                 <label key={c.chiave} className="interruttore">
                   <input
                     type="checkbox"

@@ -30,6 +30,8 @@ export interface Colonna {
   valore?: (r: Record<string, unknown>) => unknown;
   // Classe della cella negli elenchi collegati (es. tecnico in blu accanto alla data)
   classe?: string;
+  // Colonna che non si vede nell'elenco (resta nella scheda, nell'importazione e nell'esportazione Excel)
+  nascostaInElenco?: boolean;
 }
 
 type Riga = Record<string, unknown> & { id: number };
@@ -71,7 +73,7 @@ export const mostra = (c: Colonna, r: Riga): string =>
 export default function Griglia({ colonne: tutteColonne, righe, selezionata, onSeleziona, onApri, onVisibili, ordineIniziale, ricerca = "", colonnaRicerca = "", onSpunta, azioniRiga, selezionabile = false, onSelezionate, ricercaFurba = false }: Props) {
   // Senza il permesso "Totali" le colonne con totali e importi non compaiono
   const { vedePrezzi } = useAuth();
-  const colonne = useMemo(() => senzaPrezzi(tutteColonne, vedePrezzi), [tutteColonne, vedePrezzi]);
+  const colonne = useMemo(() => senzaPrezzi(tutteColonne, vedePrezzi).filter((c) => !c.nascostaInElenco), [tutteColonne, vedePrezzi]);
   const [ordine, setOrdine] = useState<{ chiave: string; su: boolean }>(ordineIniziale ?? { chiave: colonne[0]?.chiave ?? "id", su: true });
   const [filtri, setFiltri] = useState<Record<string, string>>({});
   // Disegna solo le righe visibili (più un margine), per restare veloce con migliaia di record
@@ -274,7 +276,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
                       {colImporto && <b className="importo">{mostra(colImporto, r)}</b>}
                     </span>
                     {dettagli.map(({ c, v }) => (
-                      <span key={c.chiave} className="riga-telefono-dettaglio">{c.tipo === "categoria" && <span className="pallino-categoria" style={{ background: coloreCategoria(v) }} />}{c.tipo === "numero" || c.tipo === "percentuale" ? `${c.titolo} ${v}` : v}</span>
+                      <span key={c.chiave} className={`riga-telefono-dettaglio${c.classe ? " " + c.classe : ""}`}>{c.tipo === "categoria" && <span className="pallino-categoria" style={{ background: coloreCategoria(v) }} />}{c.tipo === "numero" || c.tipo === "percentuale" ? `${c.titolo} ${v}` : v}</span>
                     ))}
                     {colStato && r[colStato.chiave] ? (
                       <span className="riga-telefono-dettaglio"><span className="quadratino" style={{ background: COLORI_STATO[testo(r[colStato.chiave])] ?? "#999" }} />{testo(r[colStato.chiave])}</span>
@@ -424,7 +426,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
                         : <input type="checkbox" checked={!!r[c.chiave]} readOnly tabIndex={-1} />}
                     </td>
                   ) : (
-                    <td key={c.chiave} title={mostra(c, r)} className={c.tipo === "euro" || c.tipo === "numero" || c.tipo === "percentuale" ? "destra" : ""}>{mostra(c, r)}</td>
+                    <td key={c.chiave} title={mostra(c, r)} className={[c.tipo === "euro" || c.tipo === "numero" || c.tipo === "percentuale" ? "destra" : "", c.classe ?? ""].join(" ").trim() || undefined}>{mostra(c, r)}</td>
                   )
                 ))}
               </tr>
