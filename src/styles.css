@@ -1547,3 +1547,10 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
   .nome-lungo { display: none; }
   .iniziali { display: inline !important; }
 }
+/* Telefono: ogni elemento della griglia dei campi (anche foto, firma, titoli) sta nelle 2 colonne della scheda */
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .griglia-campi > * { grid-column: 1 / -1 !important; min-width: 0; }
+  .finestra-scheda .griglia-campi > .cornice[data-larghezza="1"], .finestra-scheda .griglia-campi > .cornice[data-larghezza="0.5"] { grid-column: auto !important; }
+  .cornice-immagine .suggerimento-foto { white-space: normal; }
+  .cornice-immagine .contenuto-immagine { flex-wrap: wrap; min-width: 0; }
+}
