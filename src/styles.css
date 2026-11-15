@@ -1519,3 +1519,9 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .elenco-trovati .griglia td { padding: 5px 8px; }
 .elenco-trovati select { height: 36px; border: 1px solid var(--bordo-forte, #ccd); border-radius: 6px; padding: 0 8px; }
 .approssimato { color: #a15c00; font-weight: 600; }
+/* Esito del diritto di chiamata nella scheda del rapportino */
+.info-diritto { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; font-size: 13.5px;
+  background: #e6f4f1; border: 1px solid #b9ded7; color: #0b5c55; }
+.info-diritto span { flex: 1; }
+.info-diritto button { background: none; border: 0; color: inherit; cursor: pointer; display: grid; place-items: center; min-width: 30px; min-height: 30px; padding: 0; }
+.info-diritto.errore-diritto { background: #fdf0e8; border-color: #f0c7ae; color: #8a3b12; }

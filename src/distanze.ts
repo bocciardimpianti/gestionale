@@ -20,14 +20,16 @@ async function turno() {
 let avvisaPausa: ((secondi: number) => void) | null = null;
 export const suPausaOpenStreetMap = (f: ((secondi: number) => void) | null) => { avvisaPausa = f; };
 
-async function cerca(q: string): Promise<{ lat: number; lon: number } | null> {
+// Ricerca libera ("q") oppure strutturata (via, comune separati: più affidabile)
+async function cerca(q: string | Record<string, string>): Promise<{ lat: number; lon: number } | null> {
+  const parametri = typeof q === "string" ? `q=${encodeURIComponent(q)}` : new URLSearchParams(q).toString();
   // Se OpenStreetMap chiede di rallentare (o per un momento non risponde) si aspetta e si riprova, sempre più a lungo
   const pause = [30, 60, 120, 300];
   for (let tentativo = 0; ; tentativo++) {
     await turno();
     let stato = 0;
     try {
-      const r = await fetch(`${NOMINATIM}?format=jsonv2&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
+      const r = await fetch(`${NOMINATIM}?format=jsonv2&limit=1&countrycodes=it&accept-language=it&${parametri}`);
       if (r.ok) {
         const d = (await r.json()) as { lat: string; lon: string }[];
         return d[0] ? { lat: Number(d[0].lat), lon: Number(d[0].lon) } : null;
@@ -56,15 +58,28 @@ export function scomponiIndirizzo(indirizzo: string) {
   return { via, comune, prov };
 }
 
-/** Posizione di un indirizzo: prima con la via, se non si trova almeno il comune (meno preciso) */
+/** Posizione di un indirizzo: prima la via (ricerca strutturata, poi libera), se non si trova almeno il comune (meno preciso) */
 export async function trovaPosizione(indirizzo: string): Promise<Posizione | null> {
   const { via, comune, prov } = scomponiIndirizzo(indirizzo);
   if (!via && !comune) return null;
-  const luogo = [comune, prov].filter(Boolean).join(" ");
-  const esatta = await cerca([via, luogo, "Italia"].filter(Boolean).join(", "));
-  if (esatta) return { ...esatta, precisione: "indirizzo" };
+  // "Via Bechini 144/A" → via "Via Bechini", civico "144/A" (e "144" senza lettera)
+  const m = /^(.*?)[\s,]+(\d+)\s*(\/?\s*[A-Za-z]{0,2})$/.exec(via);
+  const strada = m ? m[1].trim() : via;
+  const civico = m ? m[2] : "";
+  const tentativi: (string | Record<string, string>)[] = [];
+  if (comune) {
+    if (civico) tentativi.push({ street: `${civico} ${strada}`, city: comune, country: "Italia" });
+    tentativi.push({ street: strada, city: comune, country: "Italia" });
+    tentativi.push([via, comune, "Italia"].join(", "));
+  } else {
+    tentativi.push([via, prov, "Italia"].filter(Boolean).join(", "));
+  }
+  for (const t of tentativi) {
+    const p = await cerca(t);
+    if (p) return { ...p, precisione: "indirizzo" };
+  }
   if (!comune) return null;
-  const delComune = await cerca([comune, prov, "Italia"].filter(Boolean).join(", "));
+  const delComune = (await cerca({ city: comune, country: "Italia" })) ?? (prov ? await cerca(`${comune}, ${prov}, Italia`) : null);
   return delComune ? { ...delComune, precisione: "comune" } : null;
 }
 
@@ -99,17 +114,18 @@ export async function dirittoPerCliente(clienteId: number): Promise<{ importo: n
     leggiSede(), leggiFasce(),
     supabase.from("clienti").select("id, indirizzo_fatturazione, lat, lon, geo_indirizzo, geo_precisione").eq("id", clienteId).maybeSingle(),
   ]);
-  if (!sede || !fasce.length) return { errore: "" }; // funzione non ancora impostata: nessun messaggio
+  if (!sede && !fasce.length) return { errore: "" }; // funzione non ancora impostata: nessun messaggio
+  if (!sede) return { errore: "manca la posizione della sede (Amministrazione → Diritto di chiamata, punto 1)" };
+  if (!fasce.length) return { errore: "mancano le fasce di prezzo (Amministrazione → Diritto di chiamata, punto 2)" };
   if (!c) return { errore: "cliente non trovato" };
   const indirizzo = String(c.indirizzo_fatturazione ?? "").trim();
   let pos = c.lat != null && c.lon != null && c.geo_indirizzo === indirizzo ? { lat: Number(c.lat), lon: Number(c.lon), precisione: String(c.geo_precisione ?? "indirizzo") } : null;
   if (!pos) {
     if (!indirizzo) return { errore: "il cliente non ha l'indirizzo" };
-    // Già cercato senza successo con lo stesso indirizzo: non si chiede di nuovo
-    if (c.geo_indirizzo === indirizzo && c.geo_precisione === "non trovato") return { errore: "indirizzo del cliente non trovato sulla mappa" };
+    // (anche se in passato non era stato trovato: si riprova, la ricerca può essere migliorata)
     const trovata = await trovaPosizione(indirizzo).catch(() => null);
     await supabase.rpc("salva_posizione_cliente", { p_id: clienteId, p_lat: trovata?.lat ?? null, p_lon: trovata?.lon ?? null, p_indirizzo: indirizzo, p_precisione: trovata?.precisione ?? "non trovato" });
-    if (!trovata) return { errore: "indirizzo del cliente non trovato sulla mappa" };
+    if (!trovata) return { errore: `indirizzo "${indirizzo}" non trovato sulla mappa: controllalo nella scheda del cliente` };
     pos = trovata;
   }
   if (pos.lat == null || Number.isNaN(pos.lat)) return { errore: "indirizzo del cliente non trovato sulla mappa" };

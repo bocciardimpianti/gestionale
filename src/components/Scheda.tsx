@@ -172,6 +172,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const dirittoAuto = useRef<{ importo: number; km: number } | null>(null);
   const dirittoDeciso = useRef(false);
   const [chiediDiritto, setChiediDiritto] = useState(false);
+  // Esito del calcolo, mostrato in un riquadro nella scheda (sul telefono la barra di stato è nascosta)
+  const [infoDiritto, setInfoDiritto] = useState<{ testo: string; errore: boolean } | null>(null);
   const salvaDopoDiritto = useRef(false);
   const clientePrima = useRef<unknown>(nuovo ? undefined : valori.cliente_id);
   const tariffaPrima = useRef<unknown>(valori.tariffa);
@@ -182,14 +184,20 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     tariffaPrima.current = dati.tariffa;
     if (!cambiato || !dati.cliente_id) return;
     let attivo = true;
+    setInfoDiritto({ testo: "Calcolo del diritto di chiamata…", errore: false });
     dirittoPerCliente(Number(dati.cliente_id)).then((r) => {
       if (!attivo) return;
-      if ("errore" in r) { if (r.errore) setStato(`Diritto di chiamata non calcolato: ${r.errore}`); return; }
+      if ("errore" in r) {
+        setInfoDiritto(r.errore ? { testo: `Diritto di chiamata non calcolato: ${r.errore}`, errore: true } : null);
+        if (r.errore) setStato(`Diritto di chiamata non calcolato: ${r.errore}`);
+        return;
+      }
+      setInfoDiritto({ testo: `Diritto di chiamata ${euro(r.importo)} — cliente a circa ${Math.round(r.km)} km dalla sede${r.precisione === "comune" ? " (posizione del solo comune)" : ""}`, errore: false });
       setDati((d) => ({ ...d, diritto_chiamata: r.importo }));
       dirittoAuto.current = { importo: r.importo, km: r.km };
       dirittoDeciso.current = false;
       setStato(`Diritto di chiamata ${euro(r.importo)}: cliente a ${Math.round(r.km)} km dalla sede${r.precisione === "comune" ? " (posizione del solo comune)" : ""}`);
-    }).catch(() => {});
+    }).catch((e) => { if (attivo) setInfoDiritto({ testo: `Diritto di chiamata non calcolato: ${(e as Error).message}`, errore: true }); });
     return () => { attivo = false; };
   }, [dati.cliente_id, dati.tariffa]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -793,6 +801,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                 ))}
               </div>
               <div className="pannello-linguetta">
+                {infoDiritto && (linguetta === "Principale" || linguetta === "Tariffe") && (
+                  <div className={`info-diritto${infoDiritto.errore ? " errore-diritto" : ""}`}>
+                    <MapPin size={16} /> <span>{infoDiritto.testo}</span>
+                    <button type="button" aria-label="Nascondi" onClick={() => setInfoDiritto(null)}><X size={15} /></button>
+                  </div>
+                )}
                 {linguetta === "Principale" ? (
                   <>
                     <div className="griglia-campi">{principali.map((c, i) => campo(c, !!principali[i - 1]?.finisciRiga))}</div>
