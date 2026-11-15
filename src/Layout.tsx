@@ -4,7 +4,7 @@ import {
   Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
   LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
   Search, Settings, Smartphone, Star, Type, User, UserRound, Users, Wrench, X, type LucideIcon,
-  ChevronDown, MapPin, PackageSearch, PanelLeftClose, PanelLeftOpen, Plus,
+  ChevronDown, MapPin, PackageSearch, PanelLeftClose, PanelLeftOpen, Plus, Zap,
 } from "lucide-react";
 import TavolozzaComandi, { type Comando } from "./components/TavolozzaComandi";
 import { ARCHIVI } from "./archivi";
@@ -121,11 +121,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         { chiave: "admin/utenti", etichetta: "Utenti, permessi e tecnici", gruppo: "", ordine: 0 },
         { chiave: "admin/materiali-tecnici", etichetta: "Materiali per tecnico", gruppo: "", ordine: 0 },
         { chiave: "admin/chiamata", etichetta: "Diritto di chiamata", gruppo: "", ordine: 0 },
+        { chiave: "admin/impianti-tipo", etichetta: "Impianti tipo (preventivi)", gruppo: "", ordine: 0 },
         { chiave: "admin/registro", etichetta: "Registro attività", gruppo: "", ordine: 0 },
       ],
     });
   }
-  const iconaAdmin: Record<string, LucideIcon> = { "admin/utenti": Users, "admin/registro": ScrollText, "admin/chiamata": MapPin, "admin/materiali-tecnici": PackageSearch };
+  const iconaAdmin: Record<string, LucideIcon> = { "admin/utenti": Users, "admin/registro": ScrollText, "admin/chiamata": MapPin, "admin/materiali-tecnici": PackageSearch, "admin/impianti-tipo": Zap };
   const percorso = (chiave: string) => (chiave === "home" ? "/" : chiave.startsWith("admin/") ? `/${chiave}` : `/s/${chiave}`);
 
   // Voci di "Vai a…": tutte le sezioni del menu, i "Nuovo…" permessi e alcune azioni
@@ -138,6 +139,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       id: `nuovo:${c.sezione}`, titolo: c.titoloNuovo!, gruppo: "Crea", Icona: Plus, parole: `nuovo crea aggiungi ${c.titolo}`,
       esegui: () => naviga(`/s/${c.sezione}?nuovo=1`),
     })),
+    ...(puo("preventivi", "creare") ? [{ id: "guidato", titolo: "Nuovo preventivo guidato", gruppo: "Crea", Icona: Zap, parole: "preventivo elettrico idraulico foglio ambienti", esegui: () => naviga("/preventivo-guidato") }] : []),
     { id: "cerca", titolo: "Cerca ovunque", gruppo: "Azioni", Icona: Search, parole: "trova ricerca", esegui: () => naviga("/cerca") },
     { id: "aspetto", titolo: "Aspetto e dimensioni", gruppo: "Azioni", Icona: Type, parole: "grandezza testo zoom", esegui: () => setAspetto(true) },
     ...(admin ? [{ id: "backup", titolo: "Backup completo", gruppo: "Azioni", Icona: Database, parole: "salva copia", esegui: () => setFinestraBackup("backup") }] : []),

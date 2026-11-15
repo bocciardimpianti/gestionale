@@ -514,6 +514,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           {cfg.sezione === "ddt_acquisto" && !nelCestino && vedePrezzi && puo(cfg.sezione, "creare") && (
             <button className="btn blu" onClick={() => setImportaPdf(true)} title="Legge il DDT dal PDF del fornitore">Da PDF</button>
           )}
+          {cfg.sezione === "preventivi" && !nelCestino && puo(cfg.sezione, "creare") && (
+            <button className="btn arancio" onClick={() => { location.hash = "#/preventivo-guidato"; }} title="Preventivo a ambienti: elettrico o idraulico">⚡ Guidato</button>
+          )}
           {puo(cfg.sezione, "creare") && !nelCestino && (
             <button className="btn blu" onClick={() => apriNuovo()}>Nuovo</button>
           )}

@@ -747,6 +747,11 @@ export const ARCHIVI: Record<string, Archivio> = {
     ordineIniziale: { chiave: "data", su: false },
     calcolaTotali: totaliPreventivo,
     stampa: stampaPreventivo,
+    azioniScheda: [{
+      etichetta: "Apri nel foglio guidato", inEvidenza: true,
+      mostra: (d) => !!d.id && !!d.configurazione,
+      esegui: (d) => { location.hash = `#/preventivo-guidato?id=${d.id}`; },
+    }],
     valoriNuovo: async () => ({ data: dataIso(new Date()), stato: "Aperto", sconto: 0, iva: 0 }),
     colonne: [
       { chiave: "data", titolo: "Data", excel: "Data", larghezza: 88, tipo: "data" },
