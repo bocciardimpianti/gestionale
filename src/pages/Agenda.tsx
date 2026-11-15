@@ -109,7 +109,8 @@ export default function Agenda() {
 
   useEffect(() => {
     supabase.from("tecnici").select("id, nome").is("eliminato_il", null).order("nome")
-      .then(({ data }) => setTecnici(data ?? []));
+      // "Amministrazione" non è un tecnico che esce: in agenda non compare
+      .then(({ data }) => setTecnici((data ?? []).filter((t) => !/amministrazione/i.test(String(t.nome)))));
   }, []);
 
   const carica = useCallback(async () => {
