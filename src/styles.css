@@ -1514,3 +1514,8 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .non-trovati { max-height: 260px; overflow: auto; font-size: 13px; }
 .piede-diritto { flex-wrap: wrap; gap: 6px; }
 .chiedi-salva.finestra-diritto { width: min(600px, 100%); }
+.elenco-trovati { margin-top: 10px; }
+.elenco-trovati .griglia { width: 100%; font-size: 13px; }
+.elenco-trovati .griglia td { padding: 5px 8px; }
+.elenco-trovati select { height: 36px; border: 1px solid var(--bordo-forte, #ccd); border-radius: 6px; padding: 0 8px; }
+.approssimato { color: #a15c00; font-weight: 600; }

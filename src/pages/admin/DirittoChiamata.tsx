@@ -20,6 +20,10 @@ export default function DirittoChiamata() {
   const [mancaScript, setMancaScript] = useState(false);
   // Esito della ricerca delle posizioni, mostrato accanto al pulsante
   const [esitoPosizioni, setEsitoPosizioni] = useState("");
+  // Elenco dei clienti di cui si è trovata la posizione (per controllarli)
+  const [vediTrovati, setVediTrovati] = useState(false);
+  const [filtroTrovati, setFiltroTrovati] = useState<"tutti" | "indirizzo" | "comune">("tutti");
+  const [cercaTrovati, setCercaTrovati] = useState("");
 
   const carica = async () => {
     const [s, f] = await Promise.all([leggiSede(), leggiFasce()]);
@@ -181,6 +185,49 @@ export default function DirittoChiamata() {
               </div>
             )}
             {esitoPosizioni && <p className={esitoPosizioni.startsWith("Interrotto") ? "errore" : "ok"}>{esitoPosizioni}</p>}
+            {conPosizione.length > 0 && (
+              <button className="btn grigio" onClick={() => setVediTrovati(!vediTrovati)}>
+                {vediTrovati ? "Nascondi l'elenco" : `Vedi i clienti con la posizione (${conPosizione.length})`}
+              </button>
+            )}
+            {vediTrovati && (() => {
+              const t = cercaTrovati.trim().toLowerCase();
+              const elenco = conPosizione
+                .filter((c) => filtroTrovati === "tutti" || c.geo_precisione === filtroTrovati)
+                .filter((c) => !t || `${c.nome} ${c.indirizzo_fatturazione ?? ""}`.toLowerCase().includes(t))
+                .map((c) => ({ c, km: sede ? distanzaKm(sede, { lat: c.lat!, lon: c.lon! }) : null }))
+                .sort((a, b) => (a.km ?? 0) - (b.km ?? 0) || a.c.nome.localeCompare(b.c.nome));
+              const conVia = conPosizione.filter((c) => c.geo_precisione === "indirizzo").length;
+              return (
+                <div className="elenco-trovati">
+                  <div className="riga-sede">
+                    <select value={filtroTrovati} onChange={(e) => setFiltroTrovati(e.target.value as typeof filtroTrovati)}>
+                      <option value="tutti">Tutti ({conPosizione.length})</option>
+                      <option value="indirizzo">Trovati con la via ({conVia})</option>
+                      <option value="comune">Solo il comune, posizione approssimativa ({conPosizione.length - conVia})</option>
+                    </select>
+                    <input value={cercaTrovati} onChange={(e) => setCercaTrovati(e.target.value)} placeholder="Cerca cliente o indirizzo…" />
+                  </div>
+                  <table className="griglia">
+                    <thead><tr><th>Cliente</th><th>Indirizzo</th><th>Trovato con</th><th>Distanza</th><th>Diritto</th><th /></tr></thead>
+                    <tbody>
+                      {elenco.slice(0, 500).map(({ c, km }) => (
+                        <tr key={c.id}>
+                          <td>{c.nome}</td>
+                          <td>{c.indirizzo_fatturazione}</td>
+                          <td>{c.geo_precisione === "comune" ? <span className="approssimato">solo comune</span> : "via"}</td>
+                          <td className="destra">{km === null ? "—" : `${km.toLocaleString("it-IT", { maximumFractionDigits: 1 })} km`}</td>
+                          <td className="destra">{km === null || !fasce.length ? "—" : euro(fasciaPer(km, fasce)?.importo ?? 0)}</td>
+                          <td><a href={`https://www.openstreetmap.org/?mlat=${c.lat}&mlon=${c.lon}#map=17/${c.lat}/${c.lon}`} target="_blank" rel="noreferrer" title="Controlla il punto sulla mappa"><MapPin size={15} /></a></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {elenco.length > 500 && <p className="piccolo">Mostrati i primi 500 su {elenco.length}: usa la ricerca per trovare gli altri.</p>}
+                  {!elenco.length && <p className="piccolo">Nessun cliente con questi filtri.</p>}
+                </div>
+              );
+            })()}
             {nonTrovati.length > 0 && (
               <details>
                 <summary>Indirizzi non trovati ({nonTrovati.length}): correggili nella scheda del cliente</summary>
