@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Package, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "../../supabase";
-import { leggiCatalogo, leggiSerie, NOMI_TIPO, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
+import { COMPONENTI, leggiCatalogo, leggiSerie, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
 import CercaMateriale from "../../components/CercaMateriale";
 
 // Impostazioni del preventivo guidato: voci d'impianto (prezzo a punto e/o kit di materiali) e ambienti tipo.
 const euro = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const numero = (s: string) => Number(s.replace(",", "."));
+
+const NOMI_COMPONENTE: Record<Componente, string> = { supporto_3: "Supporto 3M", placca_3: "Placca 3M", supporto_4: "Supporto 4M", placca_4: "Placca 4M", copriforo: "Copriforo" };
 
 export default function ImpiantiTipo() {
   const [tipo, setTipo] = useState<TipoImpianto>("elettrico");
@@ -17,6 +19,7 @@ export default function ImpiantiTipo() {
   const [cercaKit, setCercaKit] = useState(false);
   const [serie, setSerie] = useState<SerieCivile[]>([]);
   const [erroreSerie, setErroreSerie] = useState("");
+  const [collegaA, setCollegaA] = useState<{ serie: SerieCivile; c: Componente } | null>(null);
 
   const carica = useCallback(async () => {
     try {
@@ -132,19 +135,36 @@ export default function ImpiantiTipo() {
       {tipo === "elettrico" && (
         <section className="riquadro-chiamata">
           <h2>Serie civili</h2>
-          <p className="piccolo">Prezzi a pezzo usati dal preventivo guidato per calcolare supporti e placche (uno per scatola) e copriforo (posti liberi nelle scatole).</p>
+          <p className="piccolo">Ogni pezzo è collegato a un materiale del catalogo e ne usa il <b>prezzo di vendita</b> (se cambi il prezzo nel catalogo cambia anche qui); se non è collegato vale il prezzo scritto a mano. Prezzi a pezzo usati dal preventivo guidato per calcolare supporti e placche (uno per scatola) e copriforo (posti liberi nelle scatole).</p>
           {erroreSerie && <p className="errore">{erroreSerie}</p>}
           <table className="griglia tabella-voci">
-            <thead><tr><th>Serie</th><th>Supporto 3M</th><th>Placca 3M</th><th>Supporto 4M</th><th>Placca 4M</th><th>Copriforo</th><th>Attiva</th><th /></tr></thead>
+            <thead><tr><th>Serie</th>{COMPONENTI.map((c) => <th key={c}>{NOMI_COMPONENTE[c]}</th>)}<th>Attiva</th><th /></tr></thead>
             <tbody>
               {serie.map((x) => (
                 <tr key={x.id} className={x.attiva ? "" : "spenta"}>
                   <td><input defaultValue={x.nome} onBlur={(e) => e.target.value.trim() && e.target.value !== x.nome && esegui(supabase.from("serie_civili").update({ nome: e.target.value.trim() }).eq("id", x.id))} /></td>
-                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_supporto_3).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_supporto_3) esegui(supabase.from("serie_civili").update({ prezzo_supporto_3: p }).eq("id", x.id)); }} /></td>
-                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_placca_3).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_placca_3) esegui(supabase.from("serie_civili").update({ prezzo_placca_3: p }).eq("id", x.id)); }} /></td>
-                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_supporto_4).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_supporto_4) esegui(supabase.from("serie_civili").update({ prezzo_supporto_4: p }).eq("id", x.id)); }} /></td>
-                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_placca_4).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_placca_4) esegui(supabase.from("serie_civili").update({ prezzo_placca_4: p }).eq("id", x.id)); }} /></td>
-                    <td><input className="corto destra" inputMode="decimal" defaultValue={String(x.prezzo_copriforo).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x.prezzo_copriforo) esegui(supabase.from("serie_civili").update({ prezzo_copriforo: p }).eq("id", x.id)); }} /></td>
+                  {COMPONENTI.map((c) => {
+                    const m = x.collegati?.[c];
+                    return (
+                      <td key={c} className="cella-serie">
+                        {m ? (
+                          <span className="materiale-serie" title={m.descrizione}>
+                            <b>{euro(m.prezzo)}</b>
+                            <span className="descr">{m.descrizione}</span>
+                            <span className="azioni-serie">
+                              <button className="link" onClick={() => setCollegaA({ serie: x, c })}>cambia</button>
+                              <button className="link rosso" onClick={() => esegui(supabase.from("serie_civili").update({ [`mat_${c}`]: null }).eq("id", x.id))}>scollega</button>
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="materiale-serie">
+                            <span><input className="corto destra" inputMode="decimal" defaultValue={String(x[`prezzo_${c}`]).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== x[`prezzo_${c}`]) esegui(supabase.from("serie_civili").update({ [`prezzo_${c}`]: p }).eq("id", x.id)); }} /> €</span>
+                            <button className="link" onClick={() => setCollegaA({ serie: x, c })}>🔗 dal catalogo</button>
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
                   <td><input type="checkbox" checked={x.attiva} onChange={(e) => esegui(supabase.from("serie_civili").update({ attiva: e.target.checked }).eq("id", x.id))} /></td>
                   <td><button className="link rosso" title="Elimina la serie" onClick={() => confirm(`Eliminare la serie "${x.nome}"?`) && esegui(supabase.from("serie_civili").delete().eq("id", x.id))}><Trash2 size={15} /></button></td>
                 </tr>
@@ -156,6 +176,14 @@ export default function ImpiantiTipo() {
             if (nome) esegui(supabase.from("serie_civili").insert({ nome, ordine: Math.max(0, ...serie.map((x) => x.ordine)) + 10 }));
           }}><Plus size={15} /> Nuova serie</button>
         </section>
+      )}
+
+      {collegaA && (
+        <div className="sopra-materiali" onMouseDown={(e) => e.stopPropagation()}>
+          <CercaMateriale titolo={`${NOMI_COMPONENTE[collegaA.c]} – ${collegaA.serie.nome}`} testoIniziale={`${NOMI_COMPONENTE[collegaA.c].split(" ")[0].toLowerCase()} ${collegaA.serie.nome.replace(/^(BTicino|Vimar|Gewiss) /, "")}`}
+            onChiudi={() => setCollegaA(null)}
+            onScegli={(m) => { esegui(supabase.from("serie_civili").update({ [`mat_${collegaA.c}`]: m.id }).eq("id", collegaA.serie.id)); setCollegaA(null); }} />
+        </div>
       )}
 
       {kitDi && (

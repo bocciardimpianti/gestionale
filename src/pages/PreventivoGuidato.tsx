@@ -72,7 +72,7 @@ export default function PreventivoGuidato() {
   }, [foglio?.tipo]);
 
   const sceltaSerie = (s: SerieCivile | null) => {
-    cambia((x) => ({ ...x, serie: s && { id: s.id, nome: s.nome, prezzo_supporto_3: s.prezzo_supporto_3, prezzo_supporto_4: s.prezzo_supporto_4, prezzo_placca_3: s.prezzo_placca_3, prezzo_placca_4: s.prezzo_placca_4, prezzo_copriforo: s.prezzo_copriforo } }));
+    cambia((x) => ({ ...x, serie: s && { id: s.id, nome: s.nome, prezzo_supporto_3: s.prezzo_supporto_3, prezzo_supporto_4: s.prezzo_supporto_4, prezzo_placca_3: s.prezzo_placca_3, prezzo_placca_4: s.prezzo_placca_4, prezzo_copriforo: s.prezzo_copriforo, collegati: s.collegati } }));
   };
 
   const cliente = clienti.find((c) => c.nome.trim().toLowerCase() === testoCliente.trim().toLowerCase()) ?? null;
@@ -120,9 +120,10 @@ export default function PreventivoGuidato() {
       }
     }
     for (const a of foglio?.ambienti ?? []) for (const x of accessoriAmbiente(a, foglio?.serie)) {
-      const r = m.get(x.nome) ?? { descrizione: x.nome, unita: "pz", quantita: 0 };
+      const nome = x.materiale ?? x.nome;
+      const r = m.get(nome) ?? { descrizione: nome, unita: "pz", quantita: 0 };
       r.quantita += x.quantita;
-      m.set(x.nome, r);
+      m.set(nome, r);
     }
     return [...m.values()].sort((a, b) => a.descrizione.localeCompare(b.descrizione));
   }, [foglio, catalogo]);
@@ -213,6 +214,7 @@ export default function PreventivoGuidato() {
             <button key={s.id} className="carta-serie" onClick={() => sceltaSerie(s)}>
               <b>{s.nome}</b>
               <span className="piccolo">placca 3M {euro(s.prezzo_placca_3)} · supporto {euro(s.prezzo_supporto_3)}</span>
+              <span className={`piccolo ${Object.keys(s.collegati ?? {}).length ? "ok" : ""}`}>{Object.keys(s.collegati ?? {}).length ? `prezzi dal catalogo (${Object.keys(s.collegati ?? {}).length}/5)` : "prezzi scritti a mano"}</span>
             </button>
           ))}
           <button className="carta-serie vuota" onClick={() => sceltaSerie(null)}><b>Nessuna / decido dopo</b><span className="piccolo">niente placche e supporti</span></button>

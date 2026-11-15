@@ -9,14 +9,19 @@ export type MaterialeKit = { id?: number; materiale_id: number; quantita: number
 export type VoceImpianto = { id: number; tipo: TipoImpianto; nome: string; unita: string; prezzo: number | null; ordine: number; attiva: boolean; moduli: number; kit: MaterialeKit[] };
 export type AmbienteTipo = { id: number; tipo: TipoImpianto; nome: string; ordine: number; scatole_3: number; scatole_4: number; voci: { voce_id: number; quantita: number }[] };
 // Serie civile (placche e supporti): prezzi a pezzo per scatole da 3 e 4 moduli
-export type SerieCivile = { id: number; nome: string; prezzo_supporto_3: number; prezzo_supporto_4: number; prezzo_placca_3: number; prezzo_placca_4: number; prezzo_copriforo: number; ordine: number; attiva: boolean };
+export const COMPONENTI = ["supporto_3", "placca_3", "supporto_4", "placca_4", "copriforo"] as const;
+export type Componente = (typeof COMPONENTI)[number];
+export type MaterialeSerie = { id: number; descrizione: string; prezzo: number };
+// I prezzi sono quelli del materiale collegato del catalogo (prezzo di vendita), altrimenti quelli scritti a mano
+export type SerieCivile = { id: number; nome: string; prezzo_supporto_3: number; prezzo_supporto_4: number; prezzo_placca_3: number; prezzo_placca_4: number; prezzo_copriforo: number; ordine: number; attiva: boolean;
+  collegati?: Partial<Record<Componente, MaterialeSerie>> };
 
 // Foglio del preventivo (salvato nel preventivo per poterlo riaprire)
 export type VoceFoglio = { voce_id: number | null; nome: string; unita: string; prezzo: number; quantita: number; moduli?: number };
 export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[]; scatole_3?: number; scatole_4?: number };
 // La serie è copiata nel foglio (nome e prezzi) così riaprendo il preventivo i conti non cambiano
 export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva"> | null };
-export type Accessorio = { nome: string; breve: string; quantita: number; prezzo: number };
+export type Accessorio = { nome: string; breve: string; quantita: number; prezzo: number; materiale?: string };
 
 const r2 = (x: number) => Math.round(x * 100) / 100;
 
@@ -36,7 +41,7 @@ export function accessoriAmbiente(a: AmbienteFoglio, serie: Foglio["serie"]): Ac
     { nome: `Supporto 4 moduli ${serie.nome}`, breve: "Supporto 4M", quantita: s4, prezzo: Number(serie.prezzo_supporto_4) },
     { nome: `Placca 4 moduli ${serie.nome}`, breve: "Placca 4M", quantita: s4, prezzo: Number(serie.prezzo_placca_4) },
     { nome: `Copriforo ${serie.nome}`, breve: "Copriforo (circa)", quantita: copriforo, prezzo: Number(serie.prezzo_copriforo) },
-  ].filter((x) => x.quantita > 0);
+  ].map((x, i) => ({ ...x, materiale: serie.collegati?.[(["supporto_3", "placca_3", "supporto_4", "placca_4", "copriforo"] as Componente[])[i]]?.descrizione })).filter((x) => x.quantita > 0);
 }
 /** Scatole stimate quando l'ambiente non le ha: circa 2 moduli per scatola da 3 */
 export const stimaScatole = (moduli: number) => Math.ceil(moduli / 2);
@@ -45,9 +50,22 @@ export const totaleAmbiente = (a: AmbienteFoglio, serie?: Foglio["serie"]) =>
   r2(a.voci.reduce((t, v) => t + v.prezzo * v.quantita, 0) + accessoriAmbiente(a, serie).reduce((t, x) => t + x.prezzo * x.quantita, 0));
 
 export async function leggiSerie() {
-  const { data, error } = await supabase.from("serie_civili").select("*").order("ordine").order("id");
+  const conMateriali = "*, " + COMPONENTI.map((c) => `m_${c}:mat_${c}(id, descrizione, prezzo_ricaricato)`).join(", ");
+  const q = (sel: string) => supabase.from("serie_civili").select(sel).order("ordine").order("id");
+  let { data, error } = await q(conMateriali);
+  if (error && /mat_|relationship/i.test(error.message)) ({ data, error } = await q("*")); // script 0033 non ancora eseguito
   if (error) throw new Error(/serie_civili/.test(error.message) ? "Esegui su Supabase lo script 0032_serie_civili.sql" : error.message);
-  return (data ?? []).map((x) => ({ ...x, prezzo_supporto_3: Number(x.prezzo_supporto_3), prezzo_supporto_4: Number(x.prezzo_supporto_4), prezzo_placca_3: Number(x.prezzo_placca_3), prezzo_placca_4: Number(x.prezzo_placca_4), prezzo_copriforo: Number(x.prezzo_copriforo) })) as SerieCivile[];
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((x) => {
+    const collegati: Partial<Record<Componente, MaterialeSerie>> = {};
+    const serie = { ...x, collegati } as unknown as SerieCivile;
+    for (const c of COMPONENTI) {
+      const m = x[`m_${c}`] as { id: number; descrizione: string; prezzo_ricaricato: number } | null | undefined;
+      if (m) collegati[c] = { id: m.id, descrizione: m.descrizione, prezzo: r2(Number(m.prezzo_ricaricato)) };
+      serie[`prezzo_${c}`] = m ? r2(Number(m.prezzo_ricaricato)) : Number(x[`prezzo_${c}`] ?? 0);
+      delete (serie as unknown as Record<string, unknown>)[`m_${c}`];
+    }
+    return serie;
+  });
 }
 
 export async function leggiCatalogo(tipo?: TipoImpianto) {
