@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MapPin, Plus, Trash2 } from "lucide-react";
 import { supabase, leggiTutto } from "../../supabase";
 import { AZIENDA } from "../../stampe";
-import { distanzaKm, fasciaPer, leggiFasce, leggiSede, trovaPosizione, type Fascia } from "../../distanze";
+import { distanzaKm, fasciaPer, leggiFasce, leggiSede, suPausaOpenStreetMap, trovaPosizione, type Fascia } from "../../distanze";
 
 // Diritto di chiamata per distanza: sede, fasce di km con il prezzo, posizione dei clienti sulla mappa.
 type Cliente = { id: number; nome: string; indirizzo_fatturazione: string | null; lat: number | null; lon: number | null; geo_indirizzo: string | null; geo_precisione: string | null };
@@ -18,6 +18,8 @@ export default function DirittoChiamata() {
   const [inCorso, setInCorso] = useState("");
   const ferma = useRef(false);
   const [mancaScript, setMancaScript] = useState(false);
+  // Esito della ricerca delle posizioni, mostrato accanto al pulsante
+  const [esitoPosizioni, setEsitoPosizioni] = useState("");
 
   const carica = async () => {
     const [s, f] = await Promise.all([leggiSede(), leggiFasce()]);
@@ -75,25 +77,29 @@ export default function DirittoChiamata() {
       return anche_non_trovati && c.geo_precisione === "non trovato";
     });
     if (!daFare.length) return setMessaggio("Tutti i clienti con indirizzo hanno già la posizione");
-    if (!confirm(`Cerco la posizione di ${daFare.length} clienti su OpenStreetMap (circa ${Math.ceil(daFare.length * 1.2 / 60)} minuti, uno al secondo).\n\nViene inviato solo l'indirizzo, non il nome. Puoi continuare a usare il gestionale in un'altra scheda.`)) return;
+    if (!confirm(`Cerco la posizione di ${daFare.length} clienti su OpenStreetMap (circa ${Math.ceil(daFare.length * 1.6 / 60)} minuti, uno ogni secondo e mezzo).\n\nViene inviato solo l'indirizzo, non il nome. Puoi continuare a usare il gestionale in un'altra scheda.`)) return;
     ferma.current = false;
+    setEsitoPosizioni("");
     let trovati = 0, approssimati = 0, no = 0;
+    let errore = "";
     for (let i = 0; i < daFare.length; i++) {
       if (ferma.current) break;
       const c = daFare[i];
       const ind = (c.indirizzo_fatturazione ?? "").trim();
       setInCorso(`Posizione ${i + 1} di ${daFare.length}: ${c.nome}`);
+      suPausaOpenStreetMap((sec) => setInCorso(`OpenStreetMap chiede di rallentare: riprendo da solo tra ${sec} secondi (${i} di ${daFare.length} fatti)`));
       let p = null;
-      try { p = await trovaPosizione(ind); } catch (e) { setMessaggio("Errore: " + (e as Error).message); break; }
+      try { p = await trovaPosizione(ind); } catch (e) { errore = (e as Error).message; break; }
       const valori = { lat: p?.lat ?? null, lon: p?.lon ?? null, geo_indirizzo: ind, geo_precisione: p?.precisione ?? "non trovato" };
       await supabase.rpc("salva_posizione_cliente", { p_id: c.id, p_lat: valori.lat, p_lon: valori.lon, p_indirizzo: ind, p_precisione: valori.geo_precisione });
       Object.assign(c, valori);
       if (!p) no++; else if (p.precisione === "comune") approssimati++; else trovati++;
       if (i % 10 === 0) setClienti([...clienti]);
     }
+    suPausaOpenStreetMap(null);
     setClienti([...clienti]);
     setInCorso("");
-    setMessaggio(`Fatto: ${trovati} trovati con la via, ${approssimati} solo con il comune, ${no} non trovati`);
+    setEsitoPosizioni(`${errore ? `Interrotto – ${errore}. ` : ferma.current ? "Fermato. " : "Fatto: "}${trovati} trovati con la via, ${approssimati} solo con il comune, ${no} non trovati.${errore || ferma.current ? " Premi di nuovo il pulsante per continuare da dove si è fermato." : ""}`);
   };
 
   const conPosizione = clienti?.filter((c) => c.lat != null) ?? [];
@@ -127,6 +133,7 @@ export default function DirittoChiamata() {
 
       <section className="riquadro-chiamata">
         <h2>2. Fasce di distanza e prezzo</h2>
+        {!sede && <p className="errore">Prima imposta la posizione della sede (punto 1): senza, le distanze non si possono calcolare.</p>}
         <table className="griglia fasce-chiamata">
           <thead><tr><th>Distanza</th><th>Diritto di chiamata</th><th>Clienti</th><th /></tr></thead>
           <tbody>
@@ -173,6 +180,7 @@ export default function DirittoChiamata() {
                 {nonTrovati.length > 0 && <button className="btn grigio" onClick={() => calcolaPosizioni(true)}>Riprova anche i non trovati</button>}
               </div>
             )}
+            {esitoPosizioni && <p className={esitoPosizioni.startsWith("Interrotto") ? "errore" : "ok"}>{esitoPosizioni}</p>}
             {nonTrovati.length > 0 && (
               <details>
                 <summary>Indirizzi non trovati ({nonTrovati.length}): correggili nella scheda del cliente</summary>

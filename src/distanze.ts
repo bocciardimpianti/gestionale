@@ -1,6 +1,6 @@
 // Distanza dei clienti dalla sede (in linea d'aria) e diritto di chiamata per fasce di km.
 // Le posizioni si ricavano dall'indirizzo con OpenStreetMap (Nominatim): viene inviato solo l'indirizzo
-// (via, numero, comune), mai il nome del cliente. Massimo una richiesta al secondo, come chiede il servizio.
+// (via, numero, comune), mai il nome del cliente. Al massimo una richiesta al secondo, come chiede il servizio.
 import { supabase } from "./supabase";
 
 export type Posizione = { lat: number; lon: number; precisione: "indirizzo" | "comune" };
@@ -9,19 +9,39 @@ export type Fascia = { km_fino: number; importo: number };
 const NOMINATIM = "https://nominatim.openstreetmap.org/search";
 let ultimaRichiesta = 0;
 
-// Attesa per non superare una richiesta al secondo
+// Attesa tra una richiesta e l'altra (il servizio chiede al massimo una al secondo: si sta larghi)
 async function turno() {
-  const attesa = ultimaRichiesta + 1100 - Date.now();
+  const attesa = ultimaRichiesta + 1500 - Date.now();
   if (attesa > 0) await new Promise((r) => setTimeout(r, attesa));
   ultimaRichiesta = Date.now();
 }
 
+// Chi vuole sapere delle pause (es. la pagina Diritto di chiamata mostra "riprendo tra 30 secondi")
+let avvisaPausa: ((secondi: number) => void) | null = null;
+export const suPausaOpenStreetMap = (f: ((secondi: number) => void) | null) => { avvisaPausa = f; };
+
 async function cerca(q: string): Promise<{ lat: number; lon: number } | null> {
-  await turno();
-  const r = await fetch(`${NOMINATIM}?format=jsonv2&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
-  if (!r.ok) throw new Error(`OpenStreetMap non risponde (${r.status})`);
-  const d = (await r.json()) as { lat: string; lon: string }[];
-  return d[0] ? { lat: Number(d[0].lat), lon: Number(d[0].lon) } : null;
+  // Se OpenStreetMap chiede di rallentare (o per un momento non risponde) si aspetta e si riprova, sempre più a lungo
+  const pause = [30, 60, 120, 300];
+  for (let tentativo = 0; ; tentativo++) {
+    await turno();
+    let stato = 0;
+    try {
+      const r = await fetch(`${NOMINATIM}?format=jsonv2&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
+      if (r.ok) {
+        const d = (await r.json()) as { lat: string; lon: string }[];
+        return d[0] ? { lat: Number(d[0].lat), lon: Number(d[0].lon) } : null;
+      }
+      stato = r.status;
+    } catch {
+      stato = -1; // nessuna risposta (spesso è il limite di richieste del servizio)
+    }
+    if (tentativo >= pause.length || (stato > 0 && stato !== 429 && stato < 500)) {
+      throw new Error(stato === 403 ? "OpenStreetMap ha bloccato le richieste per oggi: riprova domani" : `OpenStreetMap non risponde${stato > 0 ? ` (${stato})` : ""}: riprova più tardi`);
+    }
+    avvisaPausa?.(pause[tentativo]);
+    await new Promise((r) => setTimeout(r, pause[tentativo] * 1000));
+  }
 }
 
 // "Via Volontari della Libertà N° 51, Empoli (FI)" → via "Via Volontari della Libertà 51", comune "Empoli", provincia "FI"
