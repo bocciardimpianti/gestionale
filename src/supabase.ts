@@ -51,13 +51,29 @@ export async function registra(azione: string, dettagli: unknown) {
 // Legge tutte le righe superando il limite di 1000 per richiesta.
 // Le tabelle collegate (es. "cliente:clienti(nome)") vengono appiattite al solo nome.
 // Con "soloAttivi" esclude i record nel cestino.
+// Collegamento non ancora presente nel database (script non eseguito): si toglie dalla lettura invece di fallire
+// es. "Could not find a relationship between 'ddt_acquisto' and 'tecnici'" → select senza "tecnico:tecnici(nome)"
+export function senzaCollegamentoMancante(select: string, errore: { message?: string } | null) {
+  const t = /relationship between '[^']+' and '([^']+)'/i.exec(errore?.message ?? "")?.[1];
+  if (!t) return null;
+  const ridotto = select.replace(new RegExp(`\\s*,\\s*\\w+:${t}(!\\w+)?\\([^)]*\\)`, "g"), "");
+  return ridotto !== select ? ridotto : null;
+}
+
 export async function leggiTutto(tabella: string, select = "*", soloAttivi = false) {
   const tutte: (Record<string, unknown> & { id: number })[] = [];
   for (let da = 0; ; da += 1000) {
     let q = supabase.from(tabella).select(select);
     if (soloAttivi) q = q.is("eliminato_il", null);
     const { data, error } = await q.order("id").range(da, da + 999);
-    if (error) throw error;
+    if (error) {
+      const ridotto = da === 0 ? senzaCollegamentoMancante(select, error) : null;
+      if (ridotto) {
+        console.warn(`${tabella}: ${error.message} (eseguire lo script SQL che crea il collegamento)`);
+        return leggiTutto(tabella, ridotto, soloAttivi);
+      }
+      throw error;
+    }
     for (const r of (data ?? []) as unknown as Record<string, unknown>[]) {
       for (const [k, v] of Object.entries(r)) {
         if (v && typeof v === "object" && "nome" in v) r[k] = (v as { nome: unknown }).nome;
