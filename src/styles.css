@@ -1280,3 +1280,7 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .proposte-assistente .riga-telefono-foto { flex: none; width: 46px; height: 46px; border-radius: 8px; background: #e7eeef; display: grid; place-items: center; overflow: hidden; }
 .proposte-assistente .riga-telefono-foto .miniatura { width: 46px; height: 46px; object-fit: cover; }
 @media (max-height: 500px) and (pointer: coarse) { .finestra-materiali.scorso .riga-assistente { display: none; } }
+/* Telefono: nelle schede dei record collegati (es. Storico) ogni riga ha la sua etichetta */
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .blocco-collegati .griglia td[data-titolo]::before, .pannello-linguetta > .griglia td[data-titolo]::before { content: attr(data-titolo) ": "; color: var(--tenue); font-size: .92em; }
+}

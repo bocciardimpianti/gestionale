@@ -930,7 +930,7 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
         {righe.map((r, i) => (
           <tr key={i} onClick={() => apri(r)} title={apribile ? `Clicca per aprire (${ARCHIVI[figlio.apri!.sezione].titolo})` : undefined}>
             {colonne.map((c) => (
-              <td key={c.chiave}>{(() => {
+              <td key={c.chiave} data-titolo={c.titolo}>{(() => {
                 // Chiavi annidate, es. "rapporto.numero"
                 const v = c.valore ? c.valore(r) : c.chiave.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], r);
                 return c.tipo === "data" ? dataIt(v) : c.tipo === "euro" ? euro(v) : c.tipo === "booleano" ? (v ? "Sì" : "No")
