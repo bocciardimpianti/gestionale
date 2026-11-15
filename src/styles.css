@@ -1442,7 +1442,20 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .laterale .azienda, .laterale .azioni-menu, .laterale .utente { flex: none; }
 /* Telefono: titolo della sezione al centro in rosso mattone; la scorciatoia in basso della sezione aperta in rosso mattone */
 @media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
-  .testata h1 { flex-basis: 100%; width: 100%; text-align: center; color: var(--ruggine); }
+  .testata h1 { align-self: stretch; text-align: center; color: var(--ruggine); }
   .barra-bassa .gruppo-icone a.scorciatoia.active { color: var(--ruggine); }
   .barra-bassa .gruppo-icone a.scorciatoia.active .etichetta-telefono { font-weight: 700; color: var(--ruggine); }
+}
+/* Telefono: parte alta degli elenchi più compatta (titolo, ricerca, pulsanti, categorie, ordinamento) */
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .centro:has(.pagina-archivio) { padding-top: 6px; }
+  .testata { gap: 6px; margin: 0 0 6px; }
+  .testata h1 { font-size: 19px; line-height: 1.15; }
+  .ricerca { height: 42px; }
+  .pulsanti .btn, .pulsanti .btn.verde { height: 40px; font-size: 13.5px; }
+  .pagina-archivio > .filtri-categoria { margin-bottom: 4px; padding: 0 0 2px; }
+  .filtri-categoria button { padding: 3px 10px; min-height: 32px; font-size: 13px; }
+  .elenco-telefono-barra { padding-bottom: 6px; gap: 6px; }
+  .elenco-telefono-barra select { height: 34px; }
+  .elenco-telefono-barra .verso { width: 34px; height: 34px; }
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTelefono } from "../telefono";
 import { elencoAggiornato, elencoSalvato } from "../cacheElenchi";
 import readXlsxFile from "read-excel-file";
 import writeXlsxFile from "write-excel-file";
@@ -61,6 +62,7 @@ function leggiNascoste(sezione: string): string[] {
 
 export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const { puo, profilo, puoWhatsapp, vedePrezzi } = useAuth();
+  const telefono = useTelefono();
   // Casella spuntata direttamente nella griglia (es. Pagato nello scadenziario): salvataggio immediato
   const spunta = async (r: Riga, chiave: string, valore: boolean) => {
     setRighe((rr) => rr.map((x) => (x.id === r.id ? { ...x, [chiave]: valore } : x)));
@@ -497,10 +499,17 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         </div>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>
           {cfg.galleria && (
-            <>
-              <button className={`btn giallo${galleria ? " attivo" : ""}`} onClick={() => setGalleria(true)}>Galleria</button>
-              <button className={`btn giallo${galleria ? "" : " attivo"}`} onClick={() => setGalleria(false)}>Tabella</button>
-            </>
+            telefono ? (
+              // Telefono: un solo pulsante che passa da Galleria a Tabella (meno spazio)
+              <button className="btn giallo attivo" onClick={() => setGalleria(!galleria)} title={galleria ? "Passa all'elenco" : "Passa alla galleria di foto"}>
+                {galleria ? "Elenco" : "Galleria"}
+              </button>
+            ) : (
+              <>
+                <button className={`btn giallo${galleria ? " attivo" : ""}`} onClick={() => setGalleria(true)}>Galleria</button>
+                <button className={`btn giallo${galleria ? "" : " attivo"}`} onClick={() => setGalleria(false)}>Tabella</button>
+              </>
+            )
           )}
           {cfg.sezione === "ddt_acquisto" && !nelCestino && vedePrezzi && puo(cfg.sezione, "creare") && (
             <button className="btn blu" onClick={() => setImportaPdf(true)} title="Legge il DDT dal PDF del fornitore">Da PDF</button>
