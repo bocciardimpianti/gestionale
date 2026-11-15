@@ -82,7 +82,11 @@ export default function Agenda() {
   const { puo, profilo } = useAuth();
   const [giorno, setGiorno] = useState(() => new Date());
   // Sul PC la prima volta si apre la settimana per tecnico; poi vale l'ultima vista scelta su questo dispositivo
-  const [vista, setVista] = useState<Vista>(() => (window.matchMedia(QUERY_TELEFONO).matches ? "giorno" : leggi("agenda-vista", "tecnici")));
+  // Telefono e PC ricordano ciascuno la propria vista; la prima volta si apre la settimana per tecnico
+  // (sul telefono 2 giorni alla volta)
+  const telefono = window.matchMedia(QUERY_TELEFONO).matches;
+  const chiaveVista = telefono ? "agenda-vista-telefono" : "agenda-vista";
+  const [vista, setVista] = useState<Vista>(() => leggi(chiaveVista, "tecnici"));
   const [tecnici, setTecnici] = useState<Tecnico[]>([]);
   // Tecnici nascosti (scelta ricordata su questo dispositivo); di default si vedono tutti
   const [nascosti, setNascosti] = useState<number[]>(() => leggi("agenda-nascosti", []));
@@ -93,13 +97,20 @@ export default function Agenda() {
   const [messaggio, setMessaggio] = useState("");
   const [pannello, setPannello] = useState(false);
 
+  // Telefono: 2 giorni lavorativi alla volta, a partire dal giorno scelto (sabato e domenica si saltano)
+  const lavorativo = (d: Date, verso = 1) => { let x = d; while (x.getDay() === 0 || x.getDay() === 6) x = piuGiorni(x, verso); return x; };
+  const giorniTelefono = useMemo(() => {
+    const primo = lavorativo(giorno);
+    return [primo, lavorativo(piuGiorni(primo, 1))];
+  }, [giorno]); // eslint-disable-line react-hooks/exhaustive-deps
   const { da, a } = useMemo(() => {
     if (vista === "giorno") return { da: giorno, a: giorno };
+    if (vista === "tecnici" && telefono) return { da: giorniTelefono[0], a: giorniTelefono[1] };
     if (vista === "lavorativa" || vista === "tecnici") return { da: lunedi(giorno), a: piuGiorni(lunedi(giorno), 4) };
     if (vista === "settimana") return { da: lunedi(giorno), a: piuGiorni(lunedi(giorno), 6) };
     const primo = new Date(giorno.getFullYear(), giorno.getMonth(), 1);
     return { da: lunedi(primo), a: piuGiorni(lunedi(primo), 41) };
-  }, [vista, giorno]);
+  }, [vista, giorno, giorniTelefono]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibili = tecnici.filter((t) => !nascosti.includes(t.id));
   const idVisibili = new Set(visibili.map((t) => t.id));
@@ -143,12 +154,18 @@ export default function Agenda() {
 
   const cambiaVista = (v: Vista) => {
     setVista(v);
-    scrivi("agenda-vista", v);
+    scrivi(chiaveVista, v);
     setMenu("");
   };
 
   const sposta = (verso: number) => {
     if (vista === "giorno") setGiorno((g) => piuGiorni(g, verso));
+    // Telefono, settimana per tecnico: avanti/indietro di 2 giorni lavorativi
+    else if (vista === "tecnici" && telefono) setGiorno((g) => {
+      let x = lavorativo(g);
+      for (let k = 0; k < 2; k++) x = lavorativo(piuGiorni(x, verso), verso);
+      return x;
+    });
     else if (vista === "mese") setGiorno((g) => new Date(g.getFullYear(), g.getMonth() + verso, 1));
     else setGiorno((g) => piuGiorni(g, 7 * verso));
   };
@@ -300,7 +317,7 @@ export default function Agenda() {
                     ]
                   : vista === "tecnici"
                   // Settimana per tecnico: per ogni giorno lavorativo una colonna per ciascun tecnico visibile
-                  ? Array.from({ length: 5 }, (_, i) => piuGiorni(da, i)).flatMap((d) => visibili.map((t, k) => ({
+                  ? (telefono ? giorniTelefono : Array.from({ length: 5 }, (_, i) => piuGiorni(da, i))).flatMap((d) => visibili.map((t, k) => ({
                       chiave: `${iso(d)}-${t.id}`, titolo: nomeBreve(t.nome), sotto: "", giorno: iso(d), tecnico: t.id as number | null,
                       gruppo: d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "short" }), ultimaDelGruppo: k === visibili.length - 1,
                     })))
