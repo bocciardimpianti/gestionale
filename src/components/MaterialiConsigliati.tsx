@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Miniatura } from "./CampoImmagine";
 import { leggiTutto } from "../supabase";
 import { calcolaConsigli, parolaChiave, type RigaStorico } from "../consigli";
 import { euro } from "./Griglia";
@@ -25,7 +26,7 @@ export default function MaterialiConsigliati({ righe, onAggiungi, onChiudi }: {
   useEffect(() => {
     Promise.all([
       leggiTutto("righe_rapporto", "id, rapporto_id, materiale_id, quantita, rapporto:rapporti(eliminato_il)"),
-      leggiTutto("materiali", "id, codice_interno, descrizione, nome_articolo, codice_barre, unita_misura, prezzo_base, ricarico, prezzo_ricaricato, giacenza", true),
+      leggiTutto("materiali", "id, codice_interno, descrizione, nome_articolo, codice_barre, unita_misura, prezzo_base, ricarico, prezzo_ricaricato, giacenza, foto", true),
     ])
       .then(([storico, materiali]) => setDati({
         storico: storico.filter((r) => !(r.rapporto as { eliminato_il?: unknown } | null)?.eliminato_il) as unknown as RigaStorico[],
@@ -79,6 +80,7 @@ export default function MaterialiConsigliati({ righe, onAggiungi, onChiudi }: {
             return (
               <label key={c.materialeId} className="consiglio">
                 <input type="checkbox" checked={!tolti.has(c.materialeId)} onChange={() => cambia(c.materialeId)} />
+                <span className="riga-telefono-foto">{typeof m.foto === "string" && m.foto ? <Miniatura percorso={m.foto} archivio="materiali" /> : null}</span>
                 <span className="consiglio-testi">
                   <b>{String(m.descrizione ?? "")}</b>
                   <span className="piccolo">Usato in {c.volte} rapportini su {c.su}, di solito {c.quantita.toLocaleString("it-IT")} {String(m.unita_misura ?? "")}</span>

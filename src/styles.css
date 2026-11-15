@@ -1338,3 +1338,10 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .quantita-ddt input { width: 64px; min-height: 38px; text-align: right; font-size: 16px; }
 .finestra-da-ddt .riga-ddt label, .finestra-da-ddt .tutti-ddt, .finestra-da-ddt .giorno-ddt { flex-direction: row !important; justify-content: flex-start; align-items: center; text-align: left; }
 .finestra-da-ddt .tutti-ddt input { width: 22px; height: 22px; margin: 0; }
+/* Foto accanto ai materiali negli elenchi (righe del rapportino, Aggiungi da DDT, Materiali consigliati) */
+.descrizione-con-foto { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.descrizione-con-foto > :last-child { flex: 1; min-width: 0; }
+.foto-riga { flex: none; width: 32px; height: 32px; border-radius: 6px; background: #e7eeef; overflow: hidden; display: grid; place-items: center; }
+.foto-riga .miniatura { width: 32px; height: 32px; object-fit: cover; }
+.finestra-da-ddt .riga-telefono-foto, .consiglio .riga-telefono-foto { flex: none; width: 44px; height: 44px; border-radius: 8px; background: #e7eeef; overflow: hidden; display: grid; place-items: center; }
+.finestra-da-ddt .riga-telefono-foto .miniatura, .consiglio .riga-telefono-foto .miniatura { width: 44px; height: 44px; object-fit: cover; }

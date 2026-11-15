@@ -3,6 +3,8 @@ import { ArrowLeft, Search, X } from "lucide-react";
 import { dataIso, dataIt, supabase } from "../supabase";
 import { useIndietroChiude } from "../telefono";
 import { pulisciRicerca } from "../testo";
+import { Miniatura } from "./CampoImmagine";
+import { useFotoMateriali } from "../fotoMateriali";
 
 // "Aggiungi da DDT" nel rapportino: si sceglie un DDT di acquisto (del giorno o tra tutti),
 // poi i suoi materiali da aggiungere con la quantità. I DDT presi dal tecnico del rapportino hanno il bordo rosso.
@@ -29,6 +31,7 @@ export default function AggiungiDaDdt({ tecnicoId, data, onAggiungi, onChiudi }:
   const [scelte, setScelte] = useState<Record<number, string>>({}); // id riga → quantità (presente = spuntata)
   const [inCorso, setInCorso] = useState(false);
   useIndietroChiude(true, onChiudi);
+  const fotoDi = useFotoMateriali((righe ?? []).map((r) => r.materiale_id));
   // Indietro dal DDT aperto torna all'elenco dei DDT
   useIndietroChiude(!!aperto, () => setAperto(null));
 
@@ -126,6 +129,7 @@ export default function AggiungiDaDdt({ tecnicoId, data, onAggiungi, onChiudi }:
                           if (e.target.checked) n[r.id] = String(r.quantita ?? 1).replace(".", ","); else delete n[r.id];
                           return n;
                         })} />
+                        <span className="riga-telefono-foto">{fotoDi(r.materiale_id) ? <Miniatura percorso={fotoDi(r.materiale_id)!} archivio="materiali" /> : null}</span>
                         <span>{r.descrizione}{!r.materiale_id && <span className="piccolo"> (non in magazzino: riga libera)</span>}</span>
                       </label>
                       <span className="quantita-ddt">

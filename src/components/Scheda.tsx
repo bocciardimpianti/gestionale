@@ -7,7 +7,8 @@ import { ARCHIVI, type Archivio, type Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
-import CampoImmagine, { immagineDa, urlFirmato } from "./CampoImmagine";
+import CampoImmagine, { immagineDa, Miniatura, urlFirmato } from "./CampoImmagine";
+import { useFotoMateriali } from "../fotoMateriali";
 import CercaMateriale from "./CercaMateriale";
 import LettoreCodice from "./LettoreCodice";
 import MicDettatura from "./MicDettatura";
@@ -71,6 +72,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   // Rapportino: materiali presi da un DDT di acquisto
   const [daDdt, setDaDdt] = useState(false);
   const telefono = useTelefono();
+  // Foto dei materiali nelle righe (telefono)
+  const fotoDi = useFotoMateriali(telefono && cfg.righe ? righe.map((r) => r.materiale_id as number | null) : []);
   // Modifiche fatte dall'utente e non ancora salvate: alla chiusura si chiede se salvarle
   const modificata = useRef(false);
   const segna = () => { modificata.current = true; };
@@ -541,6 +544,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                   )}
                   {righe.map((r, i) => (
                     <div key={i} className={`riga-materiale-telefono${altre.length < 2 ? " " + ["senza-altre", "una-altra"][altre.length] : ""}`}>
+                      <span className="descrizione-con-foto">
+                      <span className="foto-riga">{fotoDi(r.materiale_id as number) ? <Miniatura percorso={fotoDi(r.materiale_id as number)!} archivio="materiali" /> : null}</span>
                       {descrizione && modificabile && !descrizione.solaLettura && !r.materiale_id ? (
                         <input className="descrizione-riga" aria-label={descrizione.titolo} placeholder={descrizione.titolo} value={String(r.descrizione ?? "")}
                           onChange={(e) => cambiaRiga(i, "descrizione", e.target.value)} />
@@ -548,6 +553,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                         <button type="button" className={`descrizione-riga${descrizioneAperta === i ? " aperta" : ""}`} title={String(r.descrizione ?? "")}
                           onClick={() => setDescrizioneAperta(descrizioneAperta === i ? null : i)}>{String(r.descrizione ?? "")}</button>
                       )}
+                      </span>
                       {quantita ? <span className="quantita-riga">{campo(r, i, quantita)}</span> : <span />}
                       {altre.map((c) => <span key={c.chiave}>{campo(r, i, c)}</span>)}
                       {modificabile && (
