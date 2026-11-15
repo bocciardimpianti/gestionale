@@ -731,7 +731,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                     {cfg.figli.filter((f) => f.linguetta === linguetta).map((f) => (
                       <div key={f.tabella} className="blocco-collegati">
                         {f.titolo && <div className="sezione-scheda grigio">{f.titolo}</div>}
-                        <RecordCollegati figlio={f} id={valori.id as number | undefined} />
+                        {f.valoreDa && vuoto(dati[f.valoreDa])
+                          ? <p className="vuoto-linguetta">Scegli prima il cliente nella linguetta Principale.</p>
+                          : <RecordCollegati figlio={f} id={(f.valoreDa ? Number(dati[f.valoreDa]) : valori.id) as number | undefined}
+                              escludiId={f.valoreDa && f.tabella === cfg.tabella ? valori.id as number | undefined : undefined} />}
                       </div>
                     ))}
                   </>
@@ -870,7 +873,7 @@ function LogRecord({ sezione, id }: { sezione: string; id?: number }) {
 }
 
 // Record collegati mostrati in una linguetta (es. gli impianti del cliente)
-function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]>[number]; id?: number }) {
+function RecordCollegati({ figlio, id, escludiId }: { figlio: NonNullable<Archivio["figli"]>[number]; id?: number; escludiId?: number }) {
   const { vedePrezzi } = useAuth();
   const colonne = senzaPrezzi(figlio.colonne, vedePrezzi);
   const { puo } = useAuth();
@@ -899,14 +902,15 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
     if (!figlio.select || figlio.cestino) q = q.is("eliminato_il", null);
     q.order(figlio.ordine ?? "id", { ascending: !figlio.ordine || !!figlio.crescente })
       .then(({ data }) => {
-        let r = ((data as unknown as Record<string, unknown>[]) ?? []).filter((x) => !figlio.escludi?.(x));
+        // La scheda aperta non compare nel suo stesso storico
+        let r = ((data as unknown as Record<string, unknown>[]) ?? []).filter((x) => !figlio.escludi?.(x) && (escludiId === undefined || x.id !== escludiId));
         if (figlio.recentiPer) {
           const v = (x: Record<string, unknown>) => String(figlio.recentiPer!.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], x) ?? "");
           r = [...r].sort((a, b) => v(b).localeCompare(v(a)));
         }
         setRighe(r);
       });
-  }, [figlio, id, versione]);
+  }, [figlio, id, versione, escludiId]);
 
   if (!righe) return <p className="vuoto-linguetta">Caricamento…</p>;
   if (!righe.length) return <p className="vuoto-linguetta">Nessun elemento collegato.</p>;

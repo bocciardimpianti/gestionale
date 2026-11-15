@@ -91,6 +91,8 @@ export interface Archivio {
     cestino?: boolean;
     // Ordinamento (dal più recente) su un campo collegato, es. "rapporto.data"; esclusione di righe (es. documento nel cestino)
     recentiPer?: string; escludi?: (r: Record<string, unknown>) => boolean;
+    // Valore da cercare preso da un campo della scheda invece del suo id (es. gli altri interventi dello stesso cliente)
+    valoreDa?: string;
     // Clic sulla riga: apre la scheda del documento (sezione e id del record da aprire)
     apri?: { sezione: string; id: (r: Record<string, unknown>) => unknown };
   }[];
@@ -415,6 +417,19 @@ export const ARCHIVI: Record<string, Archivio> = {
     titoloNuovo: "Nuovo intervento tecnico",
     titoloScheda: (v) => `Intervento tecnico N. ${v.numero ?? ""} - ${v.cliente ?? ""}`,
     linguette: ["Dettaglio", "Tariffe", "Storico", "Log Cloud"],
+    // Storico: gli altri interventi fatti per lo stesso cliente
+    figli: [{
+      linguetta: "Storico",
+      titolo: "Interventi per questo cliente",
+      tabella: "rapporti",
+      campo: "cliente_id",
+      valoreDa: "cliente_id",
+      apri: { sezione: "rapporti", id: (r) => r.id },
+      ordine: "data",
+      select: "*, tecnico:tecnici(nome)",
+      cestino: true,
+      colonne: COLONNE_STORICO,
+    }],
     tabella: "rapporti",
     select: "*, cliente:clienti(nome), tecnico:tecnici(nome)",
     chiaveImport: "numero",
