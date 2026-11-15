@@ -1525,3 +1525,25 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .info-diritto span { flex: 1; }
 .info-diritto button { background: none; border: 0; color: inherit; cursor: pointer; display: grid; place-items: center; min-width: 30px; min-height: 30px; padding: 0; }
 .info-diritto.errore-diritto { background: #fdf0e8; border-color: #f0c7ae; color: #8a3b12; }
+/* Agenda: settimana per tecnico (giorni in alto, sotto ogni giorno una colonna per tecnico), orario 8–18 */
+.gruppo-colonne { display: flex; flex-direction: column; min-width: 0; border-right: 2px solid #8f9aa6; }
+.titolo-gruppo-colonne { text-align: center; font-weight: 700; font-size: 12.5px; padding: 6px 4px; text-transform: capitalize; background: #eef3f4; color: var(--petrolio, #123b45); border-bottom: 1px solid #d4d7dc; }
+.colonne-gruppo { display: flex; flex: 1; }
+.vista-ore .intestazione-colonna.stretta, .vista-ore .colonna-giorno.stretta { flex: 1 0 0; min-width: 0; }
+.vista-strette .ore-intestazione, .vista-strette .ore-corpo { min-width: 0; }
+.vista-strette { overflow-x: hidden; }
+.vista-ore .intestazione-colonna.stretta > div:first-child { font-size: 11px; padding: 5px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; font-weight: 600; }
+.vista-ore .intestazione-colonna.fine-gruppo { border-right: 0; }
+.vista-ore .colonna-giorno.fine-gruppo { border-right: 0; }
+.gruppo-colonne.corpo { border-right: 2px solid #8f9aa6; }
+.vista-strette .impegno { font-size: 10.5px; padding: 1px 3px; }
+.vista-strette .impegno .orario { font-size: 10.5px; }
+.vista-ore .colonna-giorno.si-crea { cursor: copy; }
+.vista-ore .colonna-giorno.si-crea .mezzora:hover { background: rgba(14, 124, 134, .14); }
+/* Nome del tecnico nell'intestazione: per intero se c'è spazio, altrimenti le iniziali colorate */
+.vista-ore .intestazione-colonna.stretta { container-type: inline-size; }
+.vista-ore .intestazione-colonna.stretta .iniziali { display: none; font-weight: 800; }
+@container (max-width: 62px) {
+  .nome-lungo { display: none; }
+  .iniziali { display: inline !important; }
+}

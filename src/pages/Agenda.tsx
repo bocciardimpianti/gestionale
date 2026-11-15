@@ -11,9 +11,10 @@ import { AZIENDA, DICITURA_RISERVATA, logo } from "../stampe";
 // L'Agenda non ha dati propri: mostra a calendario i rapporti di intervento creati dai tecnici
 // (colonna del tecnico, data, ora inizio - ora fine). Cliccando un impegno si apre il rapporto.
 
-type Vista = "giorno" | "lavorativa" | "settimana" | "mese";
+type Vista = "giorno" | "tecnici" | "lavorativa" | "settimana" | "mese";
 const NOMI_VISTA: Record<Vista, string> = {
   giorno: "Giorno",
+  tecnici: "Settimana per tecnico",
   lavorativa: "Settimana lavorativa",
   settimana: "Settimana",
   mese: "Mese",
@@ -33,6 +34,14 @@ interface Impegno {
 interface Tecnico { id: number; nome: string }
 
 const ALTEZZA_ORA = 46;
+// Orario mostrato: dalle 8 alle 18 (si allarga solo se ci sono interventi prima o dopo)
+const ORA_DA = 8;
+const ORA_A = 18;
+// "Gronchi Michael" → "Michael G." (colonne strette della settimana per tecnico)
+const nomeBreve = (nome: string) => {
+  const p = nome.trim().split(/\s+/);
+  return p.length > 1 ? `${p[p.length - 1]} ${p[0][0]}.` : nome;
+};
 const COLORI = ["#3a7dc0", "#d9822b", "#3fae4b", "#8e44ad", "#c0392b", "#16a085", "#7f8c8d", "#b7950b"];
 const MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
 const GIORNI = ["LU", "MA", "ME", "GI", "VE", "SA", "DO"];
@@ -70,9 +79,10 @@ function scrivi(chiave: string, v: unknown) {
 
 export default function Agenda() {
   const naviga = useNavigate();
-  const { puo } = useAuth();
+  const { puo, profilo } = useAuth();
   const [giorno, setGiorno] = useState(() => new Date());
-  const [vista, setVista] = useState<Vista>(() => (window.matchMedia(QUERY_TELEFONO).matches ? "giorno" : leggi("agenda-vista", "giorno")));
+  // Sul PC la prima volta si apre la settimana per tecnico; poi vale l'ultima vista scelta su questo dispositivo
+  const [vista, setVista] = useState<Vista>(() => (window.matchMedia(QUERY_TELEFONO).matches ? "giorno" : leggi("agenda-vista", "tecnici")));
   const [tecnici, setTecnici] = useState<Tecnico[]>([]);
   // Tecnici nascosti (scelta ricordata su questo dispositivo); di default si vedono tutti
   const [nascosti, setNascosti] = useState<number[]>(() => leggi("agenda-nascosti", []));
@@ -85,7 +95,7 @@ export default function Agenda() {
 
   const { da, a } = useMemo(() => {
     if (vista === "giorno") return { da: giorno, a: giorno };
-    if (vista === "lavorativa") return { da: lunedi(giorno), a: piuGiorni(lunedi(giorno), 4) };
+    if (vista === "lavorativa" || vista === "tecnici") return { da: lunedi(giorno), a: piuGiorni(lunedi(giorno), 4) };
     if (vista === "settimana") return { da: lunedi(giorno), a: piuGiorni(lunedi(giorno), 6) };
     const primo = new Date(giorno.getFullYear(), giorno.getMonth(), 1);
     return { da: lunedi(primo), a: piuGiorni(lunedi(primo), 41) };
@@ -153,6 +163,21 @@ export default function Agenda() {
       setGiorno(new Date(`${data[0].data}T12:00:00`));
       if (vista === "mese") cambiaVista("giorno");
     } else setMessaggio(verso > 0 ? "Nessun impegno successivo" : "Nessun impegno precedente");
+  };
+
+  // Clic su uno spazio libero: nuovo intervento già compilato con giorno, ora (1 ora) e tecnico della colonna
+  const nuovoIntervento = async (giornoIso: string, tecnico: number | null | undefined, inizio: number) => {
+    if (!puo("rapporti", "creare")) return;
+    const cfg = ARCHIVI.rapporti;
+    const proposti = (await cfg.valoriNuovo?.({ utenteId: profilo?.id ?? "", admin: profilo?.ruolo === "admin" })) ?? {};
+    const ora = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    setScheda({
+      ...proposti,
+      data: giornoIso,
+      ora_inizio: ora(inizio),
+      ora_fine: ora(Math.min(inizio + 60, 23 * 60 + 59)),
+      ...(tecnico ? { tecnico_id: tecnico, tecnico: nomeTecnico(tecnico) } : {}),
+    });
   };
 
   const apri = async (id: number) => {
@@ -272,16 +297,24 @@ export default function Agenda() {
                       ...visibili.map((t) => ({ chiave: `t${t.id}`, titolo: t.nome, sotto: etichettaGiorno(giorno), giorno: iso(giorno), tecnico: t.id as number | null })),
                       ...(senzaTecnico && !nascosti.includes(0) ? [{ chiave: "t0", titolo: "Senza tecnico", sotto: etichettaGiorno(giorno), giorno: iso(giorno), tecnico: null }] : []),
                     ]
+                  : vista === "tecnici"
+                  // Settimana per tecnico: per ogni giorno lavorativo una colonna per ciascun tecnico visibile
+                  ? Array.from({ length: 5 }, (_, i) => piuGiorni(da, i)).flatMap((d) => visibili.map((t, k) => ({
+                      chiave: `${iso(d)}-${t.id}`, titolo: nomeBreve(t.nome), sotto: "", giorno: iso(d), tecnico: t.id as number | null,
+                      gruppo: d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "short" }), ultimaDelGruppo: k === visibili.length - 1,
+                    })))
                   : Array.from({ length: vista === "lavorativa" ? 5 : 7 }, (_, i) => {
                       const d = piuGiorni(da, i);
                       return { chiave: iso(d), titolo: etichettaGiorno(d), sotto: "", giorno: iso(d), tecnico: undefined };
                     })
               }
               impegni={impegniVisibili}
-              mostraTecnico={vista !== "giorno"}
+              mostraTecnico={vista !== "giorno" && vista !== "tecnici"}
               colore={colore}
               nomeTecnico={nomeTecnico}
               onApri={apri}
+              onNuovo={puo("rapporti", "creare") ? nuovoIntervento : undefined}
+              strette={vista === "tecnici"}
             />
           )}
         </section>
@@ -367,22 +400,42 @@ function MiniMese({ mese, selezionato, conImpegni, frecce, onMese, onGiorno }: {
   );
 }
 
-// Vista a ore: colonne per tecnico (Giorno) o per giorno (Settimana)
-function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri }: {
-  colonne: { chiave: string; titolo: string; sotto: string; giorno: string; tecnico: number | null | undefined }[];
+// Vista a ore: colonne per tecnico (Giorno), per giorno (Settimana) o per giorno e tecnico (Settimana per tecnico).
+// Orario 8–18 (allargato solo se ci sono interventi prima o dopo), altezza delle ore adattata allo schermo.
+// Clic su uno spazio libero: nuovo intervento a quell'ora (e per quel tecnico, se la colonna è di un tecnico).
+type ColonnaOre = { chiave: string; titolo: string; sotto: string; giorno: string; tecnico: number | null | undefined; gruppo?: string; ultimaDelGruppo?: boolean };
+function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri, onNuovo, strette = false }: {
+  colonne: ColonnaOre[];
   impegni: Impegno[];
   mostraTecnico: boolean;
   colore: (id: number | null) => string;
   nomeTecnico: (id: number | null) => string;
   onApri: (id: number) => void;
+  onNuovo?: (giorno: string, tecnico: number | null | undefined, inizioMinuti: number) => void;
+  strette?: boolean;
 }) {
   const scorri = useRef<HTMLDivElement>(null);
+  const giorni = new Set(colonne.map((c) => c.giorno));
+  const delPeriodo = impegni.filter((i) => giorni.has(i.data));
+  // Orario: 8–18, allargato per gli interventi che iniziano prima o finiscono dopo
+  const inizi = delPeriodo.map((i) => minuti(i.ora_inizio)).filter((m): m is number => m !== null);
+  const fini = delPeriodo.map((i) => Math.max(minuti(i.ora_fine) ?? 0, (minuti(i.ora_inizio) ?? 0) + 50));
+  const oraDa = Math.min(ORA_DA, ...inizi.map((m) => Math.floor(m / 60)));
+  const oraA = Math.max(ORA_A, ...fini.map((m) => Math.min(24, Math.ceil(m / 60))));
+  const ore = oraA - oraDa;
+  // Altezza di un'ora: tutto l'orario sta nello schermo (minimo 40 px per ora)
+  const [altezzaOra, setAltezzaOra] = useState(ALTEZZA_ORA);
   useEffect(() => {
-    // All'apertura si parte dalle 7:00, come nell'originale
-    if (scorri.current) scorri.current.scrollTop = 7 * ALTEZZA_ORA;
-  }, []);
+    const el = scorri.current;
+    if (!el) return;
+    const misura = () => setAltezzaOra(Math.max(40, Math.floor(el.clientHeight / ore)));
+    misura();
+    const ro = new ResizeObserver(misura);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ore]);
 
-  const perColonna = (c: (typeof colonne)[number]) =>
+  const perColonna = (c: ColonnaOre) =>
     impegni.filter((i) => i.data === c.giorno && (c.tecnico === undefined || i.tecnico_id === c.tecnico));
 
   // "09:00 – 11:30", oppure solo "12:01" se l'ora di fine non è indicata (uguale all'inizio)
@@ -390,35 +443,36 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
     !i.ora_inizio ? "" : !i.ora_fine || hhmm(i.ora_fine) === hhmm(i.ora_inizio) ? hhmm(i.ora_inizio) : `${hhmm(i.ora_inizio)} – ${hhmm(i.ora_fine)}`;
   const etichetta = (i: Impegno) => `${orario(i)} ${i.cliente?.nome ?? "(senza cliente)"}`.trim();
 
-  return (
-    <div className="vista-ore">
-      <div className="ore-intestazione">
-        <div className="colonna-ore" />
-        {colonne.map((c) => (
-          <div key={c.chiave} className="intestazione-colonna">
-            <div>{c.titolo}</div>
-            {c.sotto && <div className="sotto">{c.sotto}</div>}
-            {/* Rapporti senza orario: in cima alla colonna */}
-            <div className="senza-orario">
-              {perColonna(c).filter((i) => minuti(i.ora_inizio) === null).map((i) => (
-                <button key={i.id} className="impegno" style={{ borderLeftColor: colore(i.tecnico_id) }} onClick={() => onApri(i.id)}
-                  title={`${etichetta(i)}\n${i.attivita ?? ""}`}>
-                  {mostraTecnico && <b>{nomeTecnico(i.tecnico_id)}: </b>}{etichetta(i)}
-                </button>
-              ))}
-            </div>
-          </div>
+  // Gruppi di colonne (es. i tecnici di uno stesso giorno) per l'intestazione su due righe
+  const gruppi: { titolo: string; colonne: ColonnaOre[] }[] = [];
+  for (const c of colonne) {
+    const g = gruppi[gruppi.length - 1];
+    if (c.gruppo && g?.titolo === c.gruppo) g.colonne.push(c);
+    else gruppi.push({ titolo: c.gruppo ?? "", colonne: [c] });
+  }
+  const classeColonna = (c: ColonnaOre) => `${strette ? " stretta" : ""}${c.ultimaDelGruppo ? " fine-gruppo" : ""}`;
+
+  const iniziali = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).reverse().join("");
+  const intestazione = (c: ColonnaOre) => (
+    <div key={c.chiave} className={`intestazione-colonna${classeColonna(c)}`} title={c.tecnico ? nomeTecnico(c.tecnico) : undefined}
+      style={strette && c.tecnico ? { borderTop: `3px solid ${colore(c.tecnico)}` } : undefined}>
+      {strette && c.tecnico
+        ? <div><span className="nome-lungo">{c.titolo}</span><span className="iniziali" style={{ color: colore(c.tecnico) }}>{iniziali(nomeTecnico(c.tecnico))}</span></div>
+        : <div>{c.titolo}</div>}
+      {c.sotto && <div className="sotto">{c.sotto}</div>}
+      {/* Rapporti senza orario: in cima alla colonna */}
+      <div className="senza-orario">
+        {perColonna(c).filter((i) => minuti(i.ora_inizio) === null).map((i) => (
+          <button key={i.id} className="impegno" style={{ borderLeftColor: colore(i.tecnico_id) }} onClick={() => onApri(i.id)}
+            title={`${etichetta(i)}\n${i.attivita ?? ""}`}>
+            {mostraTecnico && <b>{nomeTecnico(i.tecnico_id)}: </b>}{etichetta(i)}
+          </button>
         ))}
       </div>
-      <div className="ore-corpo" ref={scorri}>
-        <div className="colonna-ore">
-          {Array.from({ length: 24 }, (_, h) => (
-            <div key={h} className="ora" style={{ height: ALTEZZA_ORA }}>
-              <span>{String(h).padStart(2, "0")}</span><sup>00</sup>
-            </div>
-          ))}
-        </div>
-        {colonne.map((c) => {
+    </div>
+  );
+
+    const colonnaCorpo = (c: ColonnaOre) => {
           const lista = perColonna(c)
             .filter((i) => minuti(i.ora_inizio) !== null)
             .map((i) => {
@@ -449,20 +503,27 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
           });
           chiudiGruppo();
           return (
-            <div key={c.chiave} className="colonna-giorno" style={{ height: 24 * ALTEZZA_ORA }}>
-              {Array.from({ length: 48 }, (_, k) => <div key={k} className={`mezzora${k % 2 ? " dispari" : ""}`} style={{ height: ALTEZZA_ORA / 2 }} />)}
+            <div key={c.chiave} className={`colonna-giorno${classeColonna(c)}${onNuovo ? " si-crea" : ""}`} style={{ height: ore * altezzaOra }}
+              title={onNuovo ? `Clicca su uno spazio libero per un nuovo intervento${c.tecnico ? ` di ${nomeTecnico(c.tecnico)}` : ""}` : undefined}
+              onClick={(ev) => {
+                if (!onNuovo || ev.target !== ev.currentTarget && !(ev.target as HTMLElement).classList.contains("mezzora")) return;
+                const y = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
+                const m = oraDa * 60 + Math.floor((y / altezzaOra) * 2) * 30; // alla mezz'ora
+                onNuovo(c.giorno, c.tecnico, Math.max(0, Math.min(m, 23 * 60 + 30)));
+              }}>
+              {Array.from({ length: ore * 2 }, (_, k) => <div key={k} className={`mezzora${k % 2 ? " dispari" : ""}`} style={{ height: altezzaOra / 2 }} />)}
               {lista.map((e, k) => (
                 <button
                   key={e.i.id}
                   className="impegno posizionato"
                   style={{
-                    top: (e.inizio / 60) * ALTEZZA_ORA,
-                    height: Math.max(38, ((e.fine - e.inizio) / 60) * ALTEZZA_ORA - 2),
+                    top: ((e.inizio - oraDa * 60) / 60) * altezzaOra,
+                    height: Math.max(strette ? 30 : 38, ((e.fine - e.inizio) / 60) * altezzaOra - 2),
                     left: `${(posizioni[k].corsia / posizioni[k].totale) * 100}%`,
                     width: `calc(${100 / posizioni[k].totale}% - 4px)`,
                     borderLeftColor: colore(e.i.tecnico_id),
                   }}
-                  title={`${etichetta(e.i)}\n${e.i.attivita ?? ""}${e.i.stato ? `\nStato: ${e.i.stato}` : ""}`}
+                  title={`${strette ? `${nomeTecnico(e.i.tecnico_id)}\n` : ""}${etichetta(e.i)}\n${e.i.attivita ?? ""}${e.i.stato ? `\nStato: ${e.i.stato}` : ""}`}
                   onClick={() => onApri(e.i.id)}
                 >
                   {mostraTecnico && <b>{nomeTecnico(e.i.tecnico_id)}</b>}
@@ -473,7 +534,32 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
               ))}
             </div>
           );
-        })}
+        };
+
+  return (
+    <div className={`vista-ore${strette ? " vista-strette" : ""}`}>
+      <div className="ore-intestazione">
+        <div className="colonna-ore" />
+        {gruppi.map((g, k) => g.titolo ? (
+          <div key={k} className="gruppo-colonne" style={{ flex: `${g.colonne.length} 0 0` }}>
+            <div className="titolo-gruppo-colonne">{g.titolo}</div>
+            <div className="colonne-gruppo">{g.colonne.map(intestazione)}</div>
+          </div>
+        ) : g.colonne.map(intestazione))}
+      </div>
+      <div className="ore-corpo" ref={scorri}>
+        <div className="colonna-ore">
+          {Array.from({ length: ore }, (_, k) => (
+            <div key={k} className="ora" style={{ height: altezzaOra }}>
+              <span>{String(oraDa + k).padStart(2, "0")}</span><sup>00</sup>
+            </div>
+          ))}
+        </div>
+        {gruppi.map((g, k) => g.titolo ? (
+          <div key={k} className="gruppo-colonne corpo" style={{ flex: `${g.colonne.length} 0 0` }}>
+            <div className="colonne-gruppo">{g.colonne.map(colonnaCorpo)}</div>
+          </div>
+        ) : g.colonne.map(colonnaCorpo))}
       </div>
     </div>
   );
