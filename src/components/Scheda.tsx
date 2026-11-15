@@ -896,7 +896,7 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
     if (id === undefined) return setRighe([]);
     let q = supabase.from(figlio.tabella).select(figlio.select ?? "*").eq(figlio.campo, id);
     // Le righe di dettaglio (es. righe dei rapporti) non hanno il cestino
-    if (!figlio.select) q = q.is("eliminato_il", null);
+    if (!figlio.select || figlio.cestino) q = q.is("eliminato_il", null);
     q.order(figlio.ordine ?? "id", { ascending: !figlio.ordine || !!figlio.crescente })
       .then(({ data }) => {
         let r = ((data as unknown as Record<string, unknown>[]) ?? []).filter((x) => !figlio.escludi?.(x));
@@ -932,7 +932,7 @@ function RecordCollegati({ figlio, id }: { figlio: NonNullable<Archivio["figli"]
             {colonne.map((c) => (
               <td key={c.chiave}>{(() => {
                 // Chiavi annidate, es. "rapporto.numero"
-                const v = c.chiave.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], r);
+                const v = c.valore ? c.valore(r) : c.chiave.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], r);
                 return c.tipo === "data" ? dataIt(v) : c.tipo === "euro" ? euro(v) : c.tipo === "booleano" ? (v ? "Sì" : "No")
                   : c.tipo === "numero" && v !== null && v !== undefined && v !== "" ? Number(v).toLocaleString("it-IT", { maximumFractionDigits: 4 }) : String(v ?? "");
               })()}</td>

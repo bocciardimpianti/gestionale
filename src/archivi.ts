@@ -87,6 +87,8 @@ export interface Archivio {
   // Più figli con la stessa linguetta vengono mostrati uno sotto l'altro, ciascuno con il suo "titolo"
   figli?: {
     linguetta: string; titolo?: string; tabella: string; campo: string; colonne: Colonna[]; ordine?: string; crescente?: boolean; select?: string;
+    // Con "select" i record nel cestino vengono esclusi solo se la tabella ha il cestino (es. rapporti)
+    cestino?: boolean;
     // Ordinamento (dal più recente) su un campo collegato, es. "rapporto.data"; esclusione di righe (es. documento nel cestino)
     recentiPer?: string; escludi?: (r: Record<string, unknown>) => boolean;
     // Clic sulla riga: apre la scheda del documento (sezione e id del record da aprire)
@@ -141,6 +143,9 @@ const MESI_PERIODO: Record<string, number> = {
 const COLONNE_STORICO: Colonna[] = [
   { chiave: "data", titolo: "Data", larghezza: 90, tipo: "data" },
   { chiave: "numero", titolo: "Numero", larghezza: 70 },
+  // Tecnico che ha eseguito l'intervento (per i rapportini vecchi, quello scritto in ReportOne)
+  { chiave: "tecnico", titolo: "Tecnico", larghezza: 140,
+    valore: (r) => (r.tecnico as { nome?: string } | null)?.nome || r.tecnico_vecchio || "" },
   { chiave: "attivita", titolo: "Attività svolte", larghezza: 300 },
   { chiave: "stato", titolo: "Stato", larghezza: 90 },
   { chiave: "imponibile", titolo: "Imponibile", larghezza: 90, tipo: "euro" },
@@ -260,6 +265,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       campo: "cliente_id",
       apri: { sezione: "rapporti", id: (r) => r.id },
       ordine: "data",
+      select: "*, tecnico:tecnici(nome)",
+      cestino: true,
       colonne: COLONNE_STORICO,
     }, {
       linguetta: "Impianti",
@@ -369,7 +376,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     titoloNuovo: "Nuovo impianto",
     linguette: ["Materiali", "Storico", "Log Cloud"],
     tabella: "impianti",
-    figli: [{ linguetta: "Storico", tabella: "rapporti", campo: "impianto_id", ordine: "data", colonne: COLONNE_STORICO, apri: { sezione: "rapporti", id: (r) => r.id } }],
+    figli: [{ linguetta: "Storico", tabella: "rapporti", campo: "impianto_id", ordine: "data", select: "*, tecnico:tecnici(nome)", cestino: true, colonne: COLONNE_STORICO, apri: { sezione: "rapporti", id: (r) => r.id } }],
     select: "*, cliente:clienti(nome)",
     chiaveImport: ["cliente", "impianto", "tipo_impianto", "marca", "modello", "matricola"],
     quandoCambia: prossimoIntervento,
