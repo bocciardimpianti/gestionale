@@ -375,6 +375,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "nome", etichetta: "tecnici", obbligatorio: true, larghezza: 2 },
       { chiave: "utente_id", etichetta: "Tecnico (utente del gestionale)", tipo: "scelta", opzioniRpc: "elenco_utenti", larghezza: 2 },
       { chiave: "id_tecnico", etichetta: "ID Tecnico", larghezza: 2 },
+      // Nomi con cui il tecnico compare sui DDT dei fornitori, separati da virgola (es. "Maicol")
+      { chiave: "altri_nomi", etichetta: "Altri nomi sui DDT (es. Maicol)", larghezza: 4 },
     ],
   },
   impianti: {
@@ -833,7 +835,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     titoloScheda: (v) => `DDT di Acquisto ${v.numero_ddt ? `n. ${v.numero_ddt} ` : ""}del ${String(v.data ?? "").split("-").reverse().join("/")}`,
     linguette: ["Dettaglio", "Pagamenti", "Storico", "Log Cloud"],
     tabella: "ddt_acquisto",
-    select: "*, fornitore:fornitori(nome)",
+    select: "*, fornitore:fornitori(nome), tecnico:tecnici(nome)",
     // Rate generate dalla tipologia di pagamento (vedi Scadenziario)
     figli: [{
       linguetta: "Pagamenti", tabella: "scadenziario", campo: "ddt_id", ordine: "data", crescente: true,
@@ -852,6 +854,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     colonne: [
       { chiave: "fornitore", titolo: "Nominativo", excel: "Nominativo", larghezza: 165, riferimento: { campo: "fornitore_id", tabella: "fornitori" } },
       { chiave: "data", titolo: "Data", excel: "Data", larghezza: 78, tipo: "data" },
+      { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 120, riferimento: { campo: "tecnico_id", tabella: "tecnici" }, classe: "cella-tecnico" },
       { chiave: "stato", titolo: "Stato Documento", excel: "Stato Documento", larghezza: 97, tipo: "stato" },
       { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 67, tipo: "euro" },
       { chiave: "iva_totale", titolo: "Iva", excel: "Iva", larghezza: 67, tipo: "euro" },
@@ -866,6 +869,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "fornitore_id", etichetta: "Nominativo", tipo: "riferimento", riferimentoA: "fornitori", larghezza: 2, obbligatorio: true },
       { chiave: "numero_ddt", etichetta: "Numero DDT", larghezza: 1 },
       { chiave: "data", etichetta: "Data", tipo: "data", larghezza: 1, obbligatorio: true },
+      // Chi ha ordinato o ritirato il materiale (dal PDF si riconosce da "Ritira…", "Vostro riferimento…")
+      { chiave: "tecnico_id", etichetta: "Tecnico che ha ordinato", tipo: "riferimento", riferimentoA: "tecnici", larghezza: 2 },
       { chiave: "email", etichetta: "E-Mail", tipo: "email", larghezza: 2, linguetta: "Dettaglio", finisciRiga: true },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4, linguetta: "Dettaglio" },
       { chiave: "pdf", etichetta: "PDF originale del fornitore", tipo: "pdf", larghezza: 2, linguetta: "Dettaglio", solaLettura: true },

@@ -4,6 +4,7 @@ import { ARCHIVI } from "../archivi";
 import { leggiDdt, MODELLI_DISPONIBILI, scritteDaPdf, type DdtPdf, type RigaPdf } from "../ddtPdf";
 import { euro } from "./Griglia";
 import CercaMateriale from "./CercaMateriale";
+import { tecnicoDaTesto, type TecnicoDdt } from "../tecnicoDdt";
 
 // Importazione di un DDT di acquisto dal PDF del fornitore:
 // lettura delle righe, abbinamento ai materiali di magazzino (con conferma) e salvataggio.
@@ -105,6 +106,10 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
   const [fatti, setFatti] = useState<string[]>([]);
   const [materiali, setMateriali] = useState<Rec[]>([]);
   const [nuovoFornitore, setNuovoFornitore] = useState({ nome: "", piva: "" });
+  // Tecnico che ha ordinato/ritirato: riconosciuto dalle note del DDT, si può cambiare
+  const [tecnici, setTecnici] = useState<TecnicoDdt[]>([]);
+  const [tecnicoId, setTecnicoId] = useState<number | null>(null);
+  const [tecnicoDa, setTecnicoDa] = useState("");
 
   const fornitore = fornitori.find((f) => f.id === fornitoreId) ?? null;
 
@@ -159,6 +164,14 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
         ricordati = new Map((data ?? []).map((a) => [norm(a.codice), a.materiale_id as number]));
         setDoppione(await cercaDoppione(fid, d.numeroDdt));
       }
+      // Tecnici (con gli "altri nomi" se lo script 0027 è stato eseguito)
+      const conAltri = await supabase.from("tecnici").select("id, nome, altri_nomi").is("eliminato_il", null);
+      const tec = conAltri.error ? await supabase.from("tecnici").select("id, nome").is("eliminato_il", null) : conAltri;
+      const elencoTecnici = (tec.data ?? []) as TecnicoDdt[];
+      const riconosciuto = tecnicoDaTesto(d.note, elencoTecnici);
+      setTecnici(elencoTecnici);
+      setTecnicoId(riconosciuto?.tecnico.id ?? null);
+      setTecnicoDa(riconosciuto ? riconosciuto.parola : "");
       setFornitori(forn);
       setMateriali(mats);
       setNuovoFornitore({ nome: d.nomeFornitore ?? "", piva: d.pivaFornitore ?? "" });
@@ -248,6 +261,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
     onCorreggi({
       data: ddt.data || null, numero_ddt: ddt.numeroDdt || null, stato: "Chiuso",
       fornitore_id: fornitore?.id ?? null, fornitore: fornitore?.nome ?? "",
+      tecnico_id: tecnicoId, tecnico: tecnici.find((t) => t.id === tecnicoId)?.nome ?? "",
       email: fornitore?.email ?? null, tipologia_pagamento: fornitore ? await tipologiaPagamento(fornitore) : null,
       note: [ddt.note, avvisi.length ? `Da controllare (lettura PDF): ${avvisi.join("; ")}` : ""].filter(Boolean).join("\n") || null,
       pdf: file,
@@ -325,6 +339,7 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
       const { data: nuovo, error } = await supabase.from("ddt_acquisto").insert({
         data: ddt.data, fornitore_id: fornitore.id, numero_ddt: ddt.numeroDdt, email: fornitore.email ?? null,
         tipologia_pagamento: await tipologiaPagamento(fornitore), stato: "Chiuso", note: ddt.note || null, ...tot,
+        ...(tecnicoId ? { tecnico_id: tecnicoId } : {}),
       }).select("id").single();
       if (error) throw new Error("DDT: " + error.message);
       const ins = await supabase.from("righe_ddt_acquisto").insert(righeFinali.map((r) => ({ ...r, ddt_id: nuovo.id })));
@@ -426,6 +441,13 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
                 </div>
               )}
               {ddt.note && <div className="piccolo">Note: {ddt.note.split("\n").join(" · ")}</div>}
+              <label className="tecnico-ddt">Tecnico che ha ordinato
+                <select value={tecnicoId ?? ""} onChange={(e) => { setTecnicoId(e.target.value ? Number(e.target.value) : null); setTecnicoDa(""); }}>
+                  <option value="">— nessuno —</option>
+                  {tecnici.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                </select>
+                <span className="piccolo">{tecnicoDa ? `riconosciuto dal DDT ("${tecnicoDa}")` : tecnicoId ? "" : "non indicato sul DDT: sceglilo se lo sai"}</span>
+              </label>
               {ddt.errori.map((e) => <p key={e} className="errore">⛔ {e}</p>)}
               {doppione && <p className="errore">⛔ {doppione}</p>}
               {ddt.avvisi.map((e) => <p key={e} className="avviso">⚠ {e}</p>)}
