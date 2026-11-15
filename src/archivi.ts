@@ -141,11 +141,11 @@ const MESI_PERIODO: Record<string, number> = {
 
 // Colonne della linguetta Storico (rapporti di intervento collegati)
 const COLONNE_STORICO: Colonna[] = [
-  { chiave: "data", titolo: "Data", larghezza: 90, tipo: "data" },
-  { chiave: "numero", titolo: "Numero", larghezza: 70 },
-  // Tecnico che ha eseguito l'intervento (per i rapportini vecchi, quello scritto in ReportOne)
-  { chiave: "tecnico", titolo: "Tecnico", larghezza: 140,
+  { chiave: "data", titolo: "Data", larghezza: 90, tipo: "data", classe: "cella-data" },
+  // Tecnico che ha eseguito l'intervento (per i rapportini vecchi, quello scritto in ReportOne), in blu accanto alla data
+  { chiave: "tecnico", titolo: "Tecnico", larghezza: 140, classe: "cella-tecnico",
     valore: (r) => (r.tecnico as { nome?: string } | null)?.nome || r.tecnico_vecchio || "" },
+  { chiave: "numero", titolo: "Numero", larghezza: 70 },
   { chiave: "attivita", titolo: "Attività svolte", larghezza: 300 },
   { chiave: "stato", titolo: "Stato", larghezza: 90 },
   { chiave: "imponibile", titolo: "Imponibile", larghezza: 90, tipo: "euro" },

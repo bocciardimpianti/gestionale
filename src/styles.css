@@ -1284,3 +1284,10 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 @media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
   .blocco-collegati .griglia td[data-titolo]::before, .pannello-linguetta > .griglia td[data-titolo]::before { content: attr(data-titolo) ": "; color: var(--tenue); font-size: .92em; }
 }
+/* Storico: nome del tecnico in blu; sul telefono sulla stessa riga della data, un po' distaccato */
+.blocco-collegati .griglia td.cella-tecnico { color: #1f5fbf; font-weight: 600; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .blocco-collegati .griglia td.cella-data, .blocco-collegati .griglia td.cella-tecnico { display: inline-block; }
+  .blocco-collegati .griglia td.cella-tecnico { margin-left: 18px; }
+  .blocco-collegati .griglia td.cella-tecnico::before { font-weight: normal; }
+}

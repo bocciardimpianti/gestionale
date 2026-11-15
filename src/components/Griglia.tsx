@@ -28,6 +28,8 @@ export interface Colonna {
   somma?: boolean;
   // Valore mostrato calcolato dalla riga (es. cliente in anagrafica oppure nominativo scritto a mano)
   valore?: (r: Record<string, unknown>) => unknown;
+  // Classe della cella negli elenchi collegati (es. tecnico in blu accanto alla data)
+  classe?: string;
 }
 
 type Riga = Record<string, unknown> & { id: number };
