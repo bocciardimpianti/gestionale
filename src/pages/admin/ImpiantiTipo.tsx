@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Package, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "../../supabase";
-import { COMPONENTI, leggiCatalogo, leggiLavori, leggiSerie, type LavoroPreventivo, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
+import { COMPONENTI, leggiCatalogo, leggiLavori, leggiSerie, leggiTariffe, type TariffaPreventivo, type LavoroPreventivo, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
 import CercaMateriale from "../../components/CercaMateriale";
 import { materialiCategoria, useCatalogo } from "../../components/ConfiguratoreLavoro";
 
@@ -48,6 +48,8 @@ export default function ImpiantiTipo() {
     <div className="pagina-impianti">
       <div className="testata"><h1>Impianti tipo</h1></div>
       <p className="piccolo">Le <b>voci</b> (presa, interruttore, punto acqua…) con il loro <b>prezzo a punto</b>; il <b>kit di materiali</b> è facoltativo: serve per sapere cosa ordinare e, se il prezzo a punto è vuoto, il prezzo si calcola dal kit. Gli <b>ambienti tipo</b> (Cucina, Camera…) sono le stanze già pronte da inserire nel preventivo guidato.</p>
+      <Tariffe />
+
       <div className="scelta-vista-ddt tipi-impianto">
         {(Object.keys(NOMI_TIPO) as TipoImpianto[]).map((t) => (
           <button key={t} className={t === tipo ? "attiva" : ""} onClick={() => setTipo(t)}>{t === "elettrico" ? "⚡ " : "💧 "}{NOMI_TIPO[t]}</button>
@@ -286,6 +288,63 @@ function Lavori({ tipo, lavori, errore, esegui }: { tipo: TipoImpianto; lavori: 
         const nome = prompt("Nome del lavoro (es. Solare termico, Videocitofono):")?.trim();
         if (nome) esegui(supabase.from("lavori_preventivo").insert({ tipo, nome, ordine: Math.max(0, ...lavori.map((x) => x.ordine)) + 10 }));
       }}><Plus size={15} /> Nuovo lavoro</button>
+    </section>
+  );
+}
+
+// Tariffe orarie dei preventivi: in ogni sezione del foglio si sceglie quale usare
+function Tariffe() {
+  const [tariffe, setTariffe] = useState<TariffaPreventivo[]>([]);
+  const [errore, setErrore] = useState("");
+  const carica = useCallback(() => {
+    leggiTariffe().then(({ tariffe: t, manca }) => { setTariffe(manca ? [] : t); setErrore(manca ? "Esegui su Supabase lo script 0035_tariffe_preventivo.sql" : ""); });
+  }, []);
+  useEffect(() => { carica(); }, [carica]);
+  const esegui = async (p: PromiseLike<{ error: { message: string } | null }>) => {
+    const { error } = await p;
+    if (error) setErrore(error.message.includes("duplicate") ? "Esiste già una tariffa con questo nome" : error.message);
+    carica();
+  };
+  const salva = (id: number, campi: Record<string, unknown>) => esegui(supabase.from("tariffe_preventivo").update(campi).eq("id", id));
+  return (
+    <section className="riquadro-chiamata">
+      <h2>Tariffe orarie</h2>
+      <p className="piccolo">Le tariffe della manodopera. Nel preventivo guidato ogni sezione (Camera, Caldaia…) può usare la sua; la <b>predefinita</b> è quella proposta per quel tipo di impianto. I preventivi già fatti tengono la tariffa di quando li hai fatti.</p>
+      {errore && <p className="errore">{errore}</p>}
+      <table className="griglia tabella-voci">
+        <thead><tr><th>Tariffa</th><th>€ / ora</th><th>Per</th><th>Predefinita</th><th>Attiva</th><th /></tr></thead>
+        <tbody>
+          {tariffe.map((t) => (
+            <tr key={t.id} className={t.attiva ? "" : "spenta"}>
+              <td><input defaultValue={t.nome} onBlur={(e) => e.target.value.trim() && e.target.value !== t.nome && salva(t.id, { nome: e.target.value.trim() })} /></td>
+              <td><input className="corto destra" inputMode="decimal" defaultValue={String(t.prezzo_ora).replace(".", ",")} onBlur={(e) => { const p = numero(e.target.value || "0"); if (!Number.isNaN(p) && p !== t.prezzo_ora) salva(t.id, { prezzo_ora: p }); }} /> €</td>
+              <td>
+                <select value={t.tipo ?? ""} onChange={(e) => salva(t.id, { tipo: e.target.value || null })}>
+                  <option value="">Tutti gli impianti</option>
+                  <option value="elettrico">Elettrico</option>
+                  <option value="idraulico">Idraulico</option>
+                </select>
+              </td>
+              <td><input type="checkbox" checked={t.predefinita} onChange={async (e) => {
+                // Una sola predefinita per tipo di impianto
+                if (e.target.checked) {
+                  const altre = tariffe.filter((x) => x.id !== t.id && x.predefinita && (x.tipo ?? "") === (t.tipo ?? "")).map((x) => x.id);
+                  if (altre.length) await supabase.from("tariffe_preventivo").update({ predefinita: false }).in("id", altre);
+                }
+                salva(t.id, { predefinita: e.target.checked });
+              }} /></td>
+              <td><input type="checkbox" checked={t.attiva} onChange={(e) => salva(t.id, { attiva: e.target.checked })} /></td>
+              <td><button className="link rosso" title="Elimina la tariffa" onClick={() => confirm(`Eliminare la tariffa "${t.nome}"?`) && esegui(supabase.from("tariffe_preventivo").delete().eq("id", t.id))}><Trash2 size={15} /></button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button className="btn blu" onClick={() => {
+        const nome = prompt("Nome della tariffa (es. Tecnico specializzato, Reperibilità festiva):")?.trim();
+        if (!nome) return;
+        const prezzo = numero(prompt(`Prezzo all'ora di "${nome}" (€):`, "35") ?? "");
+        if (!Number.isNaN(prezzo)) esegui(supabase.from("tariffe_preventivo").insert({ nome, prezzo_ora: prezzo, ordine: Math.max(0, ...tariffe.map((x) => x.ordine)) + 10 }));
+      }}><Plus size={15} /> Nuova tariffa</button>
     </section>
   );
 }

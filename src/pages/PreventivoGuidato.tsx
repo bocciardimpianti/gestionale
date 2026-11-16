@@ -7,7 +7,7 @@ import Autocompleta from "../components/Autocompleta";
 import ConfiguratoreLavoro from "../components/ConfiguratoreLavoro";
 import { stampaPreventivo } from "../stampe";
 import {
-  accessoriAmbiente, manodopera, leggiCatalogo, leggiLavori, leggiSerie, marcaMateriale, type LavoroPreventivo, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
+  accessoriAmbiente, manodopera, leggiCatalogo, leggiTariffe, tariffaDi, type TariffaFoglio, type TariffaPreventivo, leggiLavori, leggiSerie, marcaMateriale, type LavoroPreventivo, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
   type AmbienteFoglio, type AmbienteTipo, type Foglio, type SerieCivile, type TipoImpianto, type VoceImpianto,
 } from "../impianti";
 
@@ -133,19 +133,31 @@ export default function PreventivoGuidato() {
   };
 
   // Tariffa oraria della manodopera: quella del foglio, altrimenti la "Standard" delle tariffe
-  const tariffa = foglio?.tariffa_oraria ?? 0;
+  const pred: TariffaFoglio = { nome: foglio?.tariffa_nome ?? "Manodopera", prezzo: foglio?.tariffa_oraria ?? 0 };
+  const [tariffe, setTariffe] = useState<TariffaPreventivo[]>([]);
+  const tariffeTipo = tariffe.filter((t) => t.attiva && (!t.tipo || t.tipo === foglio?.tipo));
   const oreTotali = (foglio?.ambienti ?? []).reduce((t, a) => t + (a.ore ?? 0), 0);
+  // Ore e importo per tariffa (riepilogo)
+  const perTariffa = [...(foglio?.ambienti ?? []).filter((a) => (a.ore ?? 0) > 0).reduce((m, a) => {
+    const t = tariffaDi(a, pred);
+    const k = `${t.nome}|${t.prezzo}`;
+    const x = m.get(k) ?? { ...t, ore: 0 };
+    x.ore += a.ore ?? 0;
+    return m.set(k, x);
+  }, new Map<string, TariffaFoglio & { ore: number }>()).values()];
   useEffect(() => {
-    if (!foglio || foglio.tariffa_oraria !== undefined) return;
-    supabase.from("tariffe").select("nome, tariffa_oraria").order("ordine").then(({ data }) => {
-      const t = (data ?? []) as { nome: string; tariffa_oraria: number | null }[];
-      const scelta = t.find((x) => /standard/i.test(x.nome) && x.tariffa_oraria) ?? t.find((x) => x.tariffa_oraria);
-      setFoglio((x) => (x && x.tariffa_oraria === undefined ? { ...x, tariffa_oraria: Number(scelta?.tariffa_oraria ?? 0) } : x));
-    });
-  }, [foglio?.tipo, foglio?.tariffa_oraria]);
+    if (!foglio?.tipo) return;
+    leggiTariffe().then(({ tariffe: t }) => {
+      setTariffe(t);
+      // Foglio nuovo: la tariffa predefinita per il tipo di impianto
+      const scelta = t.find((x) => x.attiva && x.predefinita && x.tipo === foglio.tipo) ?? t.find((x) => x.attiva && x.predefinita && !x.tipo) ?? t.find((x) => x.attiva && (!x.tipo || x.tipo === foglio.tipo));
+      setFoglio((x) => (x && x.tariffa_oraria === undefined ? { ...x, tariffa_oraria: scelta?.prezzo_ora ?? 0, tariffa_nome: scelta?.nome ?? "Manodopera" } : x));
+    }).catch(() => {});
+  }, [foglio?.tipo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sceltaTariffa = (nome: string): TariffaFoglio | null => { const t = tariffe.find((x) => x.nome === nome); return t ? { nome: t.nome, prezzo: t.prezzo_ora } : null; };
 
   const totali = useMemo(() => {
-    const imponibile = r2((foglio?.ambienti ?? []).reduce((t, a) => t + totaleAmbiente(a, foglio?.serie, tariffa), 0));
+    const imponibile = r2((foglio?.ambienti ?? []).reduce((t, a) => t + totaleAmbiente(a, foglio?.serie, pred), 0));
     const scontoTotale = r2(imponibile * (numero(sconto) || 0) / 100);
     const scontato = r2(imponibile - scontoTotale);
     const ivaTotale = r2(scontato * (numero(iva) || 0) / 100);
@@ -196,7 +208,7 @@ export default function PreventivoGuidato() {
     const righe = foglio.ambienti.flatMap((a) => [
       ...a.voci.filter((v) => v.quantita > 0).map((v) => ({ nome: v.nome, unita: v.unita, quantita: v.quantita, prezzo: v.prezzo, materiale_id: v.materiale_id ?? null })),
       ...accessoriAmbiente(a, foglio.serie).map((x) => ({ ...x, unita: "pz", materiale_id: null })),
-      ...manodopera(a, tariffa),
+      ...manodopera(a, pred),
     ].map((v) => ({
       materiale_id: v.materiale_id,
       descrizione: `${a.nome} – ${v.nome}`, unita_misura: v.unita, quantita: v.quantita, prezzo_base: v.prezzo, ricarico: 0, prezzo: v.prezzo, totale: r2(v.prezzo * v.quantita),
@@ -218,8 +230,8 @@ export default function PreventivoGuidato() {
     const { data: c } = cliente ? await supabase.from("clienti").select("nome, indirizzo_fatturazione, piva, codice_fiscale, email").eq("id", cliente.id).maybeSingle() : { data: null };
     // Ogni ambiente: riga del titolo (con il suo totale se i prezzi delle voci sono nascosti), poi le voci
     const righe = foglio.ambienti.flatMap((a) => [
-      { descrizione: `▸ ${a.nome.toUpperCase()}`, quantita: null, prezzo: null, totale: prezziVoci ? null : totaleAmbiente(a, foglio.serie, tariffa) },
-      ...[...a.voci.filter((v) => v.quantita > 0), ...accessoriAmbiente(a, foglio.serie).map((x) => ({ ...x, unita: "pz" })), ...manodopera(a, tariffa)].map((v) => ({
+      { descrizione: `▸ ${a.nome.toUpperCase()}`, quantita: null, prezzo: null, totale: prezziVoci ? null : totaleAmbiente(a, foglio.serie, pred) },
+      ...[...a.voci.filter((v) => v.quantita > 0), ...accessoriAmbiente(a, foglio.serie).map((x) => ({ ...x, unita: "pz" })), ...manodopera(a, pred)].map((v) => ({
         descrizione: `   ${v.nome}`, quantita: v.quantita, unita_misura: v.unita,
         prezzo: prezziVoci ? v.prezzo : null, totale: prezziVoci ? r2(v.prezzo * v.quantita) : null,
       })),
@@ -375,10 +387,15 @@ export default function PreventivoGuidato() {
                     <CampoNumero etichetta={`Ore di lavoro ${a.nome}`} valore={a.ore ?? 0} onCambia={(n) => cambiaAmbiente(a.chiave, (x) => ({ ...x, ore: n }))} />
                     <button aria-label="Più ore" onClick={() => cambiaAmbiente(a.chiave, (x) => ({ ...x, ore: (x.ore ?? 0) + 0.5 }))}><Plus size={14} /></button>
                   </span>
-                  <span className="totale-voce">{euro((a.ore ?? 0) * tariffa)}</span>
+                  <span className="totale-voce">{euro((a.ore ?? 0) * tariffaDi(a, pred).prezzo)}</span>
+                  <select className="tariffa-sezione" aria-label={`Tariffa ${a.nome}`} value={a.tariffa?.nome ?? ""} onChange={(e) => cambiaAmbiente(a.chiave, (x) => ({ ...x, tariffa: sceltaTariffa(e.target.value) }))}>
+                    <option value="">{pred.nome} · {euro(pred.prezzo)}/h (predefinita)</option>
+                    {a.tariffa && !tariffeTipo.some((t) => t.nome === a.tariffa!.nome) && <option value={a.tariffa.nome}>{a.tariffa.nome} · {euro(a.tariffa.prezzo)}/h</option>}
+                    {tariffeTipo.filter((t) => t.nome !== pred.nome).map((t) => <option key={t.id} value={t.nome}>{t.nome} · {euro(t.prezzo_ora)}/h</option>)}
+                  </select>
                 </div>
                 {foglio.tipo === "elettrico" && <Scatole a={a} serie={foglio.serie} onCambia={(s3, s4) => cambiaAmbiente(a.chiave, (x) => ({ ...x, scatole_3: s3, scatole_4: s4 }))} />}
-                <div className="totale-ambiente"><span>Totale {a.nome}</span><b>{euro(totaleAmbiente(a, foglio.serie, tariffa))}</b></div>
+                <div className="totale-ambiente"><span>Totale {a.nome}</span><b>{euro(totaleAmbiente(a, foglio.serie, pred))}</b></div>
               </div>
             ))}
           </div>
@@ -386,11 +403,17 @@ export default function PreventivoGuidato() {
 
         <aside className="riepilogo-foglio">
           <div className="titolo-tavolozza">Riepilogo</div>
-          {foglio.ambienti.map((a) => <div key={a.chiave} className="riga-riepilogo"><span>{a.nome}</span><span>{euro(totaleAmbiente(a, foglio.serie, tariffa))}</span></div>)}
+          {foglio.ambienti.map((a) => <div key={a.chiave} className="riga-riepilogo"><span>{a.nome}</span><span>{euro(totaleAmbiente(a, foglio.serie, pred))}</span></div>)}
           <div className="ore-riepilogo">
             <div className="riga-riepilogo"><span>⏱ Ore di lavoro</span><b>{String(oreTotali).replace(".", ",")} h</b></div>
-            <label className="riga-riepilogo"><span>Tariffa €/ora</span><CampoNumero etichetta="Tariffa oraria" valore={tariffa} onCambia={(n) => cambia((x) => ({ ...x, tariffa_oraria: n }))} /></label>
-            <div className="riga-riepilogo"><span>Manodopera</span><span>{euro(oreTotali * tariffa)}</span></div>
+            <label className="riga-tariffa">Tariffa predefinita
+              <select value={pred.nome} onChange={(e) => { const t = sceltaTariffa(e.target.value); if (t) cambia((x) => ({ ...x, tariffa_oraria: t.prezzo, tariffa_nome: t.nome })); }}>
+                {!tariffeTipo.some((t) => t.nome === pred.nome) && <option value={pred.nome}>{pred.nome} · {euro(pred.prezzo)}/h</option>}
+                {tariffeTipo.map((t) => <option key={t.id} value={t.nome}>{t.nome} · {euro(t.prezzo_ora)}/h</option>)}
+              </select>
+            </label>
+            {perTariffa.map((t) => <div key={`${t.nome}${t.prezzo}`} className="riga-riepilogo piccola"><span>{t.nome}: {String(t.ore).replace(".", ",")} h × {euro(t.prezzo)}</span><span>{euro(t.ore * t.prezzo)}</span></div>)}
+            <div className="riga-riepilogo"><span>Manodopera</span><b>{euro(perTariffa.reduce((s, t) => s + t.ore * t.prezzo, 0))}</b></div>
           </div>
           <div className="riga-riepilogo forte"><span>Imponibile</span><span>{euro(totali.imponibile)}</span></div>
           <label className="riga-riepilogo"><span>Sconto %</span><input inputMode="decimal" value={sconto} onChange={(e) => { setSconto(e.target.value); setModificato(true); }} /></label>

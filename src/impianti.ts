@@ -18,10 +18,11 @@ export type SerieCivile = { id: number; nome: string; prezzo_supporto_3: number;
 
 // Foglio del preventivo (salvato nel preventivo per poterlo riaprire)
 export type VoceFoglio = { voce_id: number | null; nome: string; unita: string; prezzo: number; quantita: number; moduli?: number; materiale_id?: number };
-export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[]; scatole_3?: number; scatole_4?: number; ore?: number };
+export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[]; scatole_3?: number; scatole_4?: number; ore?: number; tariffa?: TariffaFoglio | null };
+export type TariffaFoglio = { nome: string; prezzo: number };
 // La serie è copiata nel foglio (nome e prezzi) così riaprendo il preventivo i conti non cambiano
 export type LavoroFoglio = { lavoro_id: number; chiave: string; marca?: string | null };
-export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva"> | null; lavori?: LavoroFoglio[]; tariffa_oraria?: number };
+export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva"> | null; lavori?: LavoroFoglio[]; tariffa_oraria?: number; tariffa_nome?: string };
 export type Accessorio = { nome: string; breve: string; quantita: number; prezzo: number; materiale?: string };
 
 const r2 = (x: number) => Math.round(x * 100) / 100;
@@ -47,12 +48,28 @@ export function accessoriAmbiente(a: AmbienteFoglio, serie: Foglio["serie"]): Ac
 /** Scatole stimate quando l'ambiente non le ha: circa 2 moduli per scatola da 3 */
 export const stimaScatole = (moduli: number) => Math.ceil(moduli / 2);
 
-export const totaleAmbiente = (a: AmbienteFoglio, serie?: Foglio["serie"], tariffa = 0) =>
-  r2(a.voci.reduce((t, v) => t + v.prezzo * v.quantita, 0) + accessoriAmbiente(a, serie).reduce((t, x) => t + x.prezzo * x.quantita, 0) + (a.ore ?? 0) * tariffa);
+/** Tariffa oraria di una sezione: la sua, altrimenti quella predefinita del foglio */
+export const tariffaDi = (a: AmbienteFoglio, predefinita?: TariffaFoglio) => a.tariffa ?? predefinita ?? { nome: "Manodopera", prezzo: 0 };
+
+export const totaleAmbiente = (a: AmbienteFoglio, serie?: Foglio["serie"], predefinita?: TariffaFoglio) =>
+  r2(a.voci.reduce((t, v) => t + v.prezzo * v.quantita, 0) + accessoriAmbiente(a, serie).reduce((t, x) => t + x.prezzo * x.quantita, 0) + (a.ore ?? 0) * tariffaDi(a, predefinita).prezzo);
 
 /** Riga della manodopera di una sezione (ore × tariffa oraria) */
-export const manodopera = (a: AmbienteFoglio, tariffa: number) =>
-  (a.ore ?? 0) > 0 ? [{ nome: "Manodopera", unita: "ore", quantita: a.ore!, prezzo: tariffa, materiale_id: null }] : [];
+export const manodopera = (a: AmbienteFoglio, predefinita?: TariffaFoglio) =>
+  (a.ore ?? 0) > 0 ? [{ nome: `Manodopera – ${tariffaDi(a, predefinita).nome}`, unita: "ore", quantita: a.ore!, prezzo: tariffaDi(a, predefinita).prezzo, materiale_id: null }] : [];
+
+// ---- Tariffe orarie dei preventivi ----
+export type TariffaPreventivo = { id: number; nome: string; prezzo_ora: number; tipo: TipoImpianto | null; predefinita: boolean; ordine: number; attiva: boolean };
+
+export async function leggiTariffe(): Promise<{ tariffe: TariffaPreventivo[]; manca: boolean }> {
+  const { data, error } = await supabase.from("tariffe_preventivo").select("*").order("ordine").order("id");
+  if (!error) return { tariffe: ((data ?? []) as TariffaPreventivo[]).map((t) => ({ ...t, prezzo_ora: Number(t.prezzo_ora) })), manca: false };
+  // Script 0035 non ancora eseguito: si usa la tariffa "Standard" dei rapportini
+  const { data: vecchie } = await supabase.from("tariffe").select("nome, tariffa_oraria").order("ordine");
+  const t = (vecchie ?? []) as { nome: string; tariffa_oraria: number | null }[];
+  const scelta = t.find((x) => /standard/i.test(x.nome) && x.tariffa_oraria) ?? t.find((x) => x.tariffa_oraria);
+  return { tariffe: scelta ? [{ id: -1, nome: "Manodopera", prezzo_ora: Number(scelta.tariffa_oraria), tipo: null, predefinita: true, ordine: 0, attiva: true }] : [], manca: true };
+}
 
 export async function leggiSerie() {
   const conMateriali = "*, " + COMPONENTI.map((c) => `m_${c}:mat_${c}(id, descrizione, prezzo_ricaricato)`).join(", ");
