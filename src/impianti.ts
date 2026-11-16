@@ -126,7 +126,8 @@ export async function leggiCatalogo(tipo?: TipoImpianto) {
 }
 
 // ---- Lavori ("Cosa facciamo?": caldaia, clima, irrigazione…) con le categorie di materiali del catalogo ----
-export type CategoriaLavoro = { id: number; lavoro_id: number; nome: string; cerca: string; escludi: string | null; principale: boolean; segue_marca: boolean; ordine: number };
+// "materiali": scelti uno per uno dal catalogo (si aggiungono a quelli trovati con "cerca")
+export type CategoriaLavoro = { id: number; lavoro_id: number; nome: string; cerca: string | null; escludi: string | null; principale: boolean; segue_marca: boolean; ordine: number; materiali: number[] };
 export type LavoroPreventivo = { id: number; tipo: TipoImpianto; nome: string; icona: string | null; ordine: number; attivo: boolean; categorie: CategoriaLavoro[] };
 
 export async function leggiLavori(tipo: TipoImpianto) {
@@ -135,7 +136,11 @@ export async function leggiLavori(tipo: TipoImpianto) {
     supabase.from("lavori_categorie").select("*").order("ordine").order("id"),
   ]);
   if (error || e2) throw new Error(/lavori_/.test((error ?? e2)!.message) ? "Esegui su Supabase lo script 0034_lavori_preventivo.sql" : (error ?? e2)!.message);
-  const cat = (c ?? []) as CategoriaLavoro[];
+  // Materiali scelti a mano (script 0036): se la tabella non c'è ancora si va avanti senza
+  const { data: scelti } = await supabase.from("lavori_categorie_materiali").select("categoria_id, materiale_id, ordine").order("ordine");
+  const cat = ((c ?? []) as Omit<CategoriaLavoro, "materiali">[]).map((k) => ({
+    ...k, materiali: ((scelti ?? []) as { categoria_id: number; materiale_id: number }[]).filter((x) => x.categoria_id === k.id).map((x) => x.materiale_id),
+  })) as CategoriaLavoro[];
   return ((l ?? []) as Omit<LavoroPreventivo, "categorie">[]).map((x) => ({ ...x, categorie: cat.filter((k) => k.lavoro_id === x.id) })) as LavoroPreventivo[];
 }
 

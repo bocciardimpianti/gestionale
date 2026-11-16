@@ -33,10 +33,16 @@ export function useCatalogo() {
 }
 
 /** Materiali del catalogo che corrispondono a una categoria */
-export function materialiCategoria(materiali: Materiale[], c: Pick<CategoriaLavoro, "cerca" | "escludi">) {
+export function materialiCategoria(materiali: Materiale[], c: Pick<CategoriaLavoro, "cerca" | "escludi"> & { materiali?: number[] }) {
   const si = espressione(c.cerca), no = espressione(c.escludi);
-  if (!si) return [];
-  return materiali.filter((m) => { const d = pulisci(m.descrizione); return si.test(d) && !(no && no.test(d)); });
+  const scelti = new Set(c.materiali ?? []);
+  // I materiali scelti uno per uno ci sono sempre; quelli trovati con le parole solo se non sono esclusi
+  return materiali.filter((m) => {
+    if (scelti.has(m.id)) return true;
+    if (!si) return false;
+    const d = pulisci(m.descrizione);
+    return si.test(d) && !(no && no.test(d));
+  });
 }
 
 export default function ConfiguratoreLavoro({ lavoro, ambiente, marca, onAggiungi, onQuantita, onChiudi }: {

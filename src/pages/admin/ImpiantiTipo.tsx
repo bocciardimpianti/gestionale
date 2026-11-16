@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Package, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "../../supabase";
-import { COMPONENTI, leggiCatalogo, leggiLavori, leggiSerie, leggiTariffe, type TariffaPreventivo, type LavoroPreventivo, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
+import { COMPONENTI, leggiCatalogo, leggiLavori, leggiSerie, leggiTariffe, type CategoriaLavoro, type TariffaPreventivo, type LavoroPreventivo, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
 import CercaMateriale from "../../components/CercaMateriale";
 import { materialiCategoria, useCatalogo } from "../../components/ConfiguratoreLavoro";
 
@@ -238,6 +238,8 @@ export default function ImpiantiTipo() {
 function Lavori({ tipo, lavori, errore, esegui }: { tipo: TipoImpianto; lavori: LavoroPreventivo[]; errore: string; esegui: (p: PromiseLike<{ error: { message: string } | null }>) => Promise<void> }) {
   const { materiali } = useCatalogo();
   const [aperto, setAperto] = useState<number | null>(null);
+  const [materialiDi, setMaterialiDi] = useState<number | null>(null);
+  const categoriaAperta = lavori.flatMap((l) => l.categorie).find((c) => c.id === materialiDi) ?? null;
   const salva = (tabella: string, id: number, campi: Record<string, unknown>) => esegui(supabase.from(tabella).update(campi).eq("id", id));
   return (
     <section className="riquadro-chiamata">
@@ -258,12 +260,13 @@ function Lavori({ tipo, lavori, errore, esegui }: { tipo: TipoImpianto; lavori: 
             {aperto === l.id && (
               <>
                 <table className="griglia tabella-voci tabella-categorie">
-                  <thead><tr><th>Categoria</th><th>Cerca</th><th>Escludi</th><th title="Il materiale scelto qui decide la marca">Principale</th><th title="Mostra prima i materiali della stessa marca del principale">Stessa marca</th><th>Trovati</th><th /></tr></thead>
+                  <thead><tr><th>Categoria</th><th title="Materiali scelti uno per uno dall'elenco completo">Materiali scelti</th><th title="Facoltativo: parole da cercare nella descrizione">Cerca (parole)</th><th>Escludi</th><th title="Il materiale scelto qui decide la marca">Principale</th><th title="Mostra prima i materiali della stessa marca del principale">Stessa marca</th><th>Trovati</th><th /></tr></thead>
                   <tbody>
                     {l.categorie.map((c) => (
                       <tr key={c.id}>
                         <td><input defaultValue={c.nome} onBlur={(e) => e.target.value.trim() && e.target.value !== c.nome && salva("lavori_categorie", c.id, { nome: e.target.value.trim() })} /></td>
-                        <td><input className="espr" defaultValue={c.cerca} onBlur={(e) => e.target.value.trim() && e.target.value !== c.cerca && salva("lavori_categorie", c.id, { cerca: e.target.value.trim() })} /></td>
+                        <td><button className="btn blu piccolo-btn" onClick={() => setMaterialiDi(c.id)}><Package size={14} /> {c.materiali.length ? `${c.materiali.length} scelti` : "Scegli"}</button></td>
+                        <td><input className="espr" defaultValue={c.cerca ?? ""} placeholder="(nessuna)" onBlur={(e) => e.target.value.trim() !== (c.cerca ?? "") && salva("lavori_categorie", c.id, { cerca: e.target.value.trim() || null })} /></td>
                         <td><input className="espr" defaultValue={c.escludi ?? ""} onBlur={(e) => e.target.value !== (c.escludi ?? "") && salva("lavori_categorie", c.id, { escludi: e.target.value.trim() || null })} /></td>
                         <td><input type="checkbox" checked={c.principale} onChange={(e) => salva("lavori_categorie", c.id, { principale: e.target.checked })} /></td>
                         <td><input type="checkbox" checked={c.segue_marca} onChange={(e) => salva("lavori_categorie", c.id, { segue_marca: e.target.checked })} /></td>
@@ -276,14 +279,16 @@ function Lavori({ tipo, lavori, errore, esegui }: { tipo: TipoImpianto; lavori: 
                 <button className="btn blu piccolo-btn" onClick={() => {
                   const nome = prompt("Nome della categoria (es. Valvole di zona):")?.trim();
                   if (!nome) return;
-                  const cerca = prompt("Parole da cercare nella descrizione, separate da | (es. valvola di zona|valvola a 3 vie):", nome.toLowerCase())?.trim();
-                  if (cerca) esegui(supabase.from("lavori_categorie").insert({ lavoro_id: l.id, nome, cerca, ordine: Math.max(0, ...l.categorie.map((c) => c.ordine)) + 10 }));
+                  // Nasce vuota: si apre subito la scelta dei materiali
+                  supabase.from("lavori_categorie").insert({ lavoro_id: l.id, nome, cerca: null, ordine: Math.max(0, ...l.categorie.map((c) => c.ordine)) + 10 }).select("id").single()
+                    .then(async ({ data, error }) => { await esegui(Promise.resolve({ error })); if (data) setMaterialiDi(Number(data.id)); });
                 }}><Plus size={14} /> Nuova categoria</button>
               </>
             )}
           </div>
         ))}
       </div>
+      {categoriaAperta && <MaterialiCategoria c={categoriaAperta} materiali={materiali} esegui={esegui} onChiudi={() => setMaterialiDi(null)} />}
       <button className="btn blu" onClick={() => {
         const nome = prompt("Nome del lavoro (es. Solare termico, Videocitofono):")?.trim();
         if (nome) esegui(supabase.from("lavori_preventivo").insert({ tipo, nome, ordine: Math.max(0, ...lavori.map((x) => x.ordine)) + 10 }));
@@ -346,5 +351,67 @@ function Tariffe() {
         if (!Number.isNaN(prezzo)) esegui(supabase.from("tariffe_preventivo").insert({ nome, prezzo_ora: prezzo, ordine: Math.max(0, ...tariffe.map((x) => x.ordine)) + 10 }));
       }}><Plus size={15} /> Nuova tariffa</button>
     </section>
+  );
+}
+
+// Materiali di una categoria scelti uno per uno dall'elenco completo del catalogo
+function MaterialiCategoria({ c, materiali, esegui, onChiudi }: {
+  c: CategoriaLavoro; materiali: (Record<string, unknown> & { id: number })[] | null;
+  esegui: (p: PromiseLike<{ error: { message: string } | null }>) => Promise<void>; onChiudi: () => void;
+}) {
+  const [cerca, setCerca] = useState(false);
+  const [vediTrovati, setVediTrovati] = useState(false);
+  const perId = new Map((materiali ?? []).map((m) => [m.id, m]));
+  const scelti = c.materiali.map((id) => perId.get(id) ?? { id, descrizione: `Materiale n. ${id}`, prezzo_ricaricato: null });
+  const trovati = materiali && c.cerca ? materialiCategoria(materiali, { cerca: c.cerca, escludi: c.escludi }).filter((m) => !c.materiali.includes(m.id)) : [];
+  const aggiungi = (ids: number[]) => esegui(supabase.from("lavori_categorie_materiali").upsert(
+    ids.map((id, i) => ({ categoria_id: c.id, materiale_id: id, ordine: c.materiali.length + i })), { onConflict: "categoria_id,materiale_id", ignoreDuplicates: true }));
+  return (
+    <div className="velo" onMouseDown={onChiudi}>
+      <div className="finestra finestra-materiali-categoria" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="finestra-titolo">Materiali di "{c.nome}"<button className="chiudi" onClick={onChiudi}>×</button></div>
+        <div className="finestra-corpo">
+          <p className="piccolo">Questi materiali compaiono nella categoria del preventivo guidato. Aggiungili dall'elenco completo con <b>Aggiungi dal catalogo</b> (puoi sceglierne tanti di seguito).</p>
+          <table className="griglia tabella-voci">
+            <thead><tr><th>Materiale</th><th className="destra">Prezzo</th><th /></tr></thead>
+            <tbody>
+              {scelti.map((m) => (
+                <tr key={m.id}>
+                  <td>{String(m.descrizione ?? "")}</td>
+                  <td className="destra">{m.prezzo_ricaricato != null ? euro(Number(m.prezzo_ricaricato)) : ""}</td>
+                  <td><button className="link rosso" title="Togli dalla categoria" onClick={() => esegui(supabase.from("lavori_categorie_materiali").delete().eq("categoria_id", c.id).eq("materiale_id", m.id))}><X size={14} /></button></td>
+                </tr>
+              ))}
+              {!scelti.length && <tr><td colSpan={3} className="piccolo">Nessun materiale scelto.</td></tr>}
+            </tbody>
+          </table>
+          {c.cerca && (
+            <div className="trovati-parole">
+              <span className="piccolo">In più, con le parole di "Cerca" la categoria trova altri <b>{materiali ? trovati.length : "…"}</b> materiali.</span>
+              <button className="link" onClick={() => setVediTrovati(!vediTrovati)}>{vediTrovati ? "nascondi" : "vedi"}</button>
+              {trovati.length > 0 && (
+                <button className="btn grigio piccolo-btn" title="Li aggiunge ai materiali scelti e svuota Cerca: poi togli quelli che non vuoi"
+                  onClick={async () => {
+                    if (!confirm(`Aggiungo i ${trovati.length} materiali trovati a quelli scelti e tolgo le parole di ricerca: poi potrai togliere uno per uno quelli che non vuoi. Procedo?`)) return;
+                    await aggiungi(trovati.map((m) => m.id));
+                    await esegui(supabase.from("lavori_categorie").update({ cerca: null, escludi: null }).eq("id", c.id));
+                  }}>Prendi questi e scegli a mano</button>
+              )}
+              {vediTrovati && <ul className="elenco-trovati">{trovati.map((m) => <li key={m.id}>{String(m.descrizione ?? "")} <button className="link" onClick={() => aggiungi([m.id])}>+ scegli</button></li>)}</ul>}
+            </div>
+          )}
+        </div>
+        <div className="finestra-piede">
+          <button className="btn blu" onClick={() => setCerca(true)}><Plus size={15} /> Aggiungi dal catalogo</button>
+          <span style={{ flex: 1 }} />
+          <button className="btn grigio" onClick={onChiudi}>Fatto</button>
+        </div>
+      </div>
+      {cerca && (
+        <div className="sopra-materiali" onMouseDown={(e) => e.stopPropagation()}>
+          <CercaMateriale titolo={`Materiali per "${c.nome}"`} testoIniziale={c.nome.split(/[ /]/)[0].toLowerCase()} onChiudi={() => setCerca(false)} onScegli={(m) => aggiungi([m.id])} />
+        </div>
+      )}
+    </div>
   );
 }
