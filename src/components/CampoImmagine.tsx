@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FolderOpen, Pencil, Search, Trash2 } from "lucide-react";
+import { FolderOpen, Pencil, Search, Sparkles, Trash2 } from "lucide-react";
+import PropostaFoto, { proponiSubito } from "./PropostaFoto";
 import { supabase } from "../supabase";
 
 // Miniatura per la griglia
@@ -44,7 +45,7 @@ export function useUrlImmagine(valore: unknown, archivio: string) {
 }
 
 // Riquadro immagine come nella linguetta Dettaglio: Foto (apri/elimina) o Firma (disegna)
-export default function CampoImmagine({ etichetta, valore, firma, modificabile, onCambia, archivio, cerca }: {
+export default function CampoImmagine({ etichetta, valore, firma, modificabile, onCambia, archivio, cerca, fotoVeloce }: {
   etichetta: string;
   // Testo per la ricerca dell'immagine su Google Immagini (es. codice fornitore + descrizione)
   cerca?: string;
@@ -53,12 +54,19 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
   firma?: boolean;
   modificabile: boolean;
   onCambia: (v: Blob | null) => void;
+  // Vista "Senza foto": la proposta automatica può aprirsi da sola a ogni materiale
+  fotoVeloce?: boolean;
 }) {
   const url = useUrlImmagine(valore, archivio);
   const fileRef = useRef<HTMLInputElement>(null);
   const [disegna, setDisegna] = useState(false);
   const [sopra, setSopra] = useState(false);
   const [avviso, setAvviso] = useState("");
+  const [proposta, setProposta] = useState(false);
+  // Foto veloce con "proponi anche al successivo": la proposta si apre da sola sui materiali senza foto
+  useEffect(() => {
+    if (fotoVeloce && modificabile && !firma && cerca && !valore && proponiSubito()) setProposta(true);
+  }, [cerca]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Immagine incollata (Ctrl+V) o trascinata nel riquadro
   const daTrasferimento = async (dt: DataTransfer | null) => {
@@ -102,6 +110,12 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
             <Search size={13} /> Cerca foto
           </button>
         )}
+        {modificabile && !firma && cerca && (
+          <button type="button" className="cerca-foto proponi-foto" title="Cerco io la foto su internet e te la propongo"
+            onClick={() => setProposta(true)}>
+            <Sparkles size={13} /> Proponi foto
+          </button>
+        )}
         {modificabile && !firma && !url && (
           <span className="suggerimento-foto">{avviso || "Clicca qui e premi Ctrl+V per incollare un'immagine, oppure trascinala dentro"}</span>
         )}
@@ -112,6 +126,8 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
         e.target.value = "";
         if (f) onCambia(await riduci(f));
       }} />
+      {proposta && cerca && <PropostaFoto testo={cerca} fotoVeloce={fotoVeloce} onChiudi={() => setProposta(false)}
+        onScelta={(b) => { setProposta(false); setAvviso(""); onCambia(b); }} />}
       {disegna && <PadFirma onChiudi={() => setDisegna(false)} onConferma={(b) => { onCambia(b); setDisegna(false); }} />}
     </div>
   );
@@ -137,7 +153,7 @@ export async function immagineDa(dt: DataTransfer): Promise<Blob | null> {
   return null;
 }
 
-async function riduci(file: File): Promise<Blob> {
+export async function riduci(file: File): Promise<Blob> {
   try {
     const img = await createImageBitmap(file);
     const scala = Math.min(1, 1600 / Math.max(img.width, img.height));
