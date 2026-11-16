@@ -18,10 +18,10 @@ export type SerieCivile = { id: number; nome: string; prezzo_supporto_3: number;
 
 // Foglio del preventivo (salvato nel preventivo per poterlo riaprire)
 export type VoceFoglio = { voce_id: number | null; nome: string; unita: string; prezzo: number; quantita: number; moduli?: number; materiale_id?: number };
-export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[]; scatole_3?: number; scatole_4?: number };
+export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[]; scatole_3?: number; scatole_4?: number; ore?: number };
 // La serie è copiata nel foglio (nome e prezzi) così riaprendo il preventivo i conti non cambiano
 export type LavoroFoglio = { lavoro_id: number; chiave: string; marca?: string | null };
-export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva"> | null; lavori?: LavoroFoglio[] };
+export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva"> | null; lavori?: LavoroFoglio[]; tariffa_oraria?: number };
 export type Accessorio = { nome: string; breve: string; quantita: number; prezzo: number; materiale?: string };
 
 const r2 = (x: number) => Math.round(x * 100) / 100;
@@ -47,8 +47,12 @@ export function accessoriAmbiente(a: AmbienteFoglio, serie: Foglio["serie"]): Ac
 /** Scatole stimate quando l'ambiente non le ha: circa 2 moduli per scatola da 3 */
 export const stimaScatole = (moduli: number) => Math.ceil(moduli / 2);
 
-export const totaleAmbiente = (a: AmbienteFoglio, serie?: Foglio["serie"]) =>
-  r2(a.voci.reduce((t, v) => t + v.prezzo * v.quantita, 0) + accessoriAmbiente(a, serie).reduce((t, x) => t + x.prezzo * x.quantita, 0));
+export const totaleAmbiente = (a: AmbienteFoglio, serie?: Foglio["serie"], tariffa = 0) =>
+  r2(a.voci.reduce((t, v) => t + v.prezzo * v.quantita, 0) + accessoriAmbiente(a, serie).reduce((t, x) => t + x.prezzo * x.quantita, 0) + (a.ore ?? 0) * tariffa);
+
+/** Riga della manodopera di una sezione (ore × tariffa oraria) */
+export const manodopera = (a: AmbienteFoglio, tariffa: number) =>
+  (a.ore ?? 0) > 0 ? [{ nome: "Manodopera", unita: "ore", quantita: a.ore!, prezzo: tariffa, materiale_id: null }] : [];
 
 export async function leggiSerie() {
   const conMateriali = "*, " + COMPONENTI.map((c) => `m_${c}:mat_${c}(id, descrizione, prezzo_ricaricato)`).join(", ");
