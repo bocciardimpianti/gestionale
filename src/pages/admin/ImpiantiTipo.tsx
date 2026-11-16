@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Package, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "../../supabase";
-import { COMPONENTI, leggiCatalogo, leggiSerie, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
+import { COMPONENTI, leggiCatalogo, leggiLavori, leggiSerie, type LavoroPreventivo, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
 import CercaMateriale from "../../components/CercaMateriale";
+import { materialiCategoria, useCatalogo } from "../../components/ConfiguratoreLavoro";
 
 // Impostazioni del preventivo guidato: voci d'impianto (prezzo a punto e/o kit di materiali) e ambienti tipo.
 const euro = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -19,6 +20,8 @@ export default function ImpiantiTipo() {
   const [cercaKit, setCercaKit] = useState(false);
   const [serie, setSerie] = useState<SerieCivile[]>([]);
   const [erroreSerie, setErroreSerie] = useState("");
+  const [lavori, setLavori] = useState<LavoroPreventivo[]>([]);
+  const [erroreLavori, setErroreLavori] = useState("");
   const [collegaA, setCollegaA] = useState<{ serie: SerieCivile; c: Componente } | null>(null);
 
   const carica = useCallback(async () => {
@@ -29,6 +32,7 @@ export default function ImpiantiTipo() {
       setKitDi((k) => (k ? c.voci.find((v) => v.id === k.id) ?? null : null));
       setErrore("");
     } catch (e) { setErrore((e as Error).message); }
+    leggiLavori(tipo).then((x) => { setLavori(x); setErroreLavori(""); }).catch((e) => setErroreLavori((e as Error).message));
     if (tipo === "elettrico") leggiSerie().then((x) => { setSerie(x); setErroreSerie(""); }).catch((e) => setErroreSerie((e as Error).message));
   }, [tipo]);
   useEffect(() => { carica(); }, [carica]);
@@ -178,6 +182,8 @@ export default function ImpiantiTipo() {
         </section>
       )}
 
+      <Lavori tipo={tipo} lavori={lavori} errore={erroreLavori} esegui={esegui} />
+
       {collegaA && (
         <div className="sopra-materiali" onMouseDown={(e) => e.stopPropagation()}>
           <CercaMateriale titolo={`${NOMI_COMPONENTE[collegaA.c]} – ${collegaA.serie.nome}`} testoIniziale={`${NOMI_COMPONENTE[collegaA.c].split(" ")[0].toLowerCase()} ${collegaA.serie.nome.replace(/^(BTicino|Vimar|Gewiss) /, "")}`}
@@ -223,5 +229,63 @@ export default function ImpiantiTipo() {
         </div>
       )}
     </div>
+  );
+}
+
+// "Cosa facciamo?": lavori (Caldaia, Climatizzatore…) e le loro categorie di materiali del catalogo
+function Lavori({ tipo, lavori, errore, esegui }: { tipo: TipoImpianto; lavori: LavoroPreventivo[]; errore: string; esegui: (p: PromiseLike<{ error: { message: string } | null }>) => Promise<void> }) {
+  const { materiali } = useCatalogo();
+  const [aperto, setAperto] = useState<number | null>(null);
+  const salva = (tabella: string, id: number, campi: Record<string, unknown>) => esegui(supabase.from(tabella).update(campi).eq("id", id));
+  return (
+    <section className="riquadro-chiamata">
+      <h2>Lavori – "Cosa facciamo?"</h2>
+      <p className="piccolo">Le pillole che compaiono nel preventivo guidato. Ogni lavoro ha le sue <b>categorie</b>: ognuna mostra i materiali del catalogo la cui descrizione contiene una delle parole di "Cerca" (separate da <code>|</code>, es. <code>defangat|filtro magnetico</code>) e nessuna di "Escludi". <b>Principale</b>: il materiale scelto lì (es. la caldaia) decide la marca; <b>Stessa marca</b>: mostra prima i materiali di quella marca.</p>
+      {errore && <p className="errore">{errore}</p>}
+      <div className="elenco-lavori">
+        {lavori.map((l) => (
+          <div key={l.id} className={`lavoro-admin${l.attivo ? "" : " spenta"}`}>
+            <div className="testa-lavoro-admin">
+              <input className="icona-lavoro" defaultValue={l.icona ?? ""} aria-label="Icona" onBlur={(e) => e.target.value !== (l.icona ?? "") && salva("lavori_preventivo", l.id, { icona: e.target.value.trim() || null })} />
+              <input defaultValue={l.nome} aria-label="Nome del lavoro" onBlur={(e) => e.target.value.trim() && e.target.value !== l.nome && salva("lavori_preventivo", l.id, { nome: e.target.value.trim() })} />
+              <span className="piccolo">{l.categorie.length} categorie</span>
+              <label className="piccolo"><input type="checkbox" checked={l.attivo} onChange={(e) => salva("lavori_preventivo", l.id, { attivo: e.target.checked })} /> attivo</label>
+              <button className="btn grigio piccolo-btn" onClick={() => setAperto(aperto === l.id ? null : l.id)}>{aperto === l.id ? "Chiudi" : "Categorie"}</button>
+              <button className="link rosso" title="Elimina il lavoro" onClick={() => confirm(`Eliminare il lavoro "${l.nome}" con tutte le sue categorie?`) && esegui(supabase.from("lavori_preventivo").delete().eq("id", l.id))}><Trash2 size={15} /></button>
+            </div>
+            {aperto === l.id && (
+              <>
+                <table className="griglia tabella-voci tabella-categorie">
+                  <thead><tr><th>Categoria</th><th>Cerca</th><th>Escludi</th><th title="Il materiale scelto qui decide la marca">Principale</th><th title="Mostra prima i materiali della stessa marca del principale">Stessa marca</th><th>Trovati</th><th /></tr></thead>
+                  <tbody>
+                    {l.categorie.map((c) => (
+                      <tr key={c.id}>
+                        <td><input defaultValue={c.nome} onBlur={(e) => e.target.value.trim() && e.target.value !== c.nome && salva("lavori_categorie", c.id, { nome: e.target.value.trim() })} /></td>
+                        <td><input className="espr" defaultValue={c.cerca} onBlur={(e) => e.target.value.trim() && e.target.value !== c.cerca && salva("lavori_categorie", c.id, { cerca: e.target.value.trim() })} /></td>
+                        <td><input className="espr" defaultValue={c.escludi ?? ""} onBlur={(e) => e.target.value !== (c.escludi ?? "") && salva("lavori_categorie", c.id, { escludi: e.target.value.trim() || null })} /></td>
+                        <td><input type="checkbox" checked={c.principale} onChange={(e) => salva("lavori_categorie", c.id, { principale: e.target.checked })} /></td>
+                        <td><input type="checkbox" checked={c.segue_marca} onChange={(e) => salva("lavori_categorie", c.id, { segue_marca: e.target.checked })} /></td>
+                        <td className="destra" title={materiali ? materialiCategoria(materiali, c).slice(0, 15).map((m) => String(m.descrizione)).join("\n") : ""}>{materiali ? materialiCategoria(materiali, c).length : "…"}</td>
+                        <td><button className="link rosso" title="Elimina la categoria" onClick={() => esegui(supabase.from("lavori_categorie").delete().eq("id", c.id))}><X size={14} /></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button className="btn blu piccolo-btn" onClick={() => {
+                  const nome = prompt("Nome della categoria (es. Valvole di zona):")?.trim();
+                  if (!nome) return;
+                  const cerca = prompt("Parole da cercare nella descrizione, separate da | (es. valvola di zona|valvola a 3 vie):", nome.toLowerCase())?.trim();
+                  if (cerca) esegui(supabase.from("lavori_categorie").insert({ lavoro_id: l.id, nome, cerca, ordine: Math.max(0, ...l.categorie.map((c) => c.ordine)) + 10 }));
+                }}><Plus size={14} /> Nuova categoria</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+      <button className="btn blu" onClick={() => {
+        const nome = prompt("Nome del lavoro (es. Solare termico, Videocitofono):")?.trim();
+        if (nome) esegui(supabase.from("lavori_preventivo").insert({ tipo, nome, ordine: Math.max(0, ...lavori.map((x) => x.ordine)) + 10 }));
+      }}><Plus size={15} /> Nuovo lavoro</button>
+    </section>
   );
 }

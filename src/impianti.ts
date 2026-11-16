@@ -17,10 +17,11 @@ export type SerieCivile = { id: number; nome: string; prezzo_supporto_3: number;
   collegati?: Partial<Record<Componente, MaterialeSerie>> };
 
 // Foglio del preventivo (salvato nel preventivo per poterlo riaprire)
-export type VoceFoglio = { voce_id: number | null; nome: string; unita: string; prezzo: number; quantita: number; moduli?: number };
+export type VoceFoglio = { voce_id: number | null; nome: string; unita: string; prezzo: number; quantita: number; moduli?: number; materiale_id?: number };
 export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[]; scatole_3?: number; scatole_4?: number };
 // La serie è copiata nel foglio (nome e prezzi) così riaprendo il preventivo i conti non cambiano
-export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva"> | null };
+export type LavoroFoglio = { lavoro_id: number; chiave: string; marca?: string | null };
+export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva"> | null; lavori?: LavoroFoglio[] };
 export type Accessorio = { nome: string; breve: string; quantita: number; prezzo: number; materiale?: string };
 
 const r2 = (x: number) => Math.round(x * 100) / 100;
@@ -101,4 +102,51 @@ export async function leggiCatalogo(tipo?: TipoImpianto) {
     voci: ((voci ?? []) as unknown as Record<string, unknown>[]).map((v) => ({ ...(v as Omit<VoceImpianto, "kit">), prezzo: v.prezzo === null ? null : Number(v.prezzo), moduli: Number(v.moduli ?? 0), kit: kitPer.get(v.id as number) ?? [] })) as VoceImpianto[],
     ambienti: ((amb ?? []) as unknown as Record<string, unknown>[]).map((a) => ({ ...(a as Omit<AmbienteTipo, "voci">), scatole_3: Number(a.scatole_3 ?? 0), scatole_4: Number(a.scatole_4 ?? 0), voci: vociAmb.get(a.id as number) ?? [] })) as AmbienteTipo[],
   };
+}
+
+// ---- Lavori ("Cosa facciamo?": caldaia, clima, irrigazione…) con le categorie di materiali del catalogo ----
+export type CategoriaLavoro = { id: number; lavoro_id: number; nome: string; cerca: string; escludi: string | null; principale: boolean; segue_marca: boolean; ordine: number };
+export type LavoroPreventivo = { id: number; tipo: TipoImpianto; nome: string; icona: string | null; ordine: number; attivo: boolean; categorie: CategoriaLavoro[] };
+
+export async function leggiLavori(tipo: TipoImpianto) {
+  const [{ data: l, error }, { data: c, error: e2 }] = await Promise.all([
+    supabase.from("lavori_preventivo").select("*").eq("tipo", tipo).order("ordine").order("id"),
+    supabase.from("lavori_categorie").select("*").order("ordine").order("id"),
+  ]);
+  if (error || e2) throw new Error(/lavori_/.test((error ?? e2)!.message) ? "Esegui su Supabase lo script 0034_lavori_preventivo.sql" : (error ?? e2)!.message);
+  const cat = (c ?? []) as CategoriaLavoro[];
+  return ((l ?? []) as Omit<LavoroPreventivo, "categorie">[]).map((x) => ({ ...x, categorie: cat.filter((k) => k.lavoro_id === x.id) })) as LavoroPreventivo[];
+}
+
+/** Espressione di ricerca scritta nelle impostazioni (se è sbagliata si cerca il testo così com'è) */
+export function espressione(testo: string | null | undefined) {
+  if (!testo?.trim()) return null;
+  try { return new RegExp(testo, "i"); } catch { return new RegExp(testo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"); }
+}
+
+// Marche con le loro sigle nel catalogo (es. "IMG - …" = Immergas): servono a proporre prima gli accessori
+// della stessa marca della caldaia o del climatizzatore scelto
+const FAMIGLIE_MARCHE: string[][] = [
+  ["RADIANT"], ["COSMOGAS", "COS"], ["IMMERGAS", "IMG"], ["BAXI", "BAX"], ["VAILLANT", "VAI"], ["FERROLI"], ["BERETTA", "BER"],
+  ["JUNKERS"], ["BOSCH"], ["ARISTON", "ARI"], ["CHAFFOTEAUX"], ["RIELLO"], ["SIME"], ["UNICAL"], ["FONDITAL"], ["VIESSMANN", "VIE"],
+  ["BIASI"], ["HERMANN"], ["SAUNIER DUVAL"], ["LAMINOX"], ["MITSUBISHI", "MITSU"], ["DAIKIN"], ["FUJITSU"], ["CLIVET"], ["LG"],
+  ["SAMSUNG"], ["TOSHIBA"], ["HAIER"], ["HISENSE"], ["AERMEC"], ["OLIMPIA SPLENDID", "OLIMPIA"], ["DE LONGHI", "DELONGHI"],
+  ["IRSAP", "IRP"], ["RAIN BIRD", "RB"], ["IRRITEC"], ["HUNTER"], ["NEWCO"], ["EUROACQUE"], ["CLIVET"],
+];
+const parola = (testo: string, p: string) => new RegExp(`(^|[^A-Z0-9])${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^A-Z0-9]|$)`).test(testo);
+
+/** Marca di un materiale: sigla iniziale ("IMG - …") o nome di marca conosciuto nella descrizione */
+export function marcaMateriale(descrizione: unknown): string | null {
+  const d = String(descrizione ?? "").toUpperCase();
+  const sigla = d.match(/^([A-Z][A-Z0-9 .&']{0,14}?)\s*[-–]\s/)?.[1].trim() ?? "";
+  const famiglia = FAMIGLIE_MARCHE.find((f) => f.includes(sigla)) ?? FAMIGLIE_MARCHE.find((f) => f.some((p) => p.length >= 4 && parola(d, p)));
+  return famiglia ? famiglia[0] : sigla || null;
+}
+
+/** Il materiale è della marca indicata (per sigla o perché la nomina, es. "KIT SDOPPIATORE RADIANT") */
+export function stessaMarca(descrizione: unknown, marca: string) {
+  const d = String(descrizione ?? "").toUpperCase();
+  const famiglia = FAMIGLIE_MARCHE.find((f) => f[0] === marca) ?? [marca];
+  const sigla = d.match(/^([A-Z][A-Z0-9 .&']{0,14}?)\s*[-–]\s/)?.[1].trim() ?? "";
+  return famiglia.includes(sigla) || famiglia.some((p) => p.length >= 4 && parola(d, p));
 }

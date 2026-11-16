@@ -4,9 +4,10 @@ import { Copy, Minus, Package, Plus, Printer, Save, Trash2 } from "lucide-react"
 import { dataIso, leggiTutto, registra, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import Autocompleta from "../components/Autocompleta";
+import ConfiguratoreLavoro from "../components/ConfiguratoreLavoro";
 import { stampaPreventivo } from "../stampe";
 import {
-  accessoriAmbiente, leggiCatalogo, leggiSerie, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
+  accessoriAmbiente, leggiCatalogo, leggiLavori, leggiSerie, marcaMateriale, type LavoroPreventivo, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
   type AmbienteFoglio, type AmbienteTipo, type Foglio, type SerieCivile, type TipoImpianto, type VoceImpianto,
 } from "../impianti";
 
@@ -42,6 +43,9 @@ export default function PreventivoGuidato() {
   const [vediMateriali, setVediMateriali] = useState(false);
   const [serieCivili, setSerieCivili] = useState<SerieCivile[] | null>(null);
   const [erroreSerie, setErroreSerie] = useState("");
+  const [lavori, setLavori] = useState<LavoroPreventivo[] | null>(null);
+  const [erroreLavori, setErroreLavori] = useState("");
+  const [lavoroAperto, setLavoroAperto] = useState<number | null>(null);
 
   useEffect(() => { leggiTutto("clienti", "id, nome", true).then((c) => setClienti(c as unknown as { id: number; nome: string }[])).catch(() => {}); }, []);
 
@@ -68,11 +72,39 @@ export default function PreventivoGuidato() {
       // Fogli salvati prima dei "moduli": si prendono dal catalogo
       setFoglio((x) => x && ({ ...x, ambienti: x.ambienti.map((a) => ({ ...a, voci: a.voci.map((v) => (v.moduli === undefined ? { ...v, moduli: c.voci.find((y) => y.id === v.voce_id)?.moduli ?? 0 } : v)) })) }));
     }).catch((e) => setErrore((e as Error).message));
+    leggiLavori(foglio.tipo).then(setLavori).catch((e) => { setLavori([]); setErroreLavori((e as Error).message); });
     if (foglio.tipo === "elettrico") leggiSerie().then(setSerieCivili).catch((e) => { setSerieCivili([]); setErroreSerie((e as Error).message); });
   }, [foglio?.tipo]);
 
   const sceltaSerie = (s: SerieCivile | null) => {
     cambia((x) => ({ ...x, serie: s && { id: s.id, nome: s.nome, prezzo_supporto_3: s.prezzo_supporto_3, prezzo_supporto_4: s.prezzo_supporto_4, prezzo_placca_3: s.prezzo_placca_3, prezzo_placca_4: s.prezzo_placca_4, prezzo_copriforo: s.prezzo_copriforo, collegati: s.collegati } }));
+  };
+
+  // ---- Lavori ("Cosa facciamo?"): ogni lavoro scelto è una sezione del foglio con i suoi materiali ----
+  const lavoroDi = (lavoroId: number) => foglio?.lavori?.find((l) => l.lavoro_id === lavoroId && foglio.ambienti.some((a) => a.chiave === l.chiave));
+  const premiLavoro = (l: LavoroPreventivo) => {
+    if (lavoroDi(l.id)) return setLavoroAperto(lavoroAperto === l.id ? null : l.id);
+    const chiave = nuovaChiave();
+    cambia((x) => ({ ...x, ambienti: [...x.ambienti, { chiave, nome: l.nome, voci: [] }], lavori: [...(x.lavori ?? []), { lavoro_id: l.id, chiave, marca: null }] }));
+    setLavoroAperto(l.id);
+  };
+  const aggiungiMateriale = (lavoroId: number, m: Record<string, unknown> & { id: number }, principale: boolean) => {
+    const lf = lavoroDi(lavoroId);
+    if (!lf) return;
+    cambia((x) => ({
+      ...x,
+      // Il materiale "principale" (la caldaia, il climatizzatore…) decide la marca degli accessori
+      lavori: principale ? x.lavori?.map((y) => (y.chiave === lf.chiave ? { ...y, marca: marcaMateriale(m.descrizione) } : y)) : x.lavori,
+      ambienti: x.ambienti.map((a) => (a.chiave !== lf.chiave ? a : { ...a, voci: [...a.voci, {
+        voce_id: null, materiale_id: m.id, nome: String(m.descrizione ?? ""), unita: String(m.unita_misura ?? "pz") || "pz",
+        prezzo: Math.round(Number(m.prezzo_ricaricato ?? 0) * 100) / 100, quantita: 1,
+      }] })),
+    }));
+  };
+  const quantitaMateriale = (lavoroId: number, materialeId: number, q: number) => {
+    const lf = lavoroDi(lavoroId);
+    if (!lf) return;
+    cambiaAmbiente(lf.chiave, (a) => ({ ...a, voci: q > 0 ? a.voci.map((v) => (v.materiale_id === materialeId ? { ...v, quantita: q } : v)) : a.voci.filter((v) => v.materiale_id !== materialeId) }));
   };
 
   const cliente = clienti.find((c) => c.nome.trim().toLowerCase() === testoCliente.trim().toLowerCase()) ?? null;
@@ -112,6 +144,11 @@ export default function PreventivoGuidato() {
   const materialiDaOrdinare = useMemo(() => {
     const m = new Map<number | string, { descrizione: string; unita: string; quantita: number }>();
     for (const a of foglio?.ambienti ?? []) for (const v of a.voci) {
+      if (v.materiale_id && v.quantita > 0) {
+        const r = m.get(v.materiale_id) ?? { descrizione: v.nome, unita: v.unita, quantita: 0 };
+        r.quantita += v.quantita;
+        m.set(v.materiale_id, r);
+      }
       const voce = catalogo?.voci.find((x) => x.id === v.voce_id);
       for (const k of voce?.kit ?? []) {
         const r = m.get(k.materiale_id) ?? { descrizione: k.descrizione, unita: k.unita_misura ?? "", quantita: 0 };
@@ -145,9 +182,10 @@ export default function PreventivoGuidato() {
     // Righe del preventivo: "Ambiente – Voce", ricreate a ogni salvataggio
     await supabase.from("righe_preventivo").delete().eq("preventivo_id", nuovoId);
     const righe = foglio.ambienti.flatMap((a) => [
-      ...a.voci.filter((v) => v.quantita > 0).map((v) => ({ nome: v.nome, unita: v.unita, quantita: v.quantita, prezzo: v.prezzo })),
-      ...accessoriAmbiente(a, foglio.serie).map((x) => ({ ...x, unita: "pz" })),
+      ...a.voci.filter((v) => v.quantita > 0).map((v) => ({ nome: v.nome, unita: v.unita, quantita: v.quantita, prezzo: v.prezzo, materiale_id: v.materiale_id ?? null })),
+      ...accessoriAmbiente(a, foglio.serie).map((x) => ({ ...x, unita: "pz", materiale_id: null })),
     ].map((v) => ({
+      materiale_id: v.materiale_id,
       descrizione: `${a.nome} – ${v.nome}`, unita_misura: v.unita, quantita: v.quantita, prezzo_base: v.prezzo, ricarico: 0, prezzo: v.prezzo, totale: r2(v.prezzo * v.quantita),
     }))).map((r, i) => ({ ...r, preventivo_id: nuovoId, ordine: i }));
     if (righe.length) {
@@ -245,6 +283,30 @@ export default function PreventivoGuidato() {
       </div>
       {errore && <p className="errore">{errore}</p>}
 
+      {(foglio.tipo === "idraulico" || !!lavori?.some((l) => l.attivo)) && (
+        <div className="cosa-facciamo">
+          <span className="titolo-pillole">Cosa facciamo?</span>
+          {erroreLavori && <span className="errore">{erroreLavori}</span>}
+          {lavori?.filter((l) => l.attivo).map((l) => {
+            const lf = lavoroDi(l.id);
+            return (
+              <button key={l.id} className={`pillola-lavoro${lf ? " scelta" : ""}${lavoroAperto === l.id ? " aperta" : ""}`} onClick={() => premiLavoro(l)}>
+                {l.icona} {l.nome}{lf?.marca ? <small> · {lf.marca}</small> : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {(() => {
+        const l = lavori?.find((x) => x.id === lavoroAperto);
+        const lf = l && lavoroDi(l.id);
+        const a = lf && foglio.ambienti.find((y) => y.chiave === lf.chiave);
+        return l && lf && a ? (
+          <ConfiguratoreLavoro lavoro={l} ambiente={a} marca={lf.marca ?? null} onChiudi={() => setLavoroAperto(null)}
+            onAggiungi={(m, c) => aggiungiMateriale(l.id, m, c.principale)} onQuantita={(id, q) => quantitaMateriale(l.id, id, q)} />
+        ) : null;
+      })()}
+
       <div className="area-foglio">
         <aside className="tavolozza-ambienti">
           <div className="titolo-tavolozza">Aggiungi ambiente</div>
@@ -268,7 +330,7 @@ export default function PreventivoGuidato() {
                     const copia = { ...a, chiave: nuovaChiave(), nome: `${a.nome} (copia)`, voci: a.voci.map((v) => ({ ...v })) };
                     return { ...x, ambienti: [...x.ambienti.slice(0, i + 1), copia, ...x.ambienti.slice(i + 1)] };
                   })}><Copy size={15} /></button>
-                  <button title="Togli l'ambiente" className="rosso" onClick={() => confirm(`Togliere "${a.nome}" dal preventivo?`) && cambia((x) => ({ ...x, ambienti: x.ambienti.filter((y) => y.chiave !== a.chiave) }))}><Trash2 size={15} /></button>
+                  <button title="Togli l'ambiente" className="rosso" onClick={() => confirm(`Togliere "${a.nome}" dal preventivo?`) && cambia((x) => ({ ...x, ambienti: x.ambienti.filter((y) => y.chiave !== a.chiave), lavori: x.lavori?.filter((y) => y.chiave !== a.chiave) }))}><Trash2 size={15} /></button>
                 </div>
                 {a.voci.map((v, k) => (
                   <div key={k} className={`voce-foglio${v.quantita ? "" : " zero"}`}>
