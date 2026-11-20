@@ -7,9 +7,14 @@ export type TecnicoDdt = { id: number; nome: string; altri_nomi?: string | null 
 
 const parole = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z]+/).filter((w) => w.length >= 3);
 
-// Una lettera sbagliata/mancante/in più è tollerata nelle parole lunghe (es. "Lucano")
+// Una lettera sbagliata/mancante/in più, o due lettere vicine scambiate, sono tollerate nelle parole lunghe
+// (es. "Lucano" per Luciano, "Micheal" per Michael)
 function vicine(a: string, b: string) {
   if (a === b) return true;
+  if (a.length === b.length && a.length >= 5) {
+    const diversi = [...a].map((c, i) => (c !== b[i] ? i : -1)).filter((i) => i >= 0);
+    if (diversi.length === 2 && diversi[1] === diversi[0] + 1 && a[diversi[0]] === b[diversi[1]] && a[diversi[1]] === b[diversi[0]]) return true;
+  }
   if (Math.min(a.length, b.length) < 5 || Math.abs(a.length - b.length) > 1) return false;
   let i = 0, j = 0, diff = 0;
   while (i < a.length && j < b.length) {

@@ -319,6 +319,8 @@ function cllat(scritte: Scritta[], nomeFile = ""): DdtPdf {
   if (iRitira >= 0) {
     let nome = testiRighe[iRitira].split(/\bRITIRA(?:TO)?\b/i).slice(1).join(" ").replace(/^[\s:.,;-]*(da\b)?[\s:.,;-]*/i, "").trim();
     if (!nome && iRitira + 1 < testiRighe.length) nome = testiRighe[iRitira + 1];
+    // Il nome finisce al punto o dove inizia altro testo (es. "Ritira MICHEAL GRONCHI. Punti ddt 66, …")
+    nome = nome.split(/\.(\s|$)|,|;|\bpunti\b|\btotale\b/i)[0].trim();
     if (nome) {
       out.ritira = nome.slice(0, 60);
       if (!note.some((n) => /\bRITIRA/i.test(n))) note.unshift(`RITIRA ${out.ritira}`);
