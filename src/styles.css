@@ -23,6 +23,9 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--sfondo); }
+/* Niente "tira giù per ricaricare" di Chrome sul telefono: si perderebbero le modifiche non salvate
+   (per aggiornare i dati c'è il pulsante Aggiorna) */
+html, body { overscroll-behavior-y: none; }
 h1, h2, h3 { margin: 0 0 12px; }
 code { background: #eef1f5; padding: 2px 4px; border-radius: 3px; word-break: break-all; }
 
