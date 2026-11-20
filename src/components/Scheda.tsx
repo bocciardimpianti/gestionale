@@ -201,6 +201,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     return () => { attivo = false; };
   }, [dati.cliente_id, dati.tariffa]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Materiali presi dai DDT: al salvataggio del rapportino si registra da quale riga di DDT arrivano
+  // (così negli altri rapportini compaiono come "Già inserito")
+  const prelieviDdt = useRef<{ riga_ddt_id: number; quantita: number }[]>([]);
   // Materiali scelti da un DDT di acquisto: con il materiale di magazzino (prezzi attuali) o come riga libera
   const aggiungiDaDdt = async (scelti: MaterialeDaDdt[]) => {
     const ids = [...new Set(scelti.map((x) => x.riga.materiale_id).filter((v): v is number => !!v))];
@@ -211,6 +214,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       const m = riga.materiale_id ? perId.get(riga.materiale_id) : undefined;
       aggiungiRiga(m ? { ...rigaDaMateriale(m), quantita }
         : { descrizione: riga.descrizione, unita_misura: riga.unita_misura, codice_barre: riga.codice_barre, quantita });
+      prelieviDdt.current.push({ riga_ddt_id: riga.id, quantita });
     }
     setStato(`Aggiunti ${scelti.length} ${scelti.length === 1 ? "materiale" : "materiali"} dal DDT`);
   };
@@ -342,6 +346,11 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     }
     // Foto e firma: caricamento dei nuovi file e rimozione di quelli sostituiti o eliminati
     const id = risposta.data.id;
+    if (cfg.sezione === "rapporti" && prelieviDdt.current.length) {
+      const { error } = await supabase.rpc("registra_prelievi_ddt", { p_rapporto: id, p_righe: prelieviDdt.current });
+      // Senza lo script 0038 il rapportino si salva lo stesso: manca solo il segno "Già inserito"
+      if (!error) prelieviDdt.current = [];
+    }
     const immagini = tuttiCampi.filter((c) => c.tipo === "foto" || c.tipo === "firma" || c.tipo === "pdf");
     const daAggiornare: Record<string, string> = {};
     for (const c of immagini) {

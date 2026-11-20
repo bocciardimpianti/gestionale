@@ -9,11 +9,17 @@ import { useFotoMateriali } from "../fotoMateriali";
 // "Aggiungi da DDT" nel rapportino: si sceglie un DDT di acquisto (del giorno o tra tutti),
 // poi i suoi materiali da aggiungere con la quantità. I DDT presi dal tecnico del rapportino hanno il bordo rosso.
 
-type Ddt = { id: number; data: string; numero_ddt: string | null; fornitore: string | null; tecnico_id: number | null; tecnico: string | null; righe: number };
-type RigaDdt = { id: number; materiale_id: number | null; codice_barre: string | null; descrizione: string | null; unita_misura: string | null; quantita: number | null };
+type Ddt = { id: number; data: string; numero_ddt: string | null; fornitore: string | null; tecnico_id: number | null; tecnico: string | null; righe: number; righe_prese?: number };
+// quantita_presa / presa_in: quanto è già stato messo nei rapportini e in quali (script 0038)
+type RigaDdt = { id: number; materiale_id: number | null; codice_barre: string | null; descrizione: string | null; unita_misura: string | null; quantita: number | null;
+  quantita_presa?: number | null; presa_in?: string | null };
 export type MaterialeDaDdt = { riga: RigaDdt; quantita: number };
 
 const numero = (v: string) => Number(v.replace(",", "."));
+const testoQ = (n: number) => String(Math.round(n * 1000) / 1000).replace(".", ",");
+const presa = (r: RigaDdt) => Number(r.quantita_presa ?? 0);
+const rimasta = (r: RigaDdt) => Math.max(0, Number(r.quantita ?? 1) - presa(r));
+const tuttaPresa = (r: RigaDdt) => presa(r) > 0 && rimasta(r) <= 0;
 
 export default function AggiungiDaDdt({ tecnicoId, data, onAggiungi, onChiudi }: {
   tecnicoId: number | null;
@@ -101,6 +107,7 @@ export default function AggiungiDaDdt({ tecnicoId, data, onAggiungi, onChiudi }:
                   <button type="button" key={d.id} className={`carta-ddt${tecnicoId && d.tecnico_id === tecnicoId ? " mio" : ""}`} onClick={() => apri(d)}>
                     <b>{d.fornitore ?? "(fornitore?)"}</b>
                     <span>DDT n. {d.numero_ddt ?? "—"} del {dataIt(d.data)} · {d.righe} {d.righe === 1 ? "materiale" : "materiali"}</span>
+                    {!!d.righe_prese && <span className={`gia-inserito${d.righe_prese >= d.righe ? "" : " in-parte"}`}>{d.righe_prese >= d.righe ? "✓ Tutti già inseriti nei rapportini" : `${d.righe_prese} di ${d.righe} già inseriti`}</span>}
                     {d.tecnico && <span className="cella-tecnico">{d.tecnico}</span>}
                   </button>
                 ))}
@@ -114,26 +121,37 @@ export default function AggiungiDaDdt({ tecnicoId, data, onAggiungi, onChiudi }:
               {righe && righe.length > 0 && (
                 <label className="tutti-ddt">
                   <input type="checkbox" checked={spuntate.length === righe.length}
-                    onChange={(e) => setScelte(e.target.checked ? Object.fromEntries(righe.map((r) => [r.id, String(r.quantita ?? 1).replace(".", ",")])) : {})} />
-                  Seleziona tutti
+                    onChange={(e) => setScelte(e.target.checked ? Object.fromEntries(righe.filter((r) => !tuttaPresa(r)).map((r) => [r.id, testoQ(rimasta(r))])) : {})} />
+                  Seleziona tutti{righe.some(tuttaPresa) ? " (tranne quelli già inseriti)" : ""}
                 </label>
               )}
               <div className="righe-ddt">
                 {righe?.map((r) => {
                   const q = scelte[r.id];
                   return (
-                    <div key={r.id} className={`riga-ddt${q !== undefined ? " scelta" : ""}`}>
+                    <div key={r.id} className={`riga-ddt${q !== undefined ? " scelta" : ""}${tuttaPresa(r) ? " gia-presa" : ""}`}>
                       <label>
-                        <input type="checkbox" checked={q !== undefined} onChange={(e) => setScelte((s) => {
-                          const n = { ...s };
-                          if (e.target.checked) n[r.id] = String(r.quantita ?? 1).replace(".", ","); else delete n[r.id];
-                          return n;
-                        })} />
+                        <input type="checkbox" checked={q !== undefined} onChange={(e) => {
+                          // Già messo in un altro rapportino: si chiede conferma prima di prenderlo di nuovo
+                          if (e.target.checked && tuttaPresa(r) && !confirm(`"${r.descrizione}" è già stato inserito in: ${r.presa_in}.\n\nAggiungerlo comunque a questo rapportino?`)) return;
+                          setScelte((s) => {
+                            const n = { ...s };
+                            if (e.target.checked) n[r.id] = testoQ(tuttaPresa(r) ? Number(r.quantita ?? 1) : rimasta(r)); else delete n[r.id];
+                            return n;
+                          });
+                        }} />
                         <span className="riga-telefono-foto">{fotoDi(r.materiale_id) ? <Miniatura percorso={fotoDi(r.materiale_id)!} archivio="materiali" /> : null}</span>
-                        <span>{r.descrizione}{!r.materiale_id && <span className="piccolo"> (non in magazzino: riga libera)</span>}</span>
+                        <span>
+                          {r.descrizione}{!r.materiale_id && <span className="piccolo"> (non in magazzino: riga libera)</span>}
+                          {presa(r) > 0 && (
+                            <span className={`gia-inserito${tuttaPresa(r) ? "" : " in-parte"}`}>
+                              {tuttaPresa(r) ? "✓ Già inserito" : `Già inseriti ${testoQ(presa(r))} su ${testoQ(Number(r.quantita ?? 0))}`}: {r.presa_in}
+                            </span>
+                          )}
+                        </span>
                       </label>
                       <span className="quantita-ddt">
-                        <input type="text" inputMode="decimal" aria-label="Quantità" value={q ?? String(r.quantita ?? "").replace(".", ",")}
+                        <input type="text" inputMode="decimal" aria-label="Quantità" value={q ?? testoQ(presa(r) > 0 && !tuttaPresa(r) ? rimasta(r) : Number(r.quantita ?? 0))}
                           onChange={(e) => setScelte((s) => ({ ...s, [r.id]: e.target.value.replace(/[^0-9.,]/g, "") }))} />
                         <span>{r.unita_misura}</span>
                       </span>
