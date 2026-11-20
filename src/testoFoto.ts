@@ -20,3 +20,23 @@ export function maschioFemmina(testo: string) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// Ricerche aggiuntive per tipo di materiale: le foto devono somigliare a quello che compriamo davvero.
+// Raccordi multistrato: i nostri hanno l'inserto (anello) blu o giallo → si cerca con tutti e due i colori.
+const RACCORDO = /raccord|gomito|curva|manicott|\btee?\b|\bti\b|giunt|riduz|terminal|attacc|bocchettone|a pressare|press-?fitting/i;
+const REGOLE: { se: (t: string) => boolean; varianti: string[]; preferisci: RegExp }[] = [
+  {
+    se: (t) => /multistrat|pexal|mixal|alpex|\bpe-?x\b|\bpress/i.test(t) && RACCORDO.test(t) && !/^\s*tubo\b/i.test(t),
+    varianti: ["multistrato inserto blu", "multistrato inserto giallo"],
+    preferisci: /\b(blu|blue|azzurr\w*|giall\w*|yellow)\b/i,
+  },
+];
+
+/** Testi da cercare (uno o più) e parole che, se nel titolo della foto, la fanno salire in cima */
+export function ricercheFoto(testo: string): { testi: string[]; preferisci: RegExp | null; nota: string } {
+  const r = REGOLE.find((x) => x.se(testo));
+  if (!r) return { testi: [testo], preferisci: null, nota: "" };
+  // Senza ripetere "multistrato" se c'è già nella descrizione
+  const testi = r.varianti.map((v) => `${testo} ${/multistrat/i.test(testo) ? v.replace(/^multistrato\s+/i, "") : v}`);
+  return { testi, preferisci: r.preferisci, nota: r.varianti.map((v) => v.replace(/^multistrato\s+/i, "")).join(" + ") };
+}

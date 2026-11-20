@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Search, Sparkles } from "lucide-react";
 import { supabase } from "../supabase";
 import { riduci } from "./CampoImmagine";
+import { ricercheFoto } from "../testoFoto";
 
 // Foto automatica: cerca su internet (funzione server "cerca-foto"), propone una foto alla volta
 // e con "Usa questa" la scarica, la riduce e la mette nel materiale.
@@ -39,11 +40,22 @@ export default function PropostaFoto({ testo, onScelta, onChiudi, fotoVeloce }: 
   const [continua, setContinua] = useState(proponiAncheAlSuccessivo);
   // Foto che non si caricano nell'anteprima: si saltano
   const [rotte, setRotte] = useState<Set<string>>(new Set());
+  const [nota, setNota] = useState("");
 
   const cerca = async (t: string) => {
     setRisultati(null); setErrore(""); setIndice(0); setRotte(new Set());
     try {
-      const { risultati: r } = await chiama({ azione: "cerca", testo: t }) as { risultati: Risultato[] };
+      // Alcuni materiali si cercano in più modi (es. raccordi multistrato con inserto blu e con inserto giallo):
+      // i risultati si alternano e quelli che nel titolo citano il colore salgono in cima
+      const { testi, preferisci, nota: n } = ricercheFoto(t);
+      setNota(n);
+      const elenchi = await Promise.all(testi.map((x) => chiama({ azione: "cerca", testo: x }).then((d) => (d as { risultati: Risultato[] }).risultati).catch((e) => { if (testi.length === 1) throw e; return [] as Risultato[]; })));
+      const visti = new Set<string>();
+      const uniti: Risultato[] = [];
+      for (let i = 0; i < Math.max(...elenchi.map((e) => e.length)); i++) {
+        for (const e of elenchi) if (e[i] && !visti.has(e[i].immagine)) { visti.add(e[i].immagine); uniti.push(e[i]); }
+      }
+      const r = preferisci ? [...uniti.filter((x) => preferisci.test(x.titolo)), ...uniti.filter((x) => !preferisci.test(x.titolo))] : uniti;
       setRisultati(r);
       if (!r.length) setErrore("Nessuna foto trovata: prova a cambiare le parole della ricerca");
     } catch (e) {
@@ -87,6 +99,7 @@ export default function PropostaFoto({ testo, onScelta, onChiudi, fotoVeloce }: 
             <input value={ricerca} onChange={(e) => setRicerca(e.target.value)} aria-label="Testo della ricerca" />
             <button type="submit" className="btn grigio"><Search size={14} /> Cerca</button>
           </form>
+          {nota && <p className="piccolo nota-ricerca">Cerco anche con: <b>{nota}</b></p>}
           {!risultati && <p className="piccolo attesa-foto">Cerco le foto…</p>}
           {attuale && (
             <>
