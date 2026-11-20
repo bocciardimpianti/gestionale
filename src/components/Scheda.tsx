@@ -330,8 +330,9 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     if (risposta.error) return setStato("Errore: " + risposta.error.message);
     if (cfg.righe) {
       const { tabella, campo, colonne } = cfg.righe;
-      const del = await supabase.from(tabella).delete().eq(campo, risposta.data.id);
-      if (del.error) return setStato("Errore: " + del.error.message);
+      // Prima si scrivono le righe nuove e solo dopo si tolgono le vecchie: se qualcosa va storto non si perde nulla
+      const vecchie = await supabase.from(tabella).select("id").eq(campo, risposta.data.id);
+      if (vecchie.error) return setStato("Errore: " + vecchie.error.message);
       const daSalvare = righe
         .filter((r) => colonne.some((c) => !vuoto(r[c.chiave])))
         .map((r, i) => {
@@ -340,8 +341,14 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           return o;
         });
       if (daSalvare.length) {
-        const ins = await supabase.from(tabella).insert(daSalvare);
+        // defaultToNull: false → i campi che una riga non ha (es. "importata" nelle righe nuove) prendono il valore predefinito
+        const ins = await supabase.from(tabella).insert(daSalvare, { defaultToNull: false });
         if (ins.error) return setStato("Errore: " + ins.error.message);
+      }
+      const idVecchie = (vecchie.data ?? []).map((r) => r.id as number);
+      if (idVecchie.length) {
+        const del = await supabase.from(tabella).delete().in("id", idVecchie);
+        if (del.error) return setStato("Errore: " + del.error.message);
       }
     }
     // Foto e firma: caricamento dei nuovi file e rimozione di quelli sostituiti o eliminati
