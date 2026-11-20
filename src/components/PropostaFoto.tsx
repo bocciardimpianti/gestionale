@@ -106,8 +106,8 @@ export default function PropostaFoto({ testo, onScelta, onChiudi, fotoVeloce }: 
                 {attuale.larghezza ? ` · ${attuale.larghezza}×${attuale.altezza}` : ""}
                 {attuale.titolo ? <> · <span title={attuale.titolo}>{attuale.titolo.slice(0, 70)}</span></> : null}
               </div>
-              <div className="striscia-proposte">
-                {validi.slice(0, 12).map((r, i) => (
+              <div className="griglia-proposte">
+                {validi.map((r, i) => (
                   <button type="button" key={r.immagine} className={i === indice ? "scelta" : ""} onClick={() => setIndice(i)}>
                     <img src={r.miniatura} alt="" referrerPolicy="no-referrer" loading="lazy" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
                   </button>

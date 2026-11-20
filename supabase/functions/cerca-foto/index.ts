@@ -1,4 +1,4 @@
-// Funzione server: cerca le foto dei materiali su internet (DuckDuckGo Immagini, altrimenti Bing) e le scarica.
+// Funzione server: cerca le foto dei materiali su internet (DuckDuckGo Immagini, più Bing se sono poche) e le scarica.
 // Il browser non può farlo da solo perché quei siti non permettono le richieste dirette dalle pagine web.
 // Non usa chiavi a pagamento: legge le stesse pagine dei risultati che apre una persona.
 //
@@ -86,14 +86,15 @@ Deno.serve(async (req) => {
   if (azione === "cerca") {
     const t = String(testo ?? "").trim().slice(0, 200);
     if (!t) return json({ errore: "Manca il testo da cercare" }, 400);
+    // Almeno 15 proposte: se DuckDuckGo ne dà poche si aggiungono quelle di Bing
     let risultati: Risultato[] = [];
     try { risultati = await duckduckgo(t); } catch { /* si prova con Bing */ }
-    if (!risultati.length) {
-      try { risultati = await bing(t); } catch { /* nessun risultato */ }
+    if (risultati.length < 15) {
+      try { risultati = [...risultati, ...await bing(t)]; } catch { /* restano quelle trovate */ }
     }
     // Senza doppioni e solo indirizzi normali
     const visti = new Set<string>();
-    risultati = risultati.filter((r) => r.immagine && indirizzoPermesso(r.immagine) && !visti.has(r.immagine) && visti.add(r.immagine)).slice(0, 20);
+    risultati = risultati.filter((r) => r.immagine && indirizzoPermesso(r.immagine) && !visti.has(r.immagine) && visti.add(r.immagine)).slice(0, 30);
     return json({ risultati });
   }
 

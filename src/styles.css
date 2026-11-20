@@ -1816,3 +1816,9 @@ span.filtro-marca { cursor: default; }
 .foto-proposta { grid-template-rows: minmax(0, 1fr); }
 .foto-proposta img { max-height: 100%; min-height: 0; }
 .striscia-proposte button { width: 64px !important; min-width: 64px; max-width: 64px; }
+/* Tutte le proposte di foto in vista (almeno 15) */
+.griglia-proposte { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; margin-top: 6px; max-height: 170px; overflow-y: auto; }
+.griglia-proposte button { height: 72px; padding: 2px; border: 2px solid var(--bordo); border-radius: 6px; background: #fff; cursor: pointer; overflow: hidden; }
+.griglia-proposte button.scelta { border-color: var(--ottanio); box-shadow: 0 0 0 2px var(--ottanio-tenue); }
+.griglia-proposte img { width: 100%; height: 100%; object-fit: contain; }
+.finestra-proposta-foto .foto-proposta { height: min(40vh, 340px); }

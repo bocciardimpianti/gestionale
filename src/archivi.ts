@@ -1,4 +1,5 @@
 import type { Colonna } from "./components/Griglia";
+import { maschioFemmina } from "./testoFoto";
 import { dataIso, dataIt, prossimiCodiciInterni, supabase } from "./supabase";
 import { stampaPreventivo, stampaRapporto } from "./stampe";
 import { stampaEtichette } from "./etichette";
@@ -712,7 +713,8 @@ export const ARCHIVI: Record<string, Archivio> = {
           for (const cod of [d.codice_fornitore1, d.codice_fornitore2].map((v) => String(v ?? "").trim()).filter((v) => v.length >= 3 && v !== "/")) {
             t = t.split(cod).join(" ");
           }
-          return t.replace(/(\s+-\s*)+$/, "").replace(/\s+/g, " ").trim() || String(d.descrizione ?? "").trim();
+          // M e F delle descrizioni idrauliche: maschio e femmina
+          return maschioFemmina(t.replace(/(\s+-\s*)+$/, "").replace(/\s+/g, " ").trim() || String(d.descrizione ?? "").trim());
         },
       },
       { chiave: "codice_interno", etichetta: "Codice Interno", larghezza: 2, finisciRiga: true },
