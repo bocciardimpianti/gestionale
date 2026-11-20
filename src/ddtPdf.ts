@@ -19,6 +19,8 @@ export interface DdtPdf {
   modello: string; // nome della lettura usata (es. "Palagini")
   // Nuovi materiali di questo fornitore: codice interno = codice articolo del fornitore (es. CLLAT)
   codiceInternoDalFornitore?: boolean;
+  // Chi ha ritirato il materiale (CLLAT: il nome scritto dopo "RITIRA"): è il tecnico del DDT
+  ritira?: string;
   fornitore: RegExp; // per trovare il fornitore in anagrafica
   numeroDdt: string;
   data: string; // aaaa-mm-gg
@@ -311,6 +313,17 @@ function cllat(scritte: Scritta[], nomeFile = ""): DdtPdf {
   }
   if (!out.righe.length) out.errori.push("Nessuna riga articolo trovata");
   if (codiciVisti !== out.righe.length) out.errori.push(`Righe lette ${out.righe.length} su ${codiciVisti}`);
+  // Tecnico: il nome dopo "RITIRA" (sulla stessa riga o, se lì non c'è, sulla riga sotto), ovunque sia nel foglio
+  const testiRighe = righe.map((r) => r.el.map((e) => e.s.trim()).join(" ").replace(/\s+/g, " ").trim());
+  const iRitira = testiRighe.findIndex((t) => /\bRITIRA(TO)?\b/i.test(t));
+  if (iRitira >= 0) {
+    let nome = testiRighe[iRitira].split(/\bRITIRA(?:TO)?\b/i).slice(1).join(" ").replace(/^[\s:.,;-]*(da\b)?[\s:.,;-]*/i, "").trim();
+    if (!nome && iRitira + 1 < testiRighe.length) nome = testiRighe[iRitira + 1];
+    if (nome) {
+      out.ritira = nome.slice(0, 60);
+      if (!note.some((n) => /\bRITIRA/i.test(n))) note.unshift(`RITIRA ${out.ritira}`);
+    }
+  }
   out.note = note.join("\n");
   return out;
 }

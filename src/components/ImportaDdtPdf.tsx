@@ -179,7 +179,8 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
       const conAltri = await supabase.from("tecnici").select("id, nome, altri_nomi").is("eliminato_il", null);
       const tec = conAltri.error ? await supabase.from("tecnici").select("id, nome").is("eliminato_il", null) : conAltri;
       const elencoTecnici = (tec.data ?? []) as TecnicoDdt[];
-      const riconosciuto = tecnicoDaTesto(d.note, elencoTecnici);
+      // CLLAT: vale solo il nome dopo "RITIRA"; per gli altri fornitori si cerca nelle note
+      const riconosciuto = d.ritira ? tecnicoDaTesto(d.ritira, elencoTecnici) : tecnicoDaTesto(d.note, elencoTecnici);
       setTecnici(elencoTecnici);
       setTecnicoId(riconosciuto?.tecnico.id ?? null);
       setTecnicoDa(riconosciuto ? riconosciuto.parola : "");
@@ -499,7 +500,10 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
                   <option value="">— nessuno —</option>
                   {tecnici.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
                 </select>
-                <span className="piccolo">{tecnicoDa ? `riconosciuto dal DDT ("${tecnicoDa}")` : tecnicoId ? "" : "non indicato sul DDT: sceglilo se lo sai"}</span>
+                <span className="piccolo">{tecnicoDa ? `riconosciuto dal DDT ("${tecnicoDa}")`
+                  : tecnicoId ? ""
+                  : ddt.ritira ? `sul DDT "RITIRA ${ddt.ritira}": nome non riconosciuto, sceglilo (e aggiungilo negli altri nomi del tecnico)`
+                  : "non indicato sul DDT: sceglilo se lo sai"}</span>
               </label>
               {ddt.errori.map((e) => <p key={e} className="errore">⛔ {e}</p>)}
               {doppione && <p className="errore">⛔ {doppione}</p>}
