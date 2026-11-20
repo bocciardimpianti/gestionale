@@ -66,6 +66,11 @@ function simili(descr: string, mats: Rec[], quanti = 3) {
 const UM: Record<string, string> = { NR: "Pz", PZ: "Pz", N: "Pz", MT: "Mt", ML: "Mt", M: "Mt", KG: "Kg", CF: "Cf", LT: "Lt", MQ: "Mq", RT: "Rt", CP: "Cp", PA: "Pa" };
 const umDa = (u: string) => UM[u.toUpperCase()] ?? (u ? u[0].toUpperCase() + u.slice(1).toLowerCase() : "Pz");
 const r4 = (x: number) => Math.round(x * 10000) / 10000;
+
+// Connessione caduta (la richiesta non è arrivata o la risposta non è tornata): si può riprovare
+const erroreRete = (e: { message?: string } | null | undefined) => !!e && /failed to fetch|networkerror|load failed|network request failed|fetch failed/i.test(e.message ?? "");
+const attendi = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+const MSG_RETE = "connessione a internet interrotta durante il salvataggio. Controlla la connessione e premi di nuovo Salva DDT: quello che era già stato salvato non viene ripetuto";
 const costo = (x: number) => `${x.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} €`;
 
 const ETICHETTE: Record<Stato, { testo: string; colore: string }> = {
@@ -79,10 +84,16 @@ const ETICHETTE: Record<Stato, { testo: string; colore: string }> = {
   libera: { testo: "Riga senza magazzino", colore: "verde" },
 };
 
+// DDT già caricati con questo numero; quelli senza righe sono salvataggi interrotti (dalla connessione) da completare
+async function ddtConNumero(fornitoreId: number, numero: string) {
+  const { data } = await supabase.from("ddt_acquisto").select("id, data, righe:righe_ddt_acquisto(count)").eq("fornitore_id", fornitoreId).eq("numero_ddt", numero.trim()).is("eliminato_il", null);
+  return ((data ?? []) as unknown as { id: number; data: string; righe: { count: number }[] }[]).map((d) => ({ id: d.id, data: d.data, vuoto: !(d.righe?.[0]?.count > 0) }));
+}
+
 async function cercaDoppione(fornitoreId: number, numero: string) {
   if (!numero.trim()) return "";
-  const { data } = await supabase.from("ddt_acquisto").select("id, data").eq("fornitore_id", fornitoreId).eq("numero_ddt", numero.trim()).is("eliminato_il", null);
-  return data?.length ? `Il DDT n. ${numero.trim()} di questo fornitore è già stato caricato (del ${String(data[0].data).split("-").reverse().join("/")}).` : "";
+  const pieni = (await ddtConNumero(fornitoreId, numero)).filter((d) => !d.vuoto);
+  return pieni.length ? `Il DDT n. ${numero.trim()} di questo fornitore è già stato caricato (del ${String(pieni[0].data).split("-").reverse().join("/")}).` : "";
 }
 
 export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
@@ -295,15 +306,25 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
           if (esistenti?.length) throw new Error(`Esiste già un materiale con codice interno ${esistenti.map((m) => `${m.codice_interno} (${m.descrizione})`).join(", ")}: sceglilo con "Scegli materiale"`);
         }
         const slot = dalFornitore ? 1 : 2;
-        const { data, error } = await supabase.from("materiali").insert(unici.map((r, k) => ({
+        const codici = unici.map((r, k) => String(dalFornitore ? r.pdf.codice : progressivi[k]));
+        const righeMateriali = unici.map((r, k) => ({
           codice_interno: dalFornitore ? r.pdf.codice : progressivi[k],
           codice_barre: dalFornitore ? r.pdf.codice : progressivi[k],
           descrizione: r.nuovaDescrizione.trim() || r.pdf.descrizione,
           unita_misura: r.nuovaUm || "Pz",
           [`fornitore${slot}`]: fornitore.nome, [`codice_fornitore${slot}`]: r.pdf.codice || null,
           prezzo_base: r.pdf.prezzo, ricarico: 35, prezzo_ricaricato: r4(r.pdf.prezzo * 1.35), giacenza: 0,
-        }))).select("*");
-        if (error) throw new Error("Nuovi materiali: " + error.message);
+        }));
+        let { data, error } = await supabase.from("materiali").insert(righeMateriali).select("*");
+        if (erroreRete(error)) {
+          // Connessione caduta: i materiali potrebbero essere già stati creati (stessi codici interni)
+          setStato("Connessione interrotta, riprovo…");
+          await attendi(1500);
+          const { data: trovati, error: e2 } = await supabase.from("materiali").select("*").in("codice_interno", codici);
+          if (!e2 && trovati?.length === codici.length) { data = codici.map((c) => trovati.find((m) => String(m.codice_interno) === c)!); error = null; }
+          else if (!e2 && !trovati?.length) ({ data, error } = await supabase.from("materiali").insert(righeMateriali).select("*"));
+        }
+        if (error || !data) throw new Error("Nuovi materiali: " + (erroreRete(error) ? MSG_RETE : error?.message ?? "creazione non riuscita"));
         const creato = new Map(unici.map((r, k) => [chiaveRiga(r.pdf), data![k] as Rec]));
         for (const r of nuovi) { r.materiale = creato.get(chiaveRiga(r.pdf))!; r.stato = "scelto"; }
       }
@@ -311,11 +332,10 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
       // Senza codice del fornitore non c'è nulla da ricordare
       const daRicordare = finali.filter((r) => r.materiale && valido(r.pdf.codice) && ["scelto", "proposta", "multipli", "simili"].includes(r.stato));
       if (daRicordare.length) {
-        const { error } = await supabase.from("abbinamenti_fornitore").upsert(
-          [...new Map(daRicordare.map((r) => [norm(r.pdf.codice), { fornitore_id: fornitore.id, codice: r.pdf.codice, materiale_id: r.materiale!.id }])).values()],
-          { onConflict: "fornitore_id,codice" },
-        );
-        if (error) throw new Error("Abbinamenti: " + error.message);
+        const abbinamenti = [...new Map(daRicordare.map((r) => [norm(r.pdf.codice), { fornitore_id: fornitore.id, codice: r.pdf.codice, materiale_id: r.materiale!.id }])).values()];
+        let { error } = await supabase.from("abbinamenti_fornitore").upsert(abbinamenti, { onConflict: "fornitore_id,codice" });
+        if (erroreRete(error)) { await attendi(1500); ({ error } = await supabase.from("abbinamenti_fornitore").upsert(abbinamenti, { onConflict: "fornitore_id,codice" })); }
+        if (error) throw new Error("Abbinamenti: " + (erroreRete(error) ? MSG_RETE : error.message));
         for (const r of daRicordare) {
           const m = r.materiale!;
           if ([m.codice_fornitore1, m.codice_fornitore2].some((c) => senzaZeri(c) === senzaZeri(r.pdf.codice))) continue;
@@ -336,16 +356,49 @@ export default function ImportaDdtPdf({ onChiudi, onFinito, onCorreggi }: {
         });
       });
       const tot = cfg.calcolaTotali!({}, righeFinali);
-      const { data: nuovo, error } = await supabase.from("ddt_acquisto").insert({
+      const testata = {
         data: ddt.data, fornitore_id: fornitore.id, numero_ddt: ddt.numeroDdt, email: fornitore.email ?? null,
         tipologia_pagamento: await tipologiaPagamento(fornitore), stato: "Chiuso", note: ddt.note || null, ...tot,
         ...(tecnicoId ? { tecnico_id: tecnicoId } : {}),
-      }).select("id").single();
-      if (error) throw new Error("DDT: " + error.message);
-      const ins = await supabase.from("righe_ddt_acquisto").insert(righeFinali.map((r) => ({ ...r, ddt_id: nuovo.id })));
-      if (ins.error) {
-        await supabase.from("ddt_acquisto").delete().eq("id", nuovo.id);
-        throw new Error("Righe del DDT: " + ins.error.message);
+      };
+      // Se la connessione cade si riprova, ma prima si guarda se il DDT era già arrivato (per non salvarlo due volte)
+      const giaSalvato = async () => {
+        const { data } = await supabase.from("ddt_acquisto").select("id").eq("fornitore_id", fornitore.id).eq("numero_ddt", ddt.numeroDdt).eq("data", ddt.data).is("eliminato_il", null).order("id", { ascending: false }).limit(1);
+        return (data?.[0] as { id: number } | undefined) ?? null;
+      };
+      // Un salvataggio interrotto prima delle righe ha lasciato il DDT vuoto: si completa quello
+      const interrotto = (await ddtConNumero(fornitore.id, ddt.numeroDdt)).find((d) => d.vuoto);
+      let nuovo: { id: number } | null = null;
+      if (interrotto) {
+        const { error } = await supabase.from("ddt_acquisto").update(testata).eq("id", interrotto.id);
+        if (error) throw new Error("DDT: " + (erroreRete(error) ? MSG_RETE : error.message));
+        nuovo = { id: interrotto.id };
+      }
+      for (let tentativo = 0; !nuovo; tentativo++) {
+        const { data, error } = await supabase.from("ddt_acquisto").insert(testata).select("id").single();
+        if (!error) { nuovo = data as { id: number }; break; }
+        if (!erroreRete(error) || tentativo >= 2) throw new Error("DDT: " + (erroreRete(error) ? MSG_RETE : error.message));
+        setStato("Connessione interrotta, riprovo…");
+        await attendi(1500 * (tentativo + 1));
+        nuovo = await giaSalvato().catch(() => null);
+      }
+      // Righe: anche qui, prima di riprovare si controlla se erano già state salvate
+      for (let tentativo = 0; ; tentativo++) {
+        if (tentativo) {
+          // Le righe potrebbero essere arrivate anche se la risposta si è persa
+          const { count, error: e } = await supabase.from("righe_ddt_acquisto").select("id", { count: "exact", head: true }).eq("ddt_id", nuovo.id);
+          if (e) { if (tentativo >= 3) throw new Error("Righe del DDT: " + MSG_RETE); await attendi(1500 * tentativo); continue; }
+          if ((count ?? 0) >= righeFinali.length) break;
+        }
+        const ins = await supabase.from("righe_ddt_acquisto").insert(righeFinali.map((r) => ({ ...r, ddt_id: nuovo!.id })));
+        if (!ins.error) break;
+        if (!erroreRete(ins.error) || tentativo >= 2) {
+          // Senza righe il DDT non serve: si toglie (se la connessione lo permette) e si potrà rifare da capo
+          await supabase.from("ddt_acquisto").delete().eq("id", nuovo.id);
+          throw new Error("Righe del DDT: " + (erroreRete(ins.error) ? MSG_RETE : ins.error.message));
+        }
+        setStato("Connessione interrotta, riprovo…");
+        await attendi(1500 * (tentativo + 1));
       }
       // 4. PDF originale conservato con il DDT
       setStato("Archiviazione del PDF…");
