@@ -1837,3 +1837,14 @@ span.filtro-marca { cursor: default; }
 .campo-tecnico input, .campo-tecnico select { color: #1f5fbf; font-weight: 600; }
 .scheda-tecnico.attiva .nome-tecnico { color: inherit; }
 .impegno .nome-tecnico { color: #1f5fbf; }
+/* Menu laterale: icone colorate, ognuna nel suo riquadrino tenue */
+.laterale .voce .icona-voce {
+  display: inline-grid; place-items: center; flex: 0 0 auto; width: 26px; height: 26px; border-radius: 7px;
+  color: var(--colore-icona); background: color-mix(in srgb, var(--colore-icona) 18%, transparent);
+  transition: background .15s, color .15s, transform .15s;
+}
+.laterale .voce:hover .icona-voce { background: color-mix(in srgb, var(--colore-icona) 30%, transparent); transform: scale(1.06); }
+.laterale .voce.active .icona-voce { background: var(--colore-icona); color: #1b2b30; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .laterale .voce .icona-voce { width: 30px; height: 30px; }
+}

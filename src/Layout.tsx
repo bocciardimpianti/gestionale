@@ -34,6 +34,17 @@ export const ICONE: Record<string, LucideIcon> = {
   conti_clienti: Banknote,
 };
 
+// Colore dell'icona di ogni voce del menu (anche le voci di Amministrazione)
+export const COLORI_ICONE: Record<string, string> = {
+  home: "#4fc3f7", start_tecnici: "#ffd54f",
+  clienti: "#81c784", fornitori: "#ffb74d", tecnici: "#64b5f6", impianti: "#ce93d8",
+  rapporti: "#4dd0e1", agenda: "#f48fb1", preventivi: "#aed581", richieste: "#ff8a65",
+  ddt_acquisto: "#b39ddb", materiali: "#ffca28",
+  scadenziario: "#4db6ac", conti_clienti: "#ef9a9a",
+  "admin/utenti": "#90caf9", "admin/materiali-tecnici": "#ffb300", "admin/chiamata": "#ef5350",
+  "admin/impianti-tipo": "#fff176", "admin/registro": "#bcaaa4",
+};
+
 // Iniziali per l'avatar (es. "Michael Gronchi" → "MG")
 const iniziali = (nome: string) => nome.replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 
@@ -211,7 +222,9 @@ export default function Layout({ children }: { children: ReactNode }) {
                   const contatore = s.chiave === "richieste" ? richiesteAperte : 0;
                   return (
                     <NavLink key={s.chiave} to={percorso(s.chiave)} end className="voce" title={s.etichetta}>
-                      <Icona size={18} strokeWidth={1.6} />
+                      <span className="icona-voce" style={{ "--colore-icona": COLORI_ICONE[s.chiave] ?? "#cfd8dc" } as React.CSSProperties}>
+                        <Icona size={16} strokeWidth={2} />
+                      </span>
                       <span className="testo-voce">{s.etichetta}</span>
                       {contatore > 0 && <span className="contatore" title={`${contatore} richieste aperte`}>{contatore > 99 ? "99+" : contatore}</span>}
                     </NavLink>
