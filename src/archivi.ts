@@ -1,5 +1,6 @@
 import type { Colonna } from "./components/Griglia";
 import { maschioFemmina } from "./testoFoto";
+import { CATEGORIE_IMPIANTI, TIPI_IMPIANTO_TERMICO } from "./impiantiAuto";
 import { dataIso, dataIt, prossimiCodiciInterni, supabase } from "./supabase";
 import { stampaPreventivo, stampaRapporto } from "./stampe";
 import { stampaEtichette } from "./etichette";
@@ -12,6 +13,8 @@ export interface Campo {
   tipo?: "testo" | "area" | "scelta" | "telefono" | "titolo" | "data" | "riferimento" | "ora" | "numero" | "euro" | "booleano" | "foto" | "firma" | "email" | "pdf";
   // Sul telefono il campo va in cima alla scheda (es. il cliente nel rapportino)
   primoSuTelefono?: boolean;
+  // Il campo si vede solo se… (es. i componenti della caldaia solo negli impianti "Caldaie")
+  mostraSe?: (dati: Record<string, unknown>) => boolean;
   /** Sul telefono il campo va mostrato sotto le righe dei materiali */
   sottoMaterialiSuTelefono?: boolean;
   // Microfono nel campo per dettare il testo (si aggiunge a quello già scritto)
@@ -127,6 +130,8 @@ export interface Archivio {
   piedeGruppi?: { titolo: string; campi: Campo[] }[];
   // Campi calcolati al salvataggio e mostrati nel piede (es. imponibile e totale)
   calcolaTotali?: (dati: Record<string, unknown>, righe: Record<string, unknown>[]) => Record<string, number>;
+  // Pillole in cima all'elenco per filtrare un campo (es. categoria degli impianti)
+  pillole?: { campo: string; valori: readonly { nome: string; icona?: string; colore?: string }[] };
   // Viste rapide nel menu Filtri (es. materiali senza foto)
   visteRapide?: { nome: string; filtro: (r: Record<string, unknown>) => boolean; ordine?: { chiave: string; su: boolean }; fotoVeloce?: boolean }[];
   // Vista Galleria (schede con foto) oltre alla Tabella
@@ -485,10 +490,14 @@ export const ARCHIVI: Record<string, Archivio> = {
     tabella: "impianti",
     figli: [{ linguetta: "Storico", tabella: "rapporti", campo: "impianto_id", ordine: "data", select: "*, tecnico:tecnici(nome)", cestino: true, colonne: COLONNE_STORICO, apri: { sezione: "rapporti", id: (r) => r.id } }],
     select: "*, cliente:clienti(nome)",
+    // Clima, Caldaie, Allarmi, Automatismi: catalogati da soli salvando i rapportini (script 0046)
+    pillole: { campo: "categoria", valori: CATEGORIE_IMPIANTI },
     chiaveImport: ["cliente", "impianto", "tipo_impianto", "marca", "modello", "matricola"],
     quandoCambia: prossimoIntervento,
     colonne: [
       { chiave: "cliente", titolo: "Cliente", excel: "Cliente", larghezza: 290, riferimento: { campo: "cliente_id", tabella: "clienti" } },
+      { chiave: "categoria", titolo: "Categoria", excel: "Categoria", larghezza: 105,
+        valore: (r) => (r.categoria ? `${CATEGORIE_IMPIANTI.find((c) => c.nome === r.categoria)?.icona ?? ""} ${r.categoria}` : "") },
       { chiave: "periodo", titolo: "Periodo", excel: "Periodo", larghezza: 129 },
       { chiave: "tipo_impianto", titolo: "Tipo impianto", excel: "Tipo impianto", larghezza: 132 },
       { chiave: "impianto", titolo: "Impianto", excel: "Impianto", larghezza: 108 },
@@ -513,7 +522,24 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
       { chiave: "materiali", etichetta: "materiali", larghezza: 2 },
       { chiave: "data_ultimo", etichetta: "Data Ultimo Intervento", tipo: "data", larghezza: 1, finisciRiga: true },
-      { chiave: "cliente_id", etichetta: "Cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2, finisciRiga: true },
+      { chiave: "cliente_id", etichetta: "Cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2 },
+      { chiave: "categoria", etichetta: "Categoria", tipo: "scelta", opzioniFisse: CATEGORIE_IMPIANTI.map((c) => c.nome), larghezza: 1, finisciRiga: true },
+      // Caldaie
+      { chiave: "_titolo_caldaia", etichetta: "Componenti caldaia", tipo: "titolo", mostraSe: (d) => d.categoria === "Caldaie" },
+      { chiave: "impianto_termico", etichetta: "Tipo di impianto di riscaldamento", tipo: "scelta", opzioniFisse: TIPI_IMPIANTO_TERMICO, larghezza: 2, mostraSe: (d) => d.categoria === "Caldaie" },
+      { chiave: "canna_fumaria_m", etichetta: "Canna fumaria (m)", tipo: "numero", larghezza: 1, mostraSe: (d) => d.categoria === "Caldaie" },
+      { chiave: "canna_fumaria_sezione", etichetta: "Sezione canna fumaria", larghezza: 1, mostraSe: (d) => d.categoria === "Caldaie" },
+      { chiave: "defangatore", etichetta: "Defangatore", tipo: "area", larghezza: 2, mostraSe: (d) => d.categoria === "Caldaie" },
+      { chiave: "sdoppiatore", etichetta: "Sdoppiatore", tipo: "area", larghezza: 2, mostraSe: (d) => d.categoria === "Caldaie" },
+      { chiave: "dosatore", etichetta: "Dosatore polifosfati", tipo: "area", larghezza: 2, mostraSe: (d) => d.categoria === "Caldaie" },
+      { chiave: "pompe_valvole", etichetta: "Pompe, gruppi di miscelazione e valvole (miscelatrici, deviatrici, 3 vie)", tipo: "area", larghezza: 2, mostraSe: (d) => d.categoria === "Caldaie" },
+      // Clima
+      { chiave: "_titolo_clima", etichetta: "Climatizzatore", tipo: "titolo", mostraSe: (d) => d.categoria === "Clima" },
+      { chiave: "unita_interne", etichetta: "Unità interne", tipo: "area", larghezza: 4, mostraSe: (d) => d.categoria === "Clima" },
+      { chiave: "tipo_gas", etichetta: "Tipo di gas", tipo: "scelta", opzioniFisse: ["R32", "R410A", "R290", "R454B", "R134A", "R407C", "R22"], larghezza: 1, mostraSe: (d) => d.categoria === "Clima" },
+      { chiave: "gas_kg", etichetta: "Gas aggiunto (kg)", tipo: "numero", larghezza: 1, mostraSe: (d) => d.categoria === "Clima" },
+      // Allarmi e automatismi
+      { chiave: "componenti", etichetta: "Componenti installati", tipo: "area", larghezza: 4, mostraSe: (d) => d.categoria === "Allarmi" || d.categoria === "Automatismi" },
     ],
   },
   rapporti: {

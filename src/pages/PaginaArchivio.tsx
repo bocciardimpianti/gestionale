@@ -197,9 +197,20 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     }
     return conta;
   }, [cfg.sezione, righeVista]);
+  // Pillole (es. categoria degli impianti): il valore scelto filtra il campo indicato
+  const [pillola, setPillola] = useState("");
+  const conteggiPillole = useMemo(() => {
+    const conta = new Map<string, number>();
+    if (cfg.pillole) for (const r of righeVista) { const v = String(r[cfg.pillole.campo] ?? ""); conta.set(v, (conta.get(v) ?? 0) + 1); }
+    return conta;
+  }, [cfg.pillole, righeVista]);
   const righeFiltrate = useMemo(
-    () => (categoriaRapida ? righeVista.filter((r) => categoriaDiRiga(r) === categoriaRapida) : righeVista),
-    [righeVista, categoriaRapida],
+    () => {
+      let r = categoriaRapida ? righeVista.filter((x) => categoriaDiRiga(x) === categoriaRapida) : righeVista;
+      if (cfg.pillole && pillola) r = r.filter((x) => String(x[cfg.pillole!.campo] ?? "") === pillola);
+      return r;
+    },
+    [righeVista, categoriaRapida, pillola, cfg.pillole], // eslint-disable-line react-hooks/exhaustive-deps
   );
   // Senza il permesso "Totali" le colonne con totali e importi non compaiono (né nella griglia né nell'esportazione Excel)
   const colonne = useMemo(() => senzaPrezzi(cfg.colonne, vedePrezzi).filter((c) => !nascoste.includes(c.chiave)), [cfg.colonne, nascoste, vedePrezzi]);
@@ -595,6 +606,24 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
 
       {cfg.sezione === "richieste" && <BannerNotifiche />}
       {cfg.sezione === "materiali" && <FiltriCategoria valore={categoriaRapida} onCambia={setCategoriaRapida} conteggi={conteggiCategorie} />}
+      {cfg.pillole && (
+        <div className="filtri-categoria pillole-sezione" role="group" aria-label="Categoria">
+          <button type="button" className={pillola ? "" : "attiva"} aria-pressed={!pillola} onClick={() => setPillola("")}>
+            Tutti <span className="conteggio-categoria">{righeVista.length.toLocaleString("it-IT")}</span>
+          </button>
+          {cfg.pillole.valori.map((v) => {
+            const attiva = pillola === v.nome;
+            const colore = v.colore ?? "var(--ottanio)";
+            return (
+              <button type="button" key={v.nome} className={attiva ? "attiva" : ""} aria-pressed={attiva} onClick={() => setPillola(attiva ? "" : v.nome)}
+                style={attiva ? { background: colore, borderColor: colore, color: "#1b2b30" } : { borderColor: colore }}>
+                {v.icona && <span aria-hidden>{v.icona}</span>} {v.nome}
+                <span className="conteggio-categoria">{(conteggiPillole.get(v.nome) ?? 0).toLocaleString("it-IT")}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {galleria && cfg.galleria && (
         <Galleria cfg={cfg} righe={visibili} archivio={cfg.sezione} onApri={(r) => setScheda(r)} />

@@ -11,6 +11,7 @@ import CampoDocumento from "./CampoDocumento";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
 import CampoImmagine, { immagineDa, Miniatura, riduci, urlFirmato } from "./CampoImmagine";
 import { eUnitaEsterna, gasDaDescrizione, GAS_REFRIGERANTI, testoUnitaInterne } from "../clima";
+import { impiantiDaRapportino } from "../impiantiAuto";
 import { useFotoMateriali } from "../fotoMateriali";
 import { dirittoPerCliente } from "../distanze";
 import CercaMateriale from "./CercaMateriale";
@@ -403,6 +404,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     }
     // Foto e firma: caricamento dei nuovi file e rimozione di quelli sostituiti o eliminati
     const id = risposta.data.id;
+    // Impianti del cliente catalogati dai materiali (Clima, Caldaie, Allarmi, Automatismi; script 0046)
+    if (cfg.sezione === "rapporti") {
+      for (const imp of impiantiDaRapportino(righe, { ...dati, ...record })) {
+        await supabase.rpc("registra_impianto", { p_rapporto: id, p_categoria: imp.categoria, p_dati: imp.dati });
+      }
+    }
     // Unità esterna installata: il rapportino entra (o si aggiorna) nella sezione F-gas (script 0042)
     if (cfg.sezione === "rapporti" && unitaEsterna) {
       const macchina = String(unitaEsterna.descrizione ?? "");
@@ -638,7 +645,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   };
 
   // Sul telefono alcuni campi (es. il cliente del rapportino) vanno in cima alla scheda
-  const principaliTutti = campiVisibili.filter((c) => !c.linguetta);
+  const principaliTutti = campiVisibili.filter((c) => !c.linguetta && (!c.mostraSe || c.mostraSe(dati)));
   const principali = telefono
     ? [...principaliTutti.filter((c) => c.primoSuTelefono), ...principaliTutti.filter((c) => !c.primoSuTelefono && !(cfg.righe && c.sottoMaterialiSuTelefono))]
     : principaliTutti;
@@ -916,7 +923,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                   </>
                 ) : cfg.campi.some((c) => c.linguetta === linguetta) ? (
                   <div className="griglia-campi">
-                    {campiVisibili.filter((c) => c.linguetta === linguetta).map((c, i, a) => campo(c, !!a[i - 1]?.finisciRiga))}
+                    {campiVisibili.filter((c) => c.linguetta === linguetta && (!c.mostraSe || c.mostraSe(dati))).map((c, i, a) => campo(c, !!a[i - 1]?.finisciRiga))}
                   </div>
                 ) : cfg.figli?.some((f) => f.linguetta === linguetta) ? (
                   <>
