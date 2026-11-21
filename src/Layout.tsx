@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
+  Banknote, Wallet, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
   LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
   Search, Settings, Smartphone, Star, Type, User, UserRound, Users, Wrench, X, type LucideIcon,
   ChevronDown, MapPin, PackageSearch, PanelLeftClose, PanelLeftOpen, Plus, Snowflake, Zap,
@@ -32,6 +32,7 @@ export const ICONE: Record<string, LucideIcon> = {
   materiali: Wrench,
   scadenziario: Banknote,
   conti_clienti: Banknote,
+  spese_aziendali: Wallet,
   fgas: Snowflake,
 };
 
@@ -41,7 +42,7 @@ export const COLORI_ICONE: Record<string, string> = {
   clienti: "#81c784", fornitori: "#ffb74d", tecnici: "#64b5f6", impianti: "#ce93d8",
   rapporti: "#4dd0e1", agenda: "#f48fb1", preventivi: "#aed581", richieste: "#ff8a65",
   ddt_acquisto: "#b39ddb", materiali: "#ffca28",
-  scadenziario: "#4db6ac", conti_clienti: "#ef9a9a", fgas: "#80deea",
+  scadenziario: "#4db6ac", conti_clienti: "#ef9a9a", spese_aziendali: "#ffb74d", fgas: "#80deea",
   "admin/utenti": "#90caf9", "admin/materiali-tecnici": "#ffb300", "admin/chiamata": "#ef5350",
   "admin/impianti-tipo": "#fff176", "admin/registro": "#bcaaa4",
 };

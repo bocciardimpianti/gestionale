@@ -1,6 +1,7 @@
 import type { Colonna } from "./components/Griglia";
 import { maschioFemmina } from "./testoFoto";
 import { CATEGORIE_IMPIANTI, TIPI_IMPIANTO_TERMICO } from "./impiantiAuto";
+import { TIPI_SPESA } from "./speseAziendali";
 import { dataIso, dataIt, prossimiCodiciInterni, supabase } from "./supabase";
 import { stampaPreventivo, stampaRapporto } from "./stampe";
 import { stampaEtichette } from "./etichette";
@@ -1221,6 +1222,34 @@ export const ARCHIVI: Record<string, Archivio> = {
         return !r.pagato && d >= (dataIso(oggi) ?? "") && d <= (dataIso(tra30) ?? "");
       }, ordine: { chiave: "data", su: true } },
       { nome: "Pagate", filtro: (r) => !!r.pagato, ordine: { chiave: "data", su: false } },
+    ],
+  },
+  // Salari, spese fisse ed extra: a mano o da Excel; entrano nel grafico "Ricavi e spese" della Home (script 0049)
+  spese_aziendali: {
+    sezione: "spese_aziendali",
+    titolo: "Spese aziendali",
+    titoloNuovo: "Nuova spesa",
+    titoloScheda: (v) => `${v.tipo ?? "Spesa"} del ${String(v.data ?? "").split("-").reverse().join("/")}`,
+    linguette: ["Log Cloud"],
+    tabella: "spese_aziendali",
+    chiaveImport: ["data", "tipo", "descrizione", "importo"],
+    ordineIniziale: { chiave: "data", su: false },
+    pillole: { campo: "tipo", valori: TIPI_SPESA },
+    valoriNuovo: async () => ({ data: dataIso(new Date()), tipo: "Spese fisse", importo: 0 }),
+    colonne: [
+      { chiave: "data", titolo: "Data", excel: "Data", larghezza: 110, tipo: "data" },
+      { chiave: "tipo", titolo: "Tipo", excel: "Tipo", larghezza: 170,
+        valore: (r) => (r.tipo ? `${TIPI_SPESA.find((t) => t.nome === r.tipo)?.icona ?? ""} ${r.tipo}` : "") },
+      { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 420 },
+      { chiave: "importo", titolo: "Importo", excel: "Importo", larghezza: 140, tipo: "euro", somma: true },
+      { chiave: "note", titolo: "Note", excel: "Note", larghezza: 240, nascostaInElenco: true },
+    ],
+    campi: [
+      { chiave: "data", etichetta: "Data (mese di competenza)", tipo: "data", larghezza: 1, obbligatorio: true },
+      { chiave: "tipo", etichetta: "Tipo", tipo: "scelta", opzioniFisse: TIPI_SPESA.map((t) => t.nome), larghezza: 1, obbligatorio: true },
+      { chiave: "importo", etichetta: "Importo", tipo: "euro", larghezza: 1, finisciRiga: true },
+      { chiave: "descrizione", etichetta: "Descrizione (es. stipendio Rossi, affitto, assicurazione furgone)", larghezza: 4 },
+      { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
     ],
   },
 };
