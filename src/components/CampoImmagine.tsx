@@ -1,12 +1,45 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, FolderOpen, Image as IconaGalleria, Pencil, Search, Sparkles, Trash2 } from "lucide-react";
 import PropostaFoto, { proponiSubito } from "./PropostaFoto";
 import { supabase } from "../supabase";
 
-// Miniatura per la griglia
+// Miniatura per la griglia: avvicinando il mouse o il pennino compare un'anteprima grande
 export function Miniatura({ percorso, archivio }: { percorso: string; archivio: string }) {
   const url = useUrlImmagine(percorso, archivio);
-  return url ? <img src={url} alt="" className="miniatura" loading="lazy" /> : null;
+  const anteprima = useAnteprima(url);
+  return url ? <><img src={url} alt="" className="miniatura" loading="lazy" {...anteprima.eventi} />{anteprima.finestra}</> : null;
+}
+
+// Anteprima grande di una foto piccola, accanto al punto in cui si trova (mouse o pennino; non col dito, che tocca e basta)
+const LATO = 320;
+export function useAnteprima(url: string) {
+  const [pos, setPos] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!pos) return;
+    const chiudi = () => setPos(null);
+    window.addEventListener("scroll", chiudi, true);
+    window.addEventListener("pointerdown", chiudi, true);
+    return () => { window.removeEventListener("scroll", chiudi, true); window.removeEventListener("pointerdown", chiudi, true); };
+  }, [pos]);
+  const eventi = {
+    onPointerEnter: (e: React.PointerEvent<HTMLElement>) => {
+      if (e.pointerType === "touch" || !url) return;
+      const r = e.currentTarget.getBoundingClientRect();
+      if (r.height >= 110) return; // già grande (es. galleria)
+      setPos({ x: r.left, y: r.top, w: r.width, h: r.height });
+    },
+    onPointerLeave: () => setPos(null),
+  };
+  let finestra: React.ReactNode = null;
+  if (pos && url) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // A destra della foto se c'è spazio, altrimenti a sinistra; in verticale dentro lo schermo
+    const x = pos.x + pos.w + 12 + LATO <= vw ? pos.x + pos.w + 12 : Math.max(8, pos.x - LATO - 12);
+    const y = Math.min(Math.max(8, pos.y + pos.h / 2 - LATO / 2), vh - LATO - 8);
+    finestra = createPortal(<div className="anteprima-foto" style={{ left: x, top: y, width: LATO, height: LATO }}><img src={url} alt="" /></div>, document.body);
+  }
+  return { eventi, finestra };
 }
 
 // Link temporanei già ottenuti, per non richiederli di nuovo (es. miniature della griglia)
@@ -58,6 +91,7 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
   fotoVeloce?: boolean;
 }) {
   const url = useUrlImmagine(valore, archivio);
+  const anteprima = useAnteprima(url);
   const fileRef = useRef<HTMLInputElement>(null);
   // Telefono e tablet: "Scatta" apre la fotocamera, "Galleria" le foto già salvate sul dispositivo
   const fotocameraRef = useRef<HTMLInputElement>(null);
@@ -96,7 +130,7 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
       <label>{etichetta}</label>
       <div className="contenuto-immagine">
         {url ? (
-          <a href={url} target="_blank" rel="noreferrer" title="Apri a grandezza intera"><img src={url} alt={etichetta} /></a>
+          <a href={url} target="_blank" rel="noreferrer" title="Apri a grandezza intera"><img src={url} alt={etichetta} {...anteprima.eventi} /></a>
         ) : null}
         {modificabile && (
           <span className="comandi-immagine">
@@ -143,6 +177,7 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
       }} />
       {proposta && cerca && <PropostaFoto testo={cerca} fotoVeloce={fotoVeloce} onChiudi={() => setProposta(false)}
         onScelta={(b) => { setProposta(false); setAvviso(""); onCambia(b); }} />}
+      {!firma && anteprima.finestra}
       {disegna && <PadFirma onChiudi={() => setDisegna(false)} onConferma={(b) => { onCambia(b); setDisegna(false); }} />}
     </div>
   );
