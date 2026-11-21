@@ -347,7 +347,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       const intestazione = celle[indiceIntestazione].map(normalizza);
       // Colonne della griglia + colonne aggiuntive che possono esserci nell'export (es. Ora inizio)
       const colonneImport = [
-        ...cfg.colonne.filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura")
+        ...cfg.colonne.filter((c) => c.tipo !== "immagine" && c.tipo !== "miniatura" && !c.calcolata)
           .map((c) => ({ chiave: c.chiave, excel: [c.excel], tipo: c.tipo as string | undefined, extra: false })),
         ...(cfg.importaExtra ?? []).map((e) => ({ chiave: e.chiave, excel: e.excel, tipo: e.tipo as string | undefined, extra: true })),
       ];

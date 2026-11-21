@@ -74,6 +74,8 @@ export interface Archivio {
     riferimento?: { campo: string; tabella: string };
     // Colonne data con ora: in importazione l'ora viene copiata in questi campi (es. ora inizio/fine)
     oraIn?: string[];
+    // Calcolata dal database: si vede e si esporta, ma non si importa
+    calcolata?: boolean;
   })[];
   campi: Campo[];
   // Colonne che possono esserci nell'export Excel ma non nella griglia (es. Ora inizio): nomi alternativi accettati
@@ -107,7 +109,11 @@ export interface Archivio {
   righe?: {
     tabella: string;
     campo: string;
-    colonne: { chiave: string; titolo: string; larghezza: number; tipo?: "testo" | "numero" | "euro"; solaLettura?: boolean }[];
+    colonne: { chiave: string; titolo: string; larghezza: number; tipo?: "testo" | "numero" | "euro"; solaLettura?: boolean;
+      // Calcolata dal database (campo calcolato nella "select"): si mostra ma non si salva
+      calcolata?: boolean }[];
+    // Colonne da leggere per le righe (predefinito "*"); se manca un campo calcolato si legge "*"
+    select?: string;
     // "chiave" è il campo appena modificato (assente per una riga nuova)
     ricalcola: (riga: Record<string, unknown>, chiave?: string) => Record<string, unknown>;
     // Riga creata da un materiale di magazzino (codice a barre o ricerca)
@@ -842,7 +848,8 @@ export const ARCHIVI: Record<string, Archivio> = {
     titoloScheda: (v) => `DDT di Acquisto ${v.numero_ddt ? `n. ${v.numero_ddt} ` : ""}del ${String(v.data ?? "").split("-").reverse().join("/")}`,
     linguette: ["Dettaglio", "Pagamenti", "Storico", "Log Cloud"],
     tabella: "ddt_acquisto",
-    select: "*, fornitore:fornitori(nome), tecnico:tecnici(nome)",
+    // nei_rapportini: quanto dei materiali è già nei rapportini (script 0039)
+    select: "*, fornitore:fornitori(nome), tecnico:tecnici(nome), nei_rapportini",
     // Rate generate dalla tipologia di pagamento (vedi Scadenziario)
     figli: [{
       linguetta: "Pagamenti", tabella: "scadenziario", campo: "ddt_id", ordine: "data", crescente: true,
@@ -863,6 +870,9 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "data", titolo: "Data", excel: "Data", larghezza: 78, tipo: "data" },
       { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 120, riferimento: { campo: "tecnico_id", tabella: "tecnici" }, classe: "cella-tecnico" },
       { chiave: "stato", titolo: "Stato Documento", excel: "Stato Documento", larghezza: 97, tipo: "stato" },
+      // Materiali del DDT già messi nei rapportini: Tutto / Parziale / No
+      { chiave: "nei_rapportini", titolo: "Nei rapportini", excel: "Nei rapportini", calcolata: true, larghezza: 105,
+        valore: (r) => (r.nei_rapportini ? `${/^Tutto/.test(String(r.nei_rapportini)) ? "🟢" : /^Parziale/.test(String(r.nei_rapportini)) ? "🟡" : "⚪"} ${r.nei_rapportini}` : "") },
       { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 67, tipo: "euro" },
       { chiave: "iva_totale", titolo: "Iva", excel: "Iva", larghezza: 67, tipo: "euro" },
       { chiave: "totale", titolo: "Totale Documento", excel: "Totale Documento", larghezza: 67, tipo: "euro" },
@@ -887,6 +897,8 @@ export const ARCHIVI: Record<string, Archivio> = {
     righe: {
       tabella: "righe_ddt_acquisto",
       campo: "ddt_id",
+      // in_rapportini: in quale rapportino (cliente, tecnico) è finito il materiale (script 0039)
+      select: "*, in_rapportini",
       colonne: [
         { chiave: "codice_barre", titolo: "Codice a barre", larghezza: 80 },
         { chiave: "descrizione", titolo: "Descrizione", larghezza: 420 },
@@ -896,6 +908,7 @@ export const ARCHIVI: Record<string, Archivio> = {
         { chiave: "sconto", titolo: "Sconto %", larghezza: 60, tipo: "numero" },
         { chiave: "iva", titolo: "Iva", larghezza: 55, tipo: "numero" },
         { chiave: "totale_ivato", titolo: "Totale Ivato", larghezza: 90, tipo: "euro", solaLettura: true },
+        { chiave: "in_rapportini", titolo: "Inserito nel rapportino", larghezza: 380, solaLettura: true, calcolata: true },
       ],
       ricalcola: (r) => {
         const q = n(r.quantita);

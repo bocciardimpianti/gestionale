@@ -100,8 +100,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   useEffect(() => {
     if (!cfg.righe || nuovo) return;
-    supabase.from(cfg.righe.tabella).select("*").eq(cfg.righe.campo, valori.id).order("ordine")
-      .then(({ data }) => setRighe(data ?? []));
+    const { tabella, campo, select = "*" } = cfg.righe;
+    const leggi = (sel: string) => supabase.from(tabella).select(sel).eq(campo, valori.id).order("ordine");
+    // Se un campo calcolato non c'è ancora (script SQL non eseguito) si leggono le righe senza
+    leggi(select).then(async ({ data, error }) => setRighe(((error && select !== "*" ? (await leggi("*")).data : data) ?? []) as unknown as Record<string, unknown>[]));
   }, [cfg.righe, nuovo, valori.id]);
 
   // Suggerimenti da record collegati (es. impianti del cliente scelto)
@@ -330,6 +332,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     if (risposta.error) return setStato("Errore: " + risposta.error.message);
     if (cfg.righe) {
       const { tabella, campo, colonne } = cfg.righe;
+      const calcolate = colonne.filter((c) => c.calcolata).map((c) => c.chiave);
       // Prima si scrivono le righe nuove e solo dopo si tolgono le vecchie: se qualcosa va storto non si perde nulla
       const vecchie = await supabase.from(tabella).select("id").eq(campo, risposta.data.id);
       if (vecchie.error) return setStato("Errore: " + vecchie.error.message);
@@ -337,7 +340,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         .filter((r) => colonne.some((c) => !vuoto(r[c.chiave])))
         .map((r, i) => {
           const o: Record<string, unknown> = { [campo]: risposta.data.id, ordine: i };
-          for (const k of Object.keys(r)) if (!["id", campo, "ordine"].includes(k)) o[k] = vuoto(r[k]) ? null : r[k];
+          for (const k of Object.keys(r)) if (!["id", campo, "ordine", ...calcolate].includes(k)) o[k] = vuoto(r[k]) ? null : r[k];
           return o;
         });
       if (daSalvare.length) {

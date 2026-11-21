@@ -54,6 +54,13 @@ export async function registra(azione: string, dettagli: unknown) {
 // Collegamento non ancora presente nel database (script non eseguito): si toglie dalla lettura invece di fallire
 // es. "Could not find a relationship between 'ddt_acquisto' and 'tecnici'" → select senza "tecnico:tecnici(nome)"
 export function senzaCollegamentoMancante(select: string, errore: { message?: string } | null) {
+  // Campo calcolato non ancora creato dallo script SQL (es. "nei_rapportini"): si legge senza
+  const campo = /column [\w"]+\.(\w+) does not exist|could not find the '?(\w+)'? column/i.exec(errore?.message ?? "");
+  const nome = campo?.[1] ?? campo?.[2];
+  if (nome) {
+    const senza = select.replace(new RegExp(`\\s*,\\s*${nome}\\b(?![:(])`, "g"), "");
+    if (senza !== select) return senza;
+  }
   const t = /relationship between '[^']+' and '([^']+)'/i.exec(errore?.message ?? "")?.[1];
   if (!t) return null;
   const ridotto = select.replace(new RegExp(`\\s*,\\s*\\w+:${t}(!\\w+)?\\([^)]*\\)`, "g"), "");
