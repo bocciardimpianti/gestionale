@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect, useState, type FormEvent } from "react";
-import { MapPin, PackagePlus, Truck, MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { Camera, MapPin, PackagePlus, Truck, MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -8,7 +8,8 @@ import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
 import { TestoConTecnici } from "./NomeTecnico";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
-import CampoImmagine, { immagineDa, Miniatura, urlFirmato } from "./CampoImmagine";
+import CampoImmagine, { immagineDa, Miniatura, riduci, urlFirmato } from "./CampoImmagine";
+import { eUnitaEsterna } from "../clima";
 import { useFotoMateriali } from "../fotoMateriali";
 import { dirittoPerCliente } from "../distanze";
 import CercaMateriale from "./CercaMateriale";
@@ -178,6 +179,29 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   // Esito del calcolo, mostrato in un riquadro nella scheda (sul telefono la barra di stato è nascosta)
   const [infoDiritto, setInfoDiritto] = useState<{ testo: string; errore: boolean } | null>(null);
   const salvaDopoDiritto = useRef(false);
+  // Unità esterna del climatizzatore tra i materiali: si chiede la foto della matricola (subito, o al salvataggio)
+  const [chiediMatricola, setChiediMatricola] = useState<{ descrizione: string; salvando: boolean } | null>(null);
+  const matricolaChiesta = useRef(false);
+  const unitaEsterna = cfg.sezione === "rapporti" ? righe.find((r) => eUnitaEsterna(r.descrizione)) : undefined;
+  const manca = !!unitaEsterna && !dati.foto_matricola;
+  useEffect(() => {
+    if (!manca || !modificabile || matricolaChiesta.current || dati.matricola_da_fare) return;
+    // Solo quando l'unità esterna viene aggiunta adesso (non riaprendo un rapportino già salvato)
+    if (!modificata.current) return;
+    matricolaChiesta.current = true;
+    setChiediMatricola({ descrizione: String(unitaEsterna!.descrizione ?? ""), salvando: false });
+  }, [manca, righe.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fotoMatricolaRef = useRef<HTMLInputElement>(null);
+  const sceltaMatricola = (azione: "foto" | "dopo") => {
+    const salvando = chiediMatricola?.salvando;
+    setChiediMatricola(null);
+    matricolaChiesta.current = true;
+    if (azione === "foto") { fotoMatricolaRef.current?.click(); salvaDopoMatricola.current = !!salvando; return; }
+    segna();
+    if (salvando) salvaDopoDiritto.current = true; // si salva appena il dato è aggiornato
+    setDati((d) => ({ ...d, matricola_da_fare: true }));
+  };
+  const salvaDopoMatricola = useRef(false);
   const clientePrima = useRef<unknown>(nuovo ? undefined : valori.cliente_id);
   const tariffaPrima = useRef<unknown>(valori.tariffa);
   useEffect(() => {
@@ -296,6 +320,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const salva = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!modificabile) return;
+    if (manca && !dati.matricola_da_fare) {
+      setChiediMatricola({ descrizione: String(unitaEsterna!.descrizione ?? ""), salvando: true });
+      return;
+    }
     if (dirittoAuto.current && !dirittoDeciso.current && dirittoAuto.current.importo > 0
       && Number(dati.diritto_chiamata) === dirittoAuto.current.importo) {
       setChiediDiritto(true);
@@ -320,6 +348,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         : vuoto(v) ? null : String(v).trim();
     }
     for (const c of cfg.campi.filter((c) => c.suggerisciDa)) record[c.suggerisciDa!.salvaId] = dati[c.suggerisciDa!.salvaId] ?? null;
+    if (cfg.sezione === "rapporti" && dati.foto_matricola && "matricola_da_fare" in record) record.matricola_da_fare = false;
     for (const [k, v] of Object.entries(totali)) if (!k.startsWith("_")) record[k] = v;
     if (nuovo && valori.archivio_id) record.archivio_id = valori.archivio_id;
     const rifNonValido = cfg.campi.find((c) => c.tipo === "riferimento" && !vuoto(testoRif[c.chiave]) && vuoto(dati[c.chiave]));
@@ -833,6 +862,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                     <button type="button" aria-label="Nascondi" onClick={() => setInfoDiritto(null)}><X size={15} /></button>
                   </div>
                 )}
+                {manca && !!dati.matricola_da_fare && modificabile && (
+                  <div className="info-diritto avviso-matricola">
+                    <Camera size={16} /> <span>Manca la <b>foto della matricola</b> dell'unità esterna ({String(unitaEsterna!.descrizione ?? "")})</span>
+                    <button type="button" className="btn blu piccolo-btn" onClick={() => fotoMatricolaRef.current?.click()}>Aggiungila ora</button>
+                  </div>
+                )}
                 {linguetta === "Principale" ? (
                   <>
                     <div className="griglia-campi">{principali.map((c, i) => campo(c, !!principali[i - 1]?.finisciRiga))}</div>
@@ -916,6 +951,32 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           </>
         )}
       </form>
+      {chiediMatricola && (
+        <div className="velo chiedi-salva-velo" onMouseDown={(e) => { e.stopPropagation(); setChiediMatricola(null); }}>
+          <div className="finestra chiedi-salva finestra-matricola" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo"><Camera size={18} /> Foto della matricola</div>
+            <div className="finestra-corpo">
+              <p>È stata montata un'unità esterna:<br /><b>{chiediMatricola.descrizione}</b></p>
+              <p>Aggiungi al rapportino la <b>foto della targhetta con la matricola</b> dell'unità esterna.</p>
+            </div>
+            <div className="finestra-piede piede-diritto">
+              <button type="button" className="btn grigio" onClick={() => sceltaMatricola("dopo")}>Aggiungila in un secondo momento</button>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="btn blu" autoFocus onClick={() => sceltaMatricola("foto")}><Camera size={16} /> Scatta o scegli la foto</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <input ref={fotoMatricolaRef} type="file" accept="image/*" capture="environment" hidden onChange={async (e) => {
+        const f = e.target.files?.[0];
+        e.target.value = "";
+        if (!f) { salvaDopoMatricola.current = false; return; }
+        const foto = await riduci(f);
+        segna();
+        if (salvaDopoMatricola.current) { salvaDopoMatricola.current = false; salvaDopoDiritto.current = true; }
+        setDati((d) => ({ ...d, foto_matricola: foto, matricola_da_fare: false }));
+        setStato("Foto della matricola aggiunta" + (salvaDopoDiritto.current ? ": salvataggio…" : " (premi Salva)"));
+      }} />
       {chiediDiritto && dirittoAuto.current && (
         <div className="velo chiedi-salva-velo" onMouseDown={(e) => { e.stopPropagation(); setChiediDiritto(false); }}>
           <div className="finestra chiedi-salva finestra-diritto" onMouseDown={(e) => e.stopPropagation()}>

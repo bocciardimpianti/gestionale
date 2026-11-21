@@ -430,6 +430,9 @@ export const ARCHIVI: Record<string, Archivio> = {
   rapporti: {
     sezione: "rapporti",
     titolo: "Rapporti di intervento",
+    visteRapide: [
+      { nome: "Foto matricola da fare (unità esterne)", filtro: (r) => !!r.matricola_da_fare && !r.foto_matricola, ordine: { chiave: "data", su: false } },
+    ],
     titoloNuovo: "Nuovo intervento tecnico",
     titoloScheda: (v) => `Intervento tecnico N. ${v.numero ?? ""} - ${v.cliente ?? ""}`,
     linguette: ["Dettaglio", "Tariffe", "Storico", "Log Cloud"],
@@ -550,6 +553,9 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "foto2", etichetta: "Foto 2", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
       { chiave: "foto3", etichetta: "Foto 3", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
       { chiave: "foto4", etichetta: "Foto 4", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
+      // Unità esterna del climatizzatore montata: foto della targhetta con la matricola (script 0041)
+      { chiave: "foto_matricola", etichetta: "Foto matricola unità esterna", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
+      { chiave: "matricola_da_fare", etichetta: "Foto matricola da fare", tipo: "booleano", larghezza: 1, linguetta: "Dettaglio" },
       {
         chiave: "tariffa", etichetta: "Tariffa", tipo: "scelta", opzioniDa: "tariffe", titoloOpzioni: "Tariffe", larghezza: 1, linguetta: "Tariffe",
         copiaDaOpzione: ["diritto_chiamata", "tariffa_fissa", "tariffa_oraria", "tariffa_km"],

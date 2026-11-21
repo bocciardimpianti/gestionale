@@ -1943,3 +1943,9 @@ tr.oltre .barra-soglia span { background: #e5484d; }
   .carta-conto b { font-size: 20px; }
   .pagina-conti .testata .pulsanti { display: none; }
 }
+/* Foto matricola dell'unità esterna */
+.avviso-matricola { background: #fff3d6 !important; border-color: #f0c46b !important; color: #6b4a00; }
+.avviso-matricola .btn { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; }
+.finestra-matricola .finestra-titolo { display: flex; align-items: center; gap: 8px; }
+.finestra-matricola .btn { display: inline-flex; align-items: center; gap: 6px; }
+.avviso-matricola .btn { color: #fff; }
