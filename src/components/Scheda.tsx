@@ -11,7 +11,8 @@ import CampoDocumento from "./CampoDocumento";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
 import CampoImmagine, { immagineDa, Miniatura, riduci, urlFirmato } from "./CampoImmagine";
 import { eUnitaEsterna, gasDaDescrizione, GAS_REFRIGERANTI, testoUnitaInterne } from "../clima";
-import { impiantiDaRapportino } from "../impiantiAuto";
+import { applicaCorrezioni, impiantiDaRapportino } from "../impiantiAuto";
+import { leggiCorrezioni } from "../impiantiIA";
 import { useFotoMateriali } from "../fotoMateriali";
 import { dirittoPerCliente } from "../distanze";
 import CercaMateriale from "./CercaMateriale";
@@ -406,8 +407,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     const id = risposta.data.id;
     // Impianti del cliente catalogati dai materiali (Clima, Caldaie, Allarmi, Automatismi, TVCC; script 0046-0047)
     if (cfg.sezione === "rapporti") {
-      for (const imp of impiantiDaRapportino(righe, { ...dati, ...record })) {
-        await supabase.rpc("registra_impianto", { p_rapporto: id, p_categoria: imp.categoria, p_dati: imp.dati });
+      const trovati = impiantiDaRapportino(righe, { ...dati, ...record });
+      // Correzioni fatte a mano nella linguetta Materiali degli impianti (script 0048)
+      const correzioni = trovati.length ? await leggiCorrezioni() : [];
+      for (const imp of trovati) {
+        const corretto = applicaCorrezioni(imp, righe, correzioni);
+        await supabase.rpc("registra_impianto", { p_rapporto: id, p_categoria: corretto.categoria, p_dati: corretto.dati });
       }
     }
     // Unità esterna installata: il rapportino entra (o si aggiorna) nella sezione F-gas (script 0042)
@@ -1203,9 +1208,21 @@ function RecordCollegati({ figlio, id, escludiId }: { figlio: NonNullable<Archiv
   }, [figlio, id, versione, escludiId]);
 
   if (!righe) return <p className="vuoto-linguetta">Caricamento…</p>;
-  if (!righe.length) return <p className="vuoto-linguetta">Nessun elemento collegato.</p>;
+  if (!righe.length && !figlio.modifica) return <p className="vuoto-linguetta">Nessun elemento collegato.</p>;
+  const togli = async (r: Record<string, unknown>) => {
+    if (!figlio.modifica || !confirm(`Togliere "${String(r.descrizione ?? "")}"?`)) return;
+    const errore = await figlio.modifica.togli(r);
+    if (errore) return alert(/function|does not exist|schema cache/i.test(errore) ? "Esegui su Supabase lo script 0048_correzioni_impianti.sql" : errore);
+    setVersione((v) => v + 1);
+  };
   return (
     <>
+    {figlio.modifica && id !== undefined && <AggiungiRiga onAggiungi={async (t, q, u) => {
+      const errore = await figlio.modifica!.aggiungi(id, t, q, u);
+      if (errore) { alert(/function|does not exist|schema cache/i.test(errore) ? "Esegui su Supabase lo script 0048_correzioni_impianti.sql" : errore); return false; }
+      setVersione((v) => v + 1); return true;
+    }} />}
+    {!righe.length && <p className="vuoto-linguetta">Nessun materiale.</p>}
     {aperto && (
       <Scheda
         cfg={aperto.cfg}
@@ -1219,7 +1236,7 @@ function RecordCollegati({ figlio, id, escludiId }: { figlio: NonNullable<Archiv
       />
     )}
     <table className={`griglia${apribile ? " righe-apribili" : ""}`}>
-      <thead><tr>{colonne.map((c) => <th key={c.chiave}>{c.titolo}</th>)}</tr></thead>
+      <thead><tr>{colonne.map((c) => <th key={c.chiave}>{c.titolo}</th>)}{figlio.modifica && <th />}</tr></thead>
       <tbody>
         {righe.map((r, i) => (
           <tr key={i} onClick={() => apri(r)} title={apribile ? `Clicca per aprire (${ARCHIVI[figlio.apri!.sezione].titolo})` : undefined}>
@@ -1231,10 +1248,37 @@ function RecordCollegati({ figlio, id, escludiId }: { figlio: NonNullable<Archiv
                   : c.tipo === "numero" && v !== null && v !== undefined && v !== "" ? Number(v).toLocaleString("it-IT", { maximumFractionDigits: 4 }) : String(v ?? "");
               })()}</td>
             ))}
+            {figlio.modifica && <td className="cella-togli"><button type="button" className="togli-riga" title="Togli questo materiale"
+              onClick={(e) => { e.stopPropagation(); togli(r); }}>✕</button></td>}
           </tr>
         ))}
       </tbody>
     </table>
+    {figlio.modifica?.nota && <p className="piccolo nota-modifica">{figlio.modifica.nota}</p>}
     </>
+  );
+}
+
+// Riga per aggiungere a mano un elemento (descrizione, quantità, unità di misura)
+function AggiungiRiga({ onAggiungi }: { onAggiungi: (descrizione: string, quantita: number, unita: string) => Promise<boolean> }) {
+  const [testo, setTesto] = useState("");
+  const [quantita, setQuantita] = useState("1");
+  const [unita, setUnita] = useState("Pz");
+  const [invio, setInvio] = useState(false);
+  const aggiungi = async () => {
+    if (!testo.trim() || invio) return;
+    setInvio(true);
+    const ok = await onAggiungi(testo.trim(), Number(quantita.replace(",", ".")) || 1, unita);
+    setInvio(false);
+    if (ok) { setTesto(""); setQuantita("1"); }
+  };
+  return (
+    <div className="aggiungi-riga">
+      <input placeholder="Aggiungi materiale (descrizione)…" value={testo} onChange={(e) => setTesto(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungi(); } }} />
+      <input className="q" inputMode="decimal" value={quantita} onChange={(e) => setQuantita(e.target.value)} aria-label="Quantità" />
+      <input className="u" value={unita} onChange={(e) => setUnita(e.target.value)} aria-label="Unità di misura" />
+      <button type="button" className="btn blu" disabled={!testo.trim() || invio} onClick={aggiungi}>Aggiungi</button>
+    </div>
   );
 }

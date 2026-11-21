@@ -101,6 +101,13 @@ export interface Archivio {
     valoreDa?: string;
     // Clic sulla riga: apre la scheda del documento (sezione e id del record da aprire)
     apri?: { sezione: string; id: (r: Record<string, unknown>) => unknown };
+    // Righe che si possono togliere (✕) e aggiungere a mano (es. materiali di un impianto); restituiscono l'errore o null
+    modifica?: {
+      togli: (r: Record<string, unknown>) => Promise<string | null>;
+      aggiungi: (idPadre: number, descrizione: string, quantita: number, unita: string) => Promise<string | null>;
+      // Spiegazione sotto l'elenco
+      nota?: string;
+    };
   }[];
   // Ordinamento iniziale della griglia
   ordineIniziale?: { chiave: string; su: boolean };
@@ -497,6 +504,13 @@ export const ARCHIVI: Record<string, Archivio> = {
       // Materiali montati per l'impianto, presi dai rapportini (solo quelli che contano per la categoria; script 0047)
       linguetta: "Materiali", tabella: "materiali_impianto", campo: "impianto_id", select: "*, rapporto:rapporti(numero, data)",
       ordine: "id", crescente: true, apri: { sezione: "rapporti", id: (r) => r.rapporto_id },
+      // Togliere o aggiungere un materiale insegna alle regole e all'IA cosa tenere per la categoria (script 0048)
+      modifica: {
+        togli: async (r) => (await supabase.rpc("togli_materiale_impianto", { p_id: r.id })).error?.message ?? null,
+        aggiungi: async (id, descrizione, quantita, unita) =>
+          (await supabase.rpc("aggiungi_materiale_impianto", { p_impianto: id, p_descrizione: descrizione, p_quantita: quantita, p_unita: unita })).error?.message ?? null,
+        nota: "Togliendo (✕) o aggiungendo un materiale, la scelta viene ricordata per tutti gli impianti della stessa categoria: le regole e l'IA ne terranno conto.",
+      },
       colonne: [
         { chiave: "rapporto.data", titolo: "Data", larghezza: 90, tipo: "data", classe: "cella-data" },
         { chiave: "rapporto.numero", titolo: "Rapportino", larghezza: 80 },

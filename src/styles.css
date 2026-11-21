@@ -1988,3 +1988,25 @@ tr.oltre .barra-soglia span { background: #e5484d; }
 .dettagli-storico { max-width: 460px; color: var(--testo); }
 .dettagli-storico b { color: var(--tenue); font-weight: 600; }
 tr.gia-catalogato td { background: #f3f6f6; color: var(--tenue); }
+.btn.viola { background: #8e44ad; }
+.btn.viola:hover { background: #7d3c98; }
+.esito-ia { font-size: 11px; font-weight: 600; margin-top: 2px; }
+.esito-confermato { color: #3a8a3a; }
+.esito-modificato { color: #8e44ad; }
+.esito-nuovo { color: #3a7dc0; }
+.esito-scartato { color: #d9342b; }
+tr.scartato-ia td { opacity: .6; text-decoration: line-through; text-decoration-color: rgba(217,52,43,.5); }
+tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
+.diff-ia { margin-top: 3px; font-size: 12px; }
+.diff-ia.piu { color: #2e7d32; }
+.diff-ia.meno { color: #c62828; text-decoration: line-through; }
+.solo-diff-ia { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; margin-left: 8px; }
+/* Righe collegate modificabili (materiali dell'impianto) */
+.aggiungi-riga { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.aggiungi-riga input { height: 34px; border: 1px solid var(--bordo); border-radius: 6px; padding: 0 8px; flex: 1 1 260px; min-width: 0; }
+.aggiungi-riga input.q { flex: 0 0 70px; text-align: right; }
+.aggiungi-riga input.u { flex: 0 0 60px; }
+.cella-togli { width: 36px; text-align: center; }
+.togli-riga { border: 0; background: none; color: #d9342b; font-size: 15px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.togli-riga:hover { background: #fdecea; }
+.nota-modifica { margin-top: 6px; }

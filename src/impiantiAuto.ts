@@ -181,3 +181,70 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
   }
   return out;
 }
+
+// ---- Risposta dell'IA (funzione "impianti-ia") → impianto da catalogare ----
+export type RuoloIA = { n: number; ruolo: string };
+export type ImpiantoIA = {
+  categoria: string; principale: number; materiali: RuoloIA[];
+  canna_fumaria_m: number | null; canna_fumaria_sezione: string | null; impianto_termico: string | null; tipo_gas: string | null;
+};
+
+/** Stessi campi delle regole, ma con i materiali e i ruoli scelti dall'IA */
+export function impiantoDaIA(ia: ImpiantoIA, righe: Riga[], rapporto: Record<string, unknown>): ImpiantoRilevato | null {
+  const anno = String(rapporto.data ?? "").slice(0, 4) || null;
+  const scelte = ia.materiali.filter((m) => righe[m.n]);
+  const di = (...ruoli: string[]) => scelte.filter((m) => ruoli.includes(m.ruolo)).map((m) => righe[m.n]);
+  const tutte = (r: Riga[]) => elenco(r, /./) || null;
+  const principale = righe[ia.principale] ?? righe[scelte[0]?.n];
+  if (!principale) return null;
+  const descr = d(principale);
+  const base = { marca: marcaMateriale(descr), modello: descr, anno, materiali: materiali(scelte.map((m) => righe[m.n]), () => true) };
+  switch (ia.categoria) {
+    case "Caldaie":
+      return { categoria: "Caldaie", dati: { tipo_impianto: "Caldaia", impianto: "Caldaia", ...base,
+        defangatore: tutte(di("defangatore")), sdoppiatore: tutte(di("sdoppiatore")), dosatore: tutte(di("dosatore")),
+        pompe_valvole: tutte(di("pompe_valvole")),
+        canna_fumaria_m: ia.canna_fumaria_m ?? cannaFumaria(di("canna_fumaria"))?.metri ?? null,
+        canna_fumaria_sezione: ia.canna_fumaria_sezione ?? cannaFumaria(di("canna_fumaria"))?.sezione ?? null,
+        impianto_termico: ia.impianto_termico ?? impiantoTermico(righe) } };
+    case "Clima": {
+      const interne = di("unita_interna");
+      return { categoria: "Clima", dati: { tipo_impianto: "Climatizzatore", impianto: interne.length ? "Unità esterna + interne" : "Climatizzatore", ...base,
+        unita_interne: tutte(interne),
+        tipo_gas: (rapporto.tipo_gas as string) || ia.tipo_gas || gasDaDescrizione(descr) || null,
+        gas_kg: rapporto.gas_aggiunto_kg ?? null } };
+    }
+    case "Automatismi":
+      return { categoria: "Automatismi", dati: { tipo_impianto: "Automatismo", ...base,
+        impianto: /scorrev/i.test(descr) ? "Cancello scorrevole" : /battent/i.test(descr) ? "Cancello a battente" : /bascul|garage/i.test(descr) ? "Basculante / garage" : /serrand/i.test(descr) ? "Serranda" : /barriera/i.test(descr) ? "Barriera" : "Automatismo",
+        componenti: tutte(scelte.map((m) => righe[m.n])) } };
+    case "Allarmi":
+      return { categoria: "Allarmi", dati: { tipo_impianto: "Allarme", impianto: "Impianto di allarme", ...base, componenti: tutte(scelte.map((m) => righe[m.n])) } };
+    case "TVCC": {
+      const telecamere = di("telecamera").reduce((n, r) => n + q(r), 0);
+      return { categoria: "TVCC", dati: { tipo_impianto: "Videosorveglianza", ...base,
+        impianto: telecamere ? `Videosorveglianza (${fmt(telecamere)} telecamere)` : "Videosorveglianza",
+        componenti: tutte(scelte.map((m) => righe[m.n])) } };
+    }
+  }
+  return null;
+}
+
+// ---- Correzioni fatte a mano nella linguetta Materiali (script 0048): valgono sempre, regole e IA ----
+export type Correzione = { categoria: string; descrizione: string; incluso: boolean };
+export const chiaveCorrezione = (t: unknown) => String(t ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+
+/** Toglie i materiali esclusi a mano e aggiunge quelli che la ditta ha detto di tenere, se sono nel rapportino */
+export function applicaCorrezioni(imp: ImpiantoRilevato, righe: Riga[], correzioni: Correzione[]): ImpiantoRilevato {
+  const mie = correzioni.filter((c) => c.categoria === imp.categoria);
+  if (!mie.length || !Array.isArray(imp.dati.materiali)) return imp;
+  const esclusi = new Set(mie.filter((c) => !c.incluso).map((c) => chiaveCorrezione(c.descrizione)));
+  const inclusi = new Set(mie.filter((c) => c.incluso).map((c) => chiaveCorrezione(c.descrizione)));
+  const lista = (imp.dati.materiali as { descrizione: string }[]).filter((m) => !esclusi.has(chiaveCorrezione(m.descrizione)));
+  const presenti = new Set(lista.map((m) => chiaveCorrezione(m.descrizione)));
+  const aggiunti = materiali(righe, (t) => inclusi.has(chiaveCorrezione(t)) && !presenti.has(chiaveCorrezione(t)));
+  return { ...imp, dati: { ...imp.dati, materiali: [...lista, ...aggiunti] } };
+}
+
+// Rapportini da far guardare all'IA: quelli con un impianto trovato dalle regole o con materiali "sospetti"
+export const CANDIDATO_IA = /\b(mot|cald|cond|clim|centr|sens|fotoc|lamp|tvc|telec|u\.?i)\b\.?|caldai|condensaz|clima|condizion|split|unit[aà]'? ?(est|int)|\bu\.?e\.?\b|pompa di calore|motor|cancell|automa|fotocell|allarm|antifurt|centrale|sensor|sirena|telecam|\b[ndx]vr\b|videosorv|tvcc|defang|fumi|coassial|radiator/i;
