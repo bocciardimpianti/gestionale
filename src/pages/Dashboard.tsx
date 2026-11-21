@@ -3,6 +3,7 @@ import { Settings } from "lucide-react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import GraficoTecnici from "../components/GraficoTecnici";
+import ClientiSquadre from "../components/ClientiSquadre";
 
 // Formato compatto come nell'originale: 17920 -> 17.92K
 export function compatto(n: number | null) {
@@ -79,6 +80,7 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       {puo("rapporti", "vedere") && <div className="cella cella-larga"><GraficoTecnici /></div>}
+      {puo("rapporti", "vedere") && <div className="cella cella-larga"><ClientiSquadre /></div>}
       <div className="cella">
         <div className="intestazione-chiara"><span>Tabella</span><Ingranaggio /></div>
         <div className="riquadro-dash bianco" />

@@ -2050,3 +2050,23 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .gt-tabella td:not(:first-child) { white-space: nowrap; }
 .gt-tabella tr.spento td { color: #898781; }
 @media (max-width: 700px) { .gt-tabella th:nth-child(2), .gt-tabella td:nth-child(2) { display: none; } }
+/* Home: clienti divisi tra Michael e Luciano */
+.cs-regola { color: #52514e; font-size: 12.5px; margin: 6px 0 10px; }
+.cs-legenda { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; margin-bottom: 10px; }
+.cs-legenda > span { display: inline-flex; align-items: center; gap: 6px; }
+.cs-legenda b { font-weight: 600; margin-left: 4px; }
+.cs-quadro { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.cs-barra-riga { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cs-barra-titolo { font-size: 13px; color: #52514e; }
+.cs-barra { display: flex; gap: 2px; height: 28px; }
+.cs-pezzo { border-radius: 4px; min-width: 2px; display: flex; align-items: center; padding-left: 8px; color: #fff; font-size: 12.5px; font-weight: 600; overflow: hidden; white-space: nowrap; }
+.cs-colonne { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
+.cs-colonna-titolo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.cs-conta { margin-left: auto; color: #898781; font-weight: 500; }
+.cs-tabella td:first-child { white-space: normal; }
+.cs-misto { display: inline-block; margin-left: 6px; font-size: 11px; color: #52514e; background: #f0efec; border-radius: 8px; padding: 0 6px; white-space: nowrap; }
+.cs-altri { margin-top: 6px; }
+@media (max-width: 900px) {
+  .cs-colonne { grid-template-columns: 1fr; }
+  .cs-barra-riga { grid-template-columns: 1fr; gap: 4px; }
+}
