@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Banknote, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import Scheda from "../components/Scheda";
+import { ARCHIVI } from "../archivi";
 import { dataIt, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { controllaConti } from "../notifiche";
@@ -20,7 +21,25 @@ export default function ContiClienti() {
   const { profilo, puo } = useAuth();
   const admin = profilo?.ruolo === "admin";
   const puoModificare = puo("conti_clienti", "modificare") || puo("rapporti", "modificare");
-  const naviga = useNavigate();
+  // Rapportino aperto sopra questa pagina (senza cambiare sezione)
+  const [scheda, setScheda] = useState<Record<string, unknown> | null>(null);
+  const apriRapporto = async (id: number) => {
+    const cfg = ARCHIVI.rapporti;
+    const { data, error } = await supabase.from(cfg.tabella).select(cfg.select ?? "*").eq("id", id).single();
+    if (error || !data) return setStato("Errore: " + (error?.message ?? "rapportino non trovato"));
+    const r = data as unknown as Record<string, unknown>;
+    for (const [k, v] of Object.entries(r)) if (v && typeof v === "object" && "nome" in v) r[k] = (v as { nome: unknown }).nome;
+    setScheda(r);
+  };
+  // Dopo una modifica al rapportino si ricaricano il conto e, se aperto, l'elenco del cliente
+  const ricarica = async () => {
+    const clienteAperto = (conti ?? []).find((c) => c.cliente_id === aperto);
+    await carica();
+    if (clienteAperto) {
+      const { data } = await supabase.rpc("rapporti_da_riscuotere_cliente", { p_cliente: clienteAperto.cliente_id });
+      setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo) })));
+    }
+  };
   const [conti, setConti] = useState<Conto[] | null>(null);
   const [errore, setErrore] = useState("");
   const [stato, setStato] = useState("");
@@ -177,7 +196,7 @@ export default function ContiClienti() {
                                 <td className="attivita-conto" title={r.attivita ?? ""}>{r.attivita}</td>
                                 <td className="fatto">{r.fatto_conto}</td>
                                 <td className="destra imp">{euro(r.importo)}</td>
-                                <td className="apri"><button className="link" title="Apri il rapportino" onClick={() => naviga(`/s/rapporti?apri=${r.id}`)}><ExternalLink size={15} /></button></td>
+                                <td className="apri"><button className="link" title="Apri il rapportino" onClick={() => apriRapporto(r.id)}><ExternalLink size={15} /></button></td>
                               </tr>
                             ))}
                           </tbody>
@@ -198,6 +217,25 @@ export default function ContiClienti() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {scheda && (
+        <Scheda
+          cfg={ARCHIVI.rapporti}
+          valori={scheda}
+          cartelle={[]}
+          nelCestino={false}
+          onChiudi={() => setScheda(null)}
+          onSalvato={() => { setScheda(null); ricarica(); }}
+          onElimina={async () => {
+            if (!confirm("Spostare il rapportino nel Cestino?")) return;
+            const { error } = await supabase.from("rapporti").update({ eliminato_il: new Date().toISOString() }).eq("id", scheda.id);
+            if (error) return setStato("Errore: " + error.message);
+            setScheda(null);
+            ricarica();
+          }}
+          onSposta={() => {}}
+        />
       )}
     </div>
   );
