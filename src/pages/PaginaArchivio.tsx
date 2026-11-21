@@ -14,6 +14,7 @@ import { useAuth } from "../auth";
 import Griglia, { mostra as mostraValore } from "../components/Griglia";
 import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
+import ImpiantiDaStorico from "../components/ImpiantiDaStorico";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import { categoriaDa } from "../categorie";
 import { stampaEtichette } from "../etichette";
@@ -91,6 +92,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [menu, setMenu] = useState<"" | "azioni" | "tabella" | "archivi">("");
   const [sceltaColonne, setSceltaColonne] = useState(false);
   const [importaReportOne, setImportaReportOne] = useState(false);
+  const [impiantiStorico, setImpiantiStorico] = useState(false);
   const [importaPdf, setImportaPdf] = useState(false);
   const [nascoste, setNascoste] = useState<string[]>(() => leggiNascoste(cfg.sezione));
   const [messaggio, setMessaggio] = useState("");
@@ -540,6 +542,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(RefreshCw, "#b59b1b", "Aggiorna", () => carica(true))}
                 {cfg.sezione === "materiali" && voce(Filter, "#3a7dc0", "Assegna categorie automatiche", assegnaCategorie, profilo?.ruolo === "admin")}
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
+                {cfg.sezione === "impianti" && voce(Database, "#8e44ad", "Cataloga dai vecchi rapportini", () => setImpiantiStorico(true), !nelCestino && profilo?.ruolo === "admin")}
                 {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
                 {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}
                 {cfg.sezione === "richieste" && rigaSel && !["Completata", "Annullata"].includes(String(rigaSel.stato)) && voce(UserCheck, "#8e44ad", `Prendi in carico "${nomeDi(rigaSel)}"`,
@@ -696,6 +699,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         />
       )}
 
+      {impiantiStorico && <ImpiantiDaStorico onChiudi={() => setImpiantiStorico(false)} onFinito={() => carica(true)} />}
       {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={() => carica(true)} />}
       {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={() => carica()} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}
       {sceltaColonne && (

@@ -1976,3 +1976,15 @@ tr.oltre .barra-soglia span { background: #e5484d; }
 .campi-gas input, .campi-gas select { height: 40px; border: 1px solid var(--bordo-forte, #bbb); border-radius: 8px; padding: 0 10px; font-size: 16px; color: var(--testo); }
 .pillole-sezione button { font-size: 14px; padding: 6px 14px; }
 .pillole-sezione button.attiva { font-weight: 700; }
+/* Impianti dai vecchi rapportini */
+.finestra-storico-impianti { width: min(1200px, 97vw); }
+.finestra-storico-impianti .finestra-corpo { max-height: 72vh; overflow-y: auto; }
+.barra-storico { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.barra-storico label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.barra-storico input { height: 32px; border: 1px solid var(--bordo); border-radius: 6px; padding: 0 6px; }
+.elenco-storico-impianti table { font-size: 12.5px; }
+.elenco-storico-impianti td { vertical-align: top; }
+.macchina-storico { max-width: 260px; }
+.dettagli-storico { max-width: 460px; color: var(--testo); }
+.dettagli-storico b { color: var(--tenue); font-weight: 600; }
+tr.gia-catalogato td { background: #f3f6f6; color: var(--tenue); }
