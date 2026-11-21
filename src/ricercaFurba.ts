@@ -164,3 +164,19 @@ export function useSinonimi(versione = 0) {
   }, [versione]);
   return s;
 }
+
+/**
+ * Quanto un testo (già normalizzato) corrisponde alle parole cercate, per mettere in cima i più fedeli:
+ * 0 = contiene tutte le parole esattamente come scritte (parole intere)
+ * 1 = le contiene tutte, anche dentro parole più lunghe ("gomit" in "gomito")
+ * 2 = le contiene tutte come singolare/plurale (radice)
+ * 3 = trovato solo grazie a sinonimi o correzioni
+ */
+export function livelloCorrispondenza(testoNormalizzato: string, parole: string[]) {
+  if (!parole.length) return 0;
+  const w = new Set(testoNormalizzato.split(/[^a-z0-9]+/).filter(Boolean));
+  if (parole.every((p) => w.has(p) || (/[^a-z0-9]/.test(p) && testoNormalizzato.includes(p)))) return 0;
+  if (parole.every((p) => testoNormalizzato.includes(p))) return 1;
+  if (parole.every((p) => testoNormalizzato.includes(radice(p)))) return 2;
+  return 3;
+}

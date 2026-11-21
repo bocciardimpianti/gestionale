@@ -7,7 +7,7 @@ import { coloreCategoria } from "../categorie";
 import { pulisciRicerca } from "../testo";
 import { useAuth } from "../auth";
 import { senzaPrezzi } from "../prezzi";
-import { correggi, creaRicerca, normalizza, radice, useSinonimi, vocabolario } from "../ricercaFurba";
+import { correggi, creaRicerca, livelloCorrispondenza, normalizza, useSinonimi, vocabolario } from "../ricercaFurba";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
@@ -152,9 +152,10 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
         }
       }
       correzioni.current = corrette;
-      // Prima chi ha la parola cercata così com'è, poi i sinonimi
-      const primo = radice(normalizza(parole[0]));
-      return trovate.sort((a, b) => Number(!(testiFurbi.get(a) ?? "").includes(primo)) - Number(!(testiFurbi.get(b) ?? "").includes(primo))
+      // Prima chi ha tutte le parole così come sono state scritte, poi singolare/plurale, poi sinonimi e correzioni
+      const paroleNorm = parole.map((p) => normalizza(p));
+      const livello = new Map(trovate.map((r) => [r, livelloCorrispondenza(testiFurbi.get(r) ?? "", paroleNorm)]));
+      return trovate.sort((a, b) => livello.get(a)! - livello.get(b)!
         || testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }) * (ordine.su ? 1 : -1));
     }
     correzioni.current = [];

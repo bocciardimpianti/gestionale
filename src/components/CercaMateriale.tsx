@@ -10,7 +10,7 @@ import { useAuth } from "../auth";
 import GestioneElenco from "./GestioneElenco";
 import { Sparkles, X } from "lucide-react";
 import { chiediAssistente, type Proposta } from "../assistente";
-import { correggi, creaRicerca, normalizza, radice, useSinonimi, vocabolario } from "../ricercaFurba";
+import { correggi, creaRicerca, livelloCorrispondenza, normalizza, radice, useSinonimi, vocabolario } from "../ricercaFurba";
 import MicDettatura from "./MicDettatura";
 
 type Materiale = Record<string, unknown> & { id: number };
@@ -174,15 +174,17 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
     // Senza testo generale: ordine alfabetico, ma chi INIZIA con il filtro della descrizione va in cima
     const primo = parole[0] ?? pulisciRicerca(filtri.descrizione).split(/\s+/)[0] ?? "";
     if (!primo) return { filtrati: trovati.sort(alfabetico), correzioni };
-    // Prima chi inizia con il testo (descrizione o codice), poi chi ha una parola che inizia così, poi gli altri
-    // Con la radice: "gomiti" mette in cima chi inizia con "gomit"; chi la trova solo tramite un sinonimo va in fondo
+    // Prima gli articoli che hanno TUTTE le parole così come sono state scritte, poi dentro parole più lunghe,
+    // poi al singolare/plurale, per ultimi quelli trovati con sinonimi o correzioni.
+    // A parità: prima chi inizia con il testo (descrizione o codice), poi chi ha una parola che inizia così.
     const r = radice(normalizza(primo));
+    const paroleNorm = parole.map((p) => normalizza(p));
     const punteggio = (m: Materiale) => {
+      if (String(m.codice_interno ?? "").toLowerCase() === primo || String(m.codice_barre ?? "").toLowerCase() === primo) return -1;
       const d = normalizza(String(m.descrizione ?? ""));
-      if (d.startsWith(r) || String(m.codice_interno ?? "").toLowerCase().startsWith(primo) || String(m.codice_barre ?? "").toLowerCase() === primo) return 0;
-      if (d.split(/[\s.,'()/-]+/).some((w) => w.startsWith(r))) return 1;
-      if (testoDi(m).includes(r)) return 2;
-      return 3;
+      const inizio = d.startsWith(r) || String(m.codice_interno ?? "").toLowerCase().startsWith(primo) ? 0
+        : d.split(/[\s.,'()/-]+/).some((w) => w.startsWith(r)) ? 1 : 2;
+      return livelloCorrispondenza(testoDi(m), paroleNorm) * 3 + inizio;
     };
     return { filtrati: trovati.sort((a, b) => punteggio(a) - punteggio(b) || alfabetico(a, b)), correzioni };
   }, [materiali, testo, filtri, soloConFoto, soloDisponibili, categoria, marca, usi, sinonimi, parolePresenti]);
