@@ -46,10 +46,16 @@ const NON_TUBO_FUMI = /curva|gomito|terminal|rosone|cappell|fascett|raccord|ridu
 
 /** Metri di un pezzo di canna fumaria dalla descrizione (es. "0,5MT", "MM.1000", "L.500") */
 function metriFumi(t: string) {
-  const m = t.match(/(\d+(?:[.,]\d+)?)\s*mt\.?(?![a-z])|(\d+(?:[.,]\d+)?)\s*m(?![a-z])/i);
-  if (m) return Number((m[1] ?? m[2]).replace(",", "."));
-  const mm = t.match(/\bmm\.?\s*(\d{3,4})\b|\b(\d{3,4})\s*mm\b|\bl\.?\s*(\d{3,4})\b/i);
-  if (mm) return Number(mm[1] ?? mm[2] ?? mm[3]) / 1000;
+  const n = (v: string) => Number(v.replace(",", "."));
+  // Un pezzo di canna fumaria non supera qualche metro: valori più grandi sono misure di altro (es. "Ø80 M/F")
+  const ok = (v: number) => (v > 0 && v <= 6 ? v : 0);
+  const mt = t.match(/(\d+(?:[.,]\d+)?)\s*(?:mt|mtl|ml|metr\w*)\.?(?![a-z])/i);
+  if (mt) return ok(n(mt[1]));
+  const mm = t.match(/\bmm\.?\s*(\d{3,4})\b|\b(\d{3,4})\s*mm\b|\bl\.?\s*=?\s*(\d{3,4})\b/i);
+  if (mm) return ok(Number(mm[1] ?? mm[2] ?? mm[3]) / 1000);
+  // "1M", "0,5 M" (ma non "80 M/F" maschio/femmina)
+  const m = t.match(/(\d+(?:[.,]\d+)?)\s*m\b(?!\s*\/)/i);
+  if (m) return ok(n(m[1]));
   return 0;
 }
 
@@ -90,7 +96,8 @@ const TUBO_CLIMA = (t: string) =>
 const MAT_AUTOMATISMO = /motor|fotocellul|lampeggiant|selettor|cremaglier|radiocomand|telecomand|trasmettitor|ricevent|ricevitor|\bschede?\b|centrale/i;
 const MAT_ALLARME = /centrale|sensor|rilevator|volumetric|contatt\w* magnetic|sirena|telecamer/i;
 const NON_MAT_ALLARME = /centrale .*(comando|cancell|motor|termic|caldai)/i;
-const TVCC = /telecamer|videosorveglian|\btvcc\b|\b[ndx]vr\b|videoregistrator|\bipc\b|hikvision|hiwatch|dahua|ezviz/i;
+const TVCC = /telecamer|videosorveglian|\btvcc\b|\b[ndx]vr\b|videoregistrator|\bipc\b/i;
+const NON_TVCC = /citofon|\bcavo\b|cablaggio|connettor|\bplug\b|staffa|supporto|scatola|\bbox\b/i;
 const MAT_TVCC = /telecamer|videosorveglian|\btvcc\b|\b[ndx]vr\b|videoregistrator|\bipc\b|\bdome\b|\bbullet\b|hard ?disk|\bhdd\b|switch.*poe|\bpoe\b.*switch|monitor|balun|alimentator\w* .*(telecam|tvcc|videosorv)/i;
 
 /** Righe da allegare all'impianto (descrizione, quantità, unità di misura, materiale di magazzino) */
@@ -166,7 +173,7 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
   }
 
   // TVCC: solo i sistemi di videosorveglianza (telecamere, videoregistratori, hard disk, switch PoE, monitor)
-  const tvcc = righe.filter((r) => TVCC.test(d(r)));
+  const tvcc = righe.filter((r) => TVCC.test(d(r)) && !NON_TVCC.test(d(r)));
   if (tvcc.length) {
     const registratore = tvcc.find((r) => /\b[ndx]vr\b|videoregistrator/i.test(d(r)));
     const principale = registratore ?? tvcc[0];
@@ -178,6 +185,15 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
       componenti: elenco(righe, MAT_TVCC) || null,
       materiali: materiali(righe, (t) => MAT_TVCC.test(t)),
     } });
+  }
+  // Il materiale principale (caldaia, unità esterna, centrale, motore, registratore…) è sempre tra i materiali allegati
+  for (const imp of out) {
+    const lista = imp.dati.materiali as { descrizione: string }[];
+    const modello = String(imp.dati.modello ?? "");
+    if (modello && !lista.some((m) => m.descrizione === modello)) {
+      const riga = righe.find((r) => d(r) === modello);
+      if (riga) lista.unshift(...materiali([riga], () => true));
+    }
   }
   return out;
 }

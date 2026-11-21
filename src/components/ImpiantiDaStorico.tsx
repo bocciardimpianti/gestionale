@@ -214,7 +214,7 @@ export default function ImpiantiDaStorico({ onChiudi, onFinito }: { onChiudi: ()
                         <td>{p.ia !== "scartato" && <input type="checkbox" checked={scelte.has(p.chiave)} onChange={(e) => setScelte((s) => { const n = new Set(s); if (e.target.checked) n.add(p.chiave); else n.delete(p.chiave); return n; })} />}</td>
                         <td>{dataIt(p.rapporto.data)}</td>
                         <td>{String(p.rapporto.numero ?? "")}</td>
-                        <td>{String((p.rapporto.cliente as { nome?: string } | null)?.nome ?? "")}</td>
+                        <td>{typeof p.rapporto.cliente === "string" ? p.rapporto.cliente : String((p.rapporto.cliente as { nome?: string } | null)?.nome ?? "")}</td>
                         <td>{CATEGORIE_IMPIANTI.find((c) => c.nome === p.categoria)?.icona} {p.categoria}
                           {p.esiste && <div className="piccolo">già catalogato</div>}
                           {p.ia && <div className={`esito-ia esito-${p.ia}`}>{ETICHETTE_IA[p.ia]}</div>}</td>
