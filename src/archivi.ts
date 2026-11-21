@@ -289,6 +289,26 @@ export const ARCHIVI: Record<string, Archivio> = {
     linguette: ["Log Cloud"],
     tabella: "fgas",
     select: "*, cliente:clienti(nome), tecnico:tecnici(nome)",
+    // Foto della targhetta (matricola) scattata nel rapportino in cui è stata installata l'unità esterna
+    azioniScheda: [{
+      etichetta: "📷 Foto targhetta",
+      inEvidenza: true,
+      mostra: (d) => !!d.rapporto_id,
+      esegui: async (d) => {
+        const finestra = window.open("", "_blank");
+        const { data: r, error } = await supabase.from("rapporti").select("numero, foto_matricola").eq("id", d.rapporto_id).maybeSingle();
+        const percorso = r?.foto_matricola as string | null | undefined;
+        if (error || !percorso) {
+          finestra?.close();
+          alert(error ? `Rapportino non leggibile: ${error.message}`
+            : `Nel rapportino n. ${r?.numero ?? d.rapporto_numero ?? ""} non c'è ancora la foto della targhetta.\nAggiungila dal rapportino (scheda Dettaglio → Foto matricola unità esterna).`);
+          return;
+        }
+        const { data: firmato } = await supabase.storage.from("rapporti").createSignedUrl(percorso, 3600);
+        if (firmato?.signedUrl && finestra) finestra.location.href = firmato.signedUrl;
+        else { finestra?.close(); alert("Foto della targhetta non trovata nell'archivio"); }
+      },
+    }],
     chiaveImport: ["data_installazione", "cliente"],
     ordineIniziale: { chiave: "data_installazione", su: false },
     valoriNuovo: async () => ({ data_installazione: dataIso(new Date()) }),
