@@ -2090,3 +2090,20 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .sr-dettaglio b { margin-left: auto; font-weight: 600; color: #0b0b0b; font-variant-numeric: tabular-nums; }
 .sr-valore.negativo, .sr-tabella td.negativo { color: #c62828; }
 .sr-tooltip-margine { border-top: 1px solid #e1e0d9; margin-top: 3px; padding-top: 3px; }
+/* Home: i grafici stanno sempre nella larghezza dello schermo (niente scorrimento laterale) */
+.dashboard { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cella.cella-larga, .grafico-tecnici, .gt-area, .gt-grafico, .sr-corpo { min-width: 0; max-width: 100%; }
+.gt-grafico { overflow: hidden; }
+.sr-aggiungi { height: 32px; padding: 0 14px; font-size: 13px; }
+.sr-vedi { height: 32px; border: 1px solid #c3c2b7; border-radius: 6px; background: #fff; padding: 0 12px; font: inherit; font-size: 13px; color: #123b45; cursor: pointer; }
+@media (max-width: 1100px) {
+  .sr-riquadri { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sr-riquadri > :first-child { grid-column: 1 / -1; }
+  .sr-tabella { font-size: 12.5px; }
+  .sr-tabella th, .sr-tabella td { padding: 5px 5px; }
+}
+@media (max-width: 900px) { .sr-tabella th:nth-child(2), .sr-tabella td:nth-child(2) { display: none; } }
+@media (max-width: 900px) { .dashboard { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import { TIPI_SPESA } from "../speseAziendali";
 
@@ -68,6 +69,7 @@ function Pila({ x, w, base, scala, pezzi }: { x: number; w: number; base: number
 }
 
 export default function SpeseRicavi() {
+  const navigate = useNavigate();
   const [periodo, setPeriodo] = useState<Periodo>("12m");
   const [mesi, setMesi] = useState<Mese[] | null>(null);
   const [errore, setErrore] = useState("");
@@ -150,6 +152,8 @@ export default function SpeseRicavi() {
       <div className="gt-testa">
         <h3>Ricavi e spese</h3>
         <div className="gt-filtri">
+          <button type="button" className="btn blu sr-aggiungi" onClick={() => navigate("/s/spese_aziendali?nuovo=1")}>+ Aggiungi spesa</button>
+          <button type="button" className="sr-vedi" onClick={() => navigate("/s/spese_aziendali")}>Elenco spese</button>
           <select value={periodo} onChange={(e) => setPeriodo(e.target.value as Periodo)} aria-label="Periodo">
             {PERIODI.map((p) => <option key={p.k} value={p.k}>{p.t}</option>)}
           </select>
