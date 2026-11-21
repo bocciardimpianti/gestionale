@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect, useState, type FormEvent } from "react";
-import { Camera, MapPin, PackagePlus, Truck, MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
+import { Camera, Image as ImageIcon, MapPin, PackagePlus, Truck, MessageCircle, Sparkles, ArrowDown, ArrowUp, Barcode, Mail, PencilLine, CircleMinus, CirclePlus, CreditCard, Maximize2, Minimize2, Minus, Phone, X } from "lucide-react";
 import { euro } from "./Griglia";
 import { dataIso, dataIt, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { useAuth } from "../auth";
@@ -184,15 +184,27 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const unitaEsterna = cfg.sezione === "rapporti" ? righe.find((r) => eUnitaEsterna(r.descrizione)) : undefined;
   const manca = !!unitaEsterna && !dati.foto_matricola;
   const fotoMatricolaRef = useRef<HTMLInputElement>(null);
-  const sceltaMatricola = (azione: "foto" | "dopo") => {
+  const galleriaMatricolaRef = useRef<HTMLInputElement>(null);
+  const sceltaMatricola = (azione: "foto" | "galleria" | "dopo") => {
     const salvando = chiediMatricola?.salvando;
     setChiediMatricola(null);
-    if (azione === "foto") { fotoMatricolaRef.current?.click(); salvaDopoMatricola.current = !!salvando; return; }
+    if (azione !== "dopo") { (azione === "foto" ? fotoMatricolaRef : galleriaMatricolaRef).current?.click(); salvaDopoMatricola.current = !!salvando; return; }
     segna();
     if (salvando) salvaDopoDiritto.current = true; // si salva appena il dato è aggiornato
     setDati((d) => ({ ...d, matricola_da_fare: true }));
   };
   const salvaDopoMatricola = useRef(false);
+  // Foto della matricola scattata o scelta dalla galleria; se la richiesta era arrivata salvando, si salva subito
+  const caricaMatricola = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) { salvaDopoMatricola.current = false; return; }
+    const foto = await riduci(f);
+    segna();
+    if (salvaDopoMatricola.current) { salvaDopoMatricola.current = false; salvaDopoDiritto.current = true; }
+    setDati((d) => ({ ...d, foto_matricola: foto, matricola_da_fare: false }));
+    setStato("Foto della matricola aggiunta" + (salvaDopoDiritto.current ? ": salvataggio…" : " (premi Salva)"));
+  };
   const clientePrima = useRef<unknown>(nuovo ? undefined : valori.cliente_id);
   const tariffaPrima = useRef<unknown>(valori.tariffa);
   useEffect(() => {
@@ -857,7 +869,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                 {manca && modificabile && (
                   <div className="info-diritto avviso-matricola">
                     <Camera size={16} /> <span>Manca la <b>foto della matricola</b> dell'unità esterna ({String(unitaEsterna!.descrizione ?? "")})</span>
-                    <button type="button" className="btn blu piccolo-btn" onClick={() => fotoMatricolaRef.current?.click()}>Aggiungila ora</button>
+                    <button type="button" className="btn blu piccolo-btn" onClick={() => fotoMatricolaRef.current?.click()}><Camera size={14} /> Scatta</button>
+                    <button type="button" className="btn blu piccolo-btn" onClick={() => galleriaMatricolaRef.current?.click()}><ImageIcon size={14} /> Galleria</button>
                   </div>
                 )}
                 {linguetta === "Principale" ? (
@@ -954,21 +967,14 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <div className="finestra-piede piede-diritto">
               <button type="button" className="btn grigio" onClick={() => sceltaMatricola("dopo")}>Aggiungila in un secondo momento</button>
               <span style={{ flex: 1 }} />
-              <button type="button" className="btn blu" autoFocus onClick={() => sceltaMatricola("foto")}><Camera size={16} /> Scatta o scegli la foto</button>
+              <button type="button" className="btn grigio" onClick={() => sceltaMatricola("galleria")}><ImageIcon size={16} /> Galleria</button>
+              <button type="button" className="btn blu" autoFocus onClick={() => sceltaMatricola("foto")}><Camera size={16} /> Scatta la foto</button>
             </div>
           </div>
         </div>
       )}
-      <input ref={fotoMatricolaRef} type="file" accept="image/*" capture="environment" hidden onChange={async (e) => {
-        const f = e.target.files?.[0];
-        e.target.value = "";
-        if (!f) { salvaDopoMatricola.current = false; return; }
-        const foto = await riduci(f);
-        segna();
-        if (salvaDopoMatricola.current) { salvaDopoMatricola.current = false; salvaDopoDiritto.current = true; }
-        setDati((d) => ({ ...d, foto_matricola: foto, matricola_da_fare: false }));
-        setStato("Foto della matricola aggiunta" + (salvaDopoDiritto.current ? ": salvataggio…" : " (premi Salva)"));
-      }} />
+      <input ref={galleriaMatricolaRef} type="file" accept="image/*" hidden onChange={(e) => caricaMatricola(e)} />
+      <input ref={fotoMatricolaRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => caricaMatricola(e)} />
       {chiediDiritto && dirittoAuto.current && (
         <div className="velo chiedi-salva-velo" onMouseDown={(e) => { e.stopPropagation(); setChiediDiritto(false); }}>
           <div className="finestra chiedi-salva finestra-diritto" onMouseDown={(e) => e.stopPropagation()}>

@@ -1949,3 +1949,7 @@ tr.oltre .barra-soglia span { background: #e5484d; }
 .finestra-matricola .finestra-titolo { display: flex; align-items: center; gap: 8px; }
 .finestra-matricola .btn { display: inline-flex; align-items: center; gap: 6px; }
 .avviso-matricola .btn { color: #fff; }
+/* Telefono/tablet: pulsanti "Scatta" e "Galleria" nei campi foto */
+.comandi-immagine button.con-testo { width: auto !important; height: 40px !important; border-radius: 20px; padding: 0 12px; gap: 5px; display: inline-flex; align-items: center; font-size: 13.5px; font-weight: 600; color: var(--ottanio-scuro); border-color: var(--ottanio); }
+.comandi-immagine { flex-wrap: wrap; }
+.avviso-matricola .btn + .btn { margin-left: 6px; }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FolderOpen, Pencil, Search, Sparkles, Trash2 } from "lucide-react";
+import { Camera, FolderOpen, Image as IconaGalleria, Pencil, Search, Sparkles, Trash2 } from "lucide-react";
 import PropostaFoto, { proponiSubito } from "./PropostaFoto";
 import { supabase } from "../supabase";
 
@@ -59,6 +59,9 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
 }) {
   const url = useUrlImmagine(valore, archivio);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Telefono e tablet: "Scatta" apre la fotocamera, "Galleria" le foto già salvate sul dispositivo
+  const fotocameraRef = useRef<HTMLInputElement>(null);
+  const touch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
   const [disegna, setDisegna] = useState(false);
   const [sopra, setSopra] = useState(false);
   const [avviso, setAvviso] = useState("");
@@ -97,8 +100,14 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
         ) : null}
         {modificabile && (
           <span className="comandi-immagine">
-            {!firma && (
-              <button type="button" title="Scegli foto o scatta" onClick={() => fileRef.current?.click()}><FolderOpen size={14} /></button>
+            {!firma && touch && (
+              <>
+                <button type="button" className="con-testo" title="Scatta una foto" onClick={() => fotocameraRef.current?.click()}><Camera size={15} /> Scatta</button>
+                <button type="button" className="con-testo" title="Scegli dalla galleria" onClick={() => fileRef.current?.click()}><IconaGalleria size={15} /> Galleria</button>
+              </>
+            )}
+            {!firma && !touch && (
+              <button type="button" title="Scegli una foto dal computer" onClick={() => fileRef.current?.click()}><FolderOpen size={14} /></button>
             )}
             {!!valore && <button type="button" title="Elimina" onClick={() => confirm(`Eliminare ${etichetta.toLowerCase()}?`) && onCambia(null)}><Trash2 size={14} /></button>}
             {firma && <button type="button" title="Firma" onClick={() => setDisegna(true)}><Pencil size={14} /></button>}
@@ -117,11 +126,17 @@ export default function CampoImmagine({ etichetta, valore, firma, modificabile, 
           </button>
         )}
         {modificabile && !firma && !url && (
-          <span className="suggerimento-foto">{avviso || "Clicca qui e premi Ctrl+V per incollare un'immagine, oppure trascinala dentro"}</span>
+          <span className="suggerimento-foto">{avviso || (touch ? "Scatta una foto o sceglila dalla galleria" : "Clicca qui e premi Ctrl+V per incollare un'immagine, oppure trascinala dentro")}</span>
         )}
         {avviso && url && <span className="suggerimento-foto errore">{avviso}</span>}
       </div>
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={async (e) => {
+      {/* Senza "capture": su Android e iPhone permette di scegliere dalla galleria (o dai file) */}
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={async (e) => {
+        const f = e.target.files?.[0];
+        e.target.value = "";
+        if (f) onCambia(await riduci(f));
+      }} />
+      <input ref={fotocameraRef} type="file" accept="image/*" capture="environment" hidden onChange={async (e) => {
         const f = e.target.files?.[0];
         e.target.value = "";
         if (f) onCambia(await riduci(f));
