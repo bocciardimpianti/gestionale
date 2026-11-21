@@ -14,28 +14,8 @@ export function compatto(n: number | null) {
   return n.toFixed(2).replace(/\.00$/, "");
 }
 
-const inizioMese = () => {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
-};
-
 function Ingranaggio() {
   return <button className="ingranaggio" title="Impostazioni riquadro"><Settings size={18} strokeWidth={1.3} /></button>;
-}
-
-function Indicatore({ titolo, valore, colore }: { titolo: string; valore: number | null; colore: string }) {
-  return (
-    <div className="riquadro-dash indicatore" style={{ background: colore }}>
-      <div className="intestazione">
-        <div>
-          <div className="titolo">{titolo}</div>
-          <div className="data">{inizioMese()}</div>
-        </div>
-        <Ingranaggio />
-      </div>
-      <div className="valore">{compatto(valore)}</div>
-    </div>
-  );
 }
 
 function Note() {
@@ -72,11 +52,6 @@ function Note() {
 }
 
 export default function Dashboard() {
-  // I valori verranno calcolati dai dati importati (DDT di acquisto, scadenziario, rapporti)
-  const [valori] = useState<{ spesa: number | null; pagamento: number | null; redditivita: number | null }>({
-    spesa: null, pagamento: null, redditivita: null,
-  });
-
   const { profilo } = useAuth();
   // Grafici dei tecnici e delle squadre: solo per Michael Gronchi (profilo amministratore con quel nome)
   const nomeOrdinato = String(profilo?.nome ?? "").toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ");
@@ -91,15 +66,6 @@ export default function Dashboard() {
         <div className="riquadro-dash bianco" />
       </div>
       <Note />
-      <div className="cella"><Indicatore titolo="Spesa mensile" valore={valori.spesa} colore="#0e7c86" /></div>
-
-      <div className="cella"><Indicatore titolo="Pagamento mensile" valore={valori.pagamento} colore="#b5431f" /></div>
-      <div className="cella"><Indicatore titolo="Redditività mensile" valore={valori.redditivita} colore="#123b45" /></div>
-      <div className="cella vuota"><Ingranaggio /></div>
-
-      <div className="cella vuota"><Ingranaggio /></div>
-      <div className="cella vuota"><Ingranaggio /></div>
-      <div className="cella vuota"><Ingranaggio /></div>
     </div>
   );
 }
