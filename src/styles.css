@@ -2070,3 +2070,17 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
   .cs-colonne { grid-template-columns: 1fr; }
   .cs-barra-riga { grid-template-columns: 1fr; gap: 4px; }
 }
+/* Home: ricavi e spese dei rapportini */
+.sr-corpo { transition: opacity .2s; }
+.sr-corpo.in-carica { opacity: .5; }
+.sr-riquadri { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.sr-riquadro { border: 1px solid #e1e0d9; border-radius: 8px; padding: 10px 12px; }
+.sr-etichetta { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #52514e; }
+.sr-valore { font-size: 20px; font-weight: 600; margin-top: 2px; }
+.sr-nota { font-size: 11.5px; color: #898781; }
+.sr-fascia { fill: #f0efec; }
+.sr-tabella td:first-child { text-transform: capitalize; }
+@media (max-width: 900px) { .sr-riquadri { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sr-riquadri > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 700px) { .sr-tabella th:nth-child(2), .sr-tabella td:nth-child(2) { display: none; } }
+.sr-scorri { overflow-x: auto; }
+.sr-tabella th, .sr-tabella td { white-space: nowrap; }
