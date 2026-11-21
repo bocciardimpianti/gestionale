@@ -853,7 +853,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                     <button type="button" aria-label="Nascondi" onClick={() => setInfoDiritto(null)}><X size={15} /></button>
                   </div>
                 )}
-                {manca && !!dati.matricola_da_fare && modificabile && (
+                {/* Barra arancione: c'è un'unità esterna e manca la foto della matricola (resta finché non si aggiunge) */}
+                {manca && modificabile && (
                   <div className="info-diritto avviso-matricola">
                     <Camera size={16} /> <span>Manca la <b>foto della matricola</b> dell'unità esterna ({String(unitaEsterna!.descrizione ?? "")})</span>
                     <button type="button" className="btn blu piccolo-btn" onClick={() => fotoMatricolaRef.current?.click()}>Aggiungila ora</button>
