@@ -76,11 +76,14 @@ export default function Dashboard() {
     spesa: null, pagamento: null, redditivita: null,
   });
 
-  const { puo } = useAuth();
+  const { profilo } = useAuth();
+  // Grafici dei tecnici e delle squadre: solo per Michael Gronchi (profilo amministratore con quel nome)
+  const nomeOrdinato = String(profilo?.nome ?? "").toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ");
+  const soloMichael = profilo?.ruolo === "admin" && nomeOrdinato === "gronchi michael";
   return (
     <div className="dashboard">
-      {puo("rapporti", "vedere") && <div className="cella cella-larga"><GraficoTecnici /></div>}
-      {puo("rapporti", "vedere") && <div className="cella cella-larga"><ClientiSquadre /></div>}
+      {soloMichael && <div className="cella cella-larga"><GraficoTecnici /></div>}
+      {soloMichael && <div className="cella cella-larga"><ClientiSquadre /></div>}
       <div className="cella">
         <div className="intestazione-chiara"><span>Tabella</span><Ingranaggio /></div>
         <div className="riquadro-dash bianco" />
