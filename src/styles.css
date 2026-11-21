@@ -2107,3 +2107,24 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 @media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
   .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* Spese aziendali: file caricati */
+.finestra-documenti-spese { width: min(900px, 97vw); }
+.finestra-documenti-spese .finestra-corpo { max-height: 74vh; overflow-y: auto; }
+.ds-zona { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border: 2px dashed #9ec5f4; border-radius: 10px; background: #f5f9fe; padding: 14px 16px; margin-bottom: 10px; transition: background .15s; }
+.ds-zona.sopra { background: #e3effc; border-color: #3a7dc0; }
+.ds-zona.in-corso { opacity: .6; }
+.ds-zona-testo { flex: 1 1 260px; display: grid; gap: 2px; }
+.ds-zona-testo span { font-size: 12.5px; color: #52514e; }
+.ds-zona-comandi { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.ds-zona-comandi .btn { display: inline-flex; align-items: center; gap: 6px; }
+.ds-tipo { display: grid; font-size: 11.5px; color: #52514e; gap: 2px; }
+.ds-tipo select, .ds-tipo-voce { height: 34px; border: 1px solid #c3c2b7; border-radius: 6px; background: #fff; font: inherit; font-size: 13px; padding: 0 6px; }
+.ds-filtri { margin: 6px 0 8px; }
+.ds-elenco { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ds-voce { display: flex; align-items: center; gap: 10px; border: 1px solid #e1e0d9; border-radius: 8px; padding: 8px 10px; flex-wrap: wrap; }
+.ds-info { flex: 1 1 220px; min-width: 0; display: grid; }
+.ds-nome { border: 0; background: none; padding: 0; text-align: left; font: inherit; font-weight: 600; color: #123b45; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-nome:hover { text-decoration: underline; }
+.ds-stato { height: 30px; border-radius: 15px; border: 1px solid #eda100; background: #fff7e0; color: #7a5300; font: inherit; font-size: 12.5px; padding: 0 12px; cursor: pointer; white-space: nowrap; }
+.ds-stato.fatto { border-color: #0ca30c; background: #e9f7e9; color: #006300; }
+.ds-nota { margin-top: 10px; }

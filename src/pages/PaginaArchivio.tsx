@@ -15,6 +15,7 @@ import Griglia, { mostra as mostraValore } from "../components/Griglia";
 import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
 import ImpiantiDaStorico from "../components/ImpiantiDaStorico";
+import DocumentiSpese from "../components/DocumentiSpese";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import { categoriaDa } from "../categorie";
 import { stampaEtichette } from "../etichette";
@@ -93,6 +94,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [sceltaColonne, setSceltaColonne] = useState(false);
   const [importaReportOne, setImportaReportOne] = useState(false);
   const [impiantiStorico, setImpiantiStorico] = useState(false);
+  const [documentiSpese, setDocumentiSpese] = useState(false);
   const [importaPdf, setImportaPdf] = useState(false);
   const [nascoste, setNascoste] = useState<string[]>(() => leggiNascoste(cfg.sezione));
   const [messaggio, setMessaggio] = useState("");
@@ -526,6 +528,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
               </>
             )
           )}
+          {cfg.sezione === "spese_aziendali" && !nelCestino && (
+            <button className="btn blu" onClick={() => setDocumentiSpese(true)} title="PDF, Excel o foto da cui ricavare le spese">📎 Carica file</button>
+          )}
           {cfg.sezione === "ddt_acquisto" && !nelCestino && vedePrezzi && puo(cfg.sezione, "creare") && (
             <button className="btn blu" onClick={() => setImportaPdf(true)} title="Legge il DDT dal PDF del fornitore">Da PDF</button>
           )}
@@ -699,6 +704,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         />
       )}
 
+      {documentiSpese && <DocumentiSpese onChiudi={() => setDocumentiSpese(false)} />}
       {impiantiStorico && <ImpiantiDaStorico onChiudi={() => setImpiantiStorico(false)} onFinito={() => carica(true)} />}
       {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={() => carica(true)} />}
       {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={() => carica()} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}
