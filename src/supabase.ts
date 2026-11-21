@@ -1,8 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
 
+// Connessione che cade per un attimo (tablet, rete mobile: "Failed to fetch"): le sole LETTURE vengono ritentate
+// da sole un paio di volte. Le scritture no, per non rischiare doppioni se la richiesta era arrivata comunque.
+const RPC_LETTURA = /\/rest\/v1\/rpc\/(conti_clienti|soglia_conto_predefinita|rapporti_da_riscuotere_cliente|fgas_in_scadenza|righe_ddt_per_rapportino|ddt_per_rapportino|puo|is_admin|mfa_ok)(\?|$)/;
+const fetchConRiprova: typeof fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const metodo = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+  const lettura = metodo === "GET" || metodo === "HEAD" || (metodo === "POST" && RPC_LETTURA.test(url));
+  for (let tentativo = 0; ; tentativo++) {
+    try {
+      return await fetch(input, init);
+    } catch (e) {
+      if (!lettura || tentativo >= 2 || !(e instanceof TypeError) || init?.signal?.aborted) throw e;
+      await new Promise((r) => setTimeout(r, 700 * (tentativo + 1)));
+    }
+  }
+};
+
 export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
+  { global: { fetch: fetchConRiprova } },
 );
 
 export type Azione = "vedere" | "creare" | "modificare" | "eliminare" | "esportare";

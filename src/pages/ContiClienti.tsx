@@ -54,7 +54,9 @@ export default function ContiClienti() {
     const { data, error } = await supabase.rpc("conti_clienti");
     if (error) {
       setConti([]);
-      return setErrore(/conti_clienti|function/i.test(error.message) ? "Esegui su Supabase lo script 0040_conti_clienti.sql" : error.message);
+      return setErrore(/failed to fetch|network|load failed/i.test(error.message)
+        ? "Connessione assente o interrotta: controlla la rete e premi il pulsante ↻ qui sopra."
+        : /conti_clienti|function/i.test(error.message) ? "Esegui su Supabase lo script 0040_conti_clienti.sql" : error.message);
     }
     setErrore("");
     setConti(((data ?? []) as Conto[]).map((c) => ({ ...c, totale: Number(c.totale), soglia: Number(c.soglia) })));
