@@ -379,6 +379,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       campo: "cliente_id",
       apri: { sezione: "impianti", id: (r) => r.id },
       colonne: [
+        { chiave: "categoria", titolo: "Categoria", larghezza: 110,
+          valore: (r) => (r.categoria ? `${CATEGORIE_IMPIANTI.find((c) => c.nome === r.categoria)?.icona ?? ""} ${r.categoria}` : "") },
         { chiave: "impianto", titolo: "Impianto", larghezza: 200 },
         { chiave: "tipo_impianto", titolo: "Tipo impianto", larghezza: 150 },
         { chiave: "marca", titolo: "Marca", larghezza: 130 },
@@ -488,9 +490,23 @@ export const ARCHIVI: Record<string, Archivio> = {
     titoloNuovo: "Nuovo impianto",
     linguette: ["Materiali", "Storico", "Log Cloud"],
     tabella: "impianti",
-    figli: [{ linguetta: "Storico", tabella: "rapporti", campo: "impianto_id", ordine: "data", select: "*, tecnico:tecnici(nome)", cestino: true, colonne: COLONNE_STORICO, apri: { sezione: "rapporti", id: (r) => r.id } }],
+    // Il cliente sempre in cima: nel titolo della scheda e come primo campo
+    titoloScheda: (v) => [v.cliente || "Impianto senza cliente",
+      [CATEGORIE_IMPIANTI.find((c) => c.nome === v.categoria)?.icona, v.impianto || v.tipo_impianto].filter(Boolean).join(" ")].filter(Boolean).join(" – "),
+    figli: [{
+      // Materiali montati per l'impianto, presi dai rapportini (solo quelli che contano per la categoria; script 0047)
+      linguetta: "Materiali", tabella: "materiali_impianto", campo: "impianto_id", select: "*, rapporto:rapporti(numero, data)",
+      ordine: "id", crescente: true, apri: { sezione: "rapporti", id: (r) => r.rapporto_id },
+      colonne: [
+        { chiave: "rapporto.data", titolo: "Data", larghezza: 90, tipo: "data", classe: "cella-data" },
+        { chiave: "rapporto.numero", titolo: "Rapportino", larghezza: 80 },
+        { chiave: "descrizione", titolo: "Materiale", larghezza: 380 },
+        { chiave: "quantita", titolo: "Quantità", larghezza: 80, tipo: "numero" },
+        { chiave: "unita_misura", titolo: "U.M.", larghezza: 60 },
+      ],
+    }, { linguetta: "Storico", tabella: "rapporti", campo: "impianto_id", ordine: "data", select: "*, tecnico:tecnici(nome)", cestino: true, colonne: COLONNE_STORICO, apri: { sezione: "rapporti", id: (r) => r.id } }],
     select: "*, cliente:clienti(nome)",
-    // Clima, Caldaie, Allarmi, Automatismi: catalogati da soli salvando i rapportini (script 0046)
+    // Clima, Caldaie, Allarmi, Automatismi, TVCC: catalogati da soli salvando i rapportini (script 0046)
     pillole: { campo: "categoria", valori: CATEGORIE_IMPIANTI },
     chiaveImport: ["cliente", "impianto", "tipo_impianto", "marca", "modello", "matricola"],
     quandoCambia: prossimoIntervento,
@@ -511,6 +527,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "data_ultimo", titolo: "Data Ultimo Intervento", excel: "Data Ultimo Intervento", larghezza: 152, tipo: "data" },
     ],
     campi: [
+      { chiave: "cliente_id", etichetta: "Cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2, primoSuTelefono: true },
+      { chiave: "categoria", etichetta: "Categoria", tipo: "scelta", opzioniFisse: CATEGORIE_IMPIANTI.map((c) => c.nome), larghezza: 1, finisciRiga: true, primoSuTelefono: true },
       { chiave: "periodo", etichetta: "Periodo", tipo: "scelta", opzioniDa: "periodi", titoloOpzioni: "Periodi", larghezza: 1 },
       { chiave: "data_prossimo", etichetta: "Data prossimo intervento", tipo: "data", larghezza: 1 },
       { chiave: "tipo_impianto", etichetta: "Tipo impianto", larghezza: 2 },
@@ -522,8 +540,6 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
       { chiave: "materiali", etichetta: "materiali", larghezza: 2 },
       { chiave: "data_ultimo", etichetta: "Data Ultimo Intervento", tipo: "data", larghezza: 1, finisciRiga: true },
-      { chiave: "cliente_id", etichetta: "Cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2 },
-      { chiave: "categoria", etichetta: "Categoria", tipo: "scelta", opzioniFisse: CATEGORIE_IMPIANTI.map((c) => c.nome), larghezza: 1, finisciRiga: true },
       // Caldaie
       { chiave: "_titolo_caldaia", etichetta: "Componenti caldaia", tipo: "titolo", mostraSe: (d) => d.categoria === "Caldaie" },
       { chiave: "impianto_termico", etichetta: "Tipo di impianto di riscaldamento", tipo: "scelta", opzioniFisse: TIPI_IMPIANTO_TERMICO, larghezza: 2, mostraSe: (d) => d.categoria === "Caldaie" },
@@ -539,7 +555,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "tipo_gas", etichetta: "Tipo di gas", tipo: "scelta", opzioniFisse: ["R32", "R410A", "R290", "R454B", "R134A", "R407C", "R22"], larghezza: 1, mostraSe: (d) => d.categoria === "Clima" },
       { chiave: "gas_kg", etichetta: "Gas aggiunto (kg)", tipo: "numero", larghezza: 1, mostraSe: (d) => d.categoria === "Clima" },
       // Allarmi e automatismi
-      { chiave: "componenti", etichetta: "Componenti installati", tipo: "area", larghezza: 4, mostraSe: (d) => d.categoria === "Allarmi" || d.categoria === "Automatismi" },
+      { chiave: "componenti", etichetta: "Componenti installati", tipo: "area", larghezza: 4, mostraSe: (d) => ["Allarmi", "Automatismi", "TVCC"].includes(String(d.categoria)) },
     ],
   },
   rapporti: {

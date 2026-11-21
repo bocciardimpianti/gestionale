@@ -404,7 +404,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     }
     // Foto e firma: caricamento dei nuovi file e rimozione di quelli sostituiti o eliminati
     const id = risposta.data.id;
-    // Impianti del cliente catalogati dai materiali (Clima, Caldaie, Allarmi, Automatismi; script 0046)
+    // Impianti del cliente catalogati dai materiali (Clima, Caldaie, Allarmi, Automatismi, TVCC; script 0046-0047)
     if (cfg.sezione === "rapporti") {
       for (const imp of impiantiDaRapportino(righe, { ...dati, ...record })) {
         await supabase.rpc("registra_impianto", { p_rapporto: id, p_categoria: imp.categoria, p_dati: imp.dati });

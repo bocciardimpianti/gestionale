@@ -10,6 +10,7 @@ export const CATEGORIE_IMPIANTI = [
   { nome: "Caldaie", icona: "🔥", colore: "#ff8a65" },
   { nome: "Allarmi", icona: "🚨", colore: "#e57373" },
   { nome: "Automatismi", icona: "🚧", colore: "#ffca28" },
+  { nome: "TVCC", icona: "📹", colore: "#7986cb" },
 ] as const;
 
 export const TIPI_IMPIANTO_TERMICO = [
@@ -17,7 +18,7 @@ export const TIPI_IMPIANTO_TERMICO = [
   "Termosifoni misti", "Misto (radiante + termosifoni)", "Ventilconvettori",
 ];
 
-type Riga = { descrizione?: unknown; quantita?: unknown; unita_misura?: unknown };
+type Riga = { descrizione?: unknown; quantita?: unknown; unita_misura?: unknown; materiale_id?: unknown };
 const d = (r: Riga) => String(r.descrizione ?? "").trim();
 const q = (r: Riga) => Number(r.quantita) || 1;
 const fmt = (n: number) => (Math.round(n * 100) / 100).toLocaleString("it-IT");
@@ -81,6 +82,23 @@ function impiantoTermico(righe: Riga[]) {
   return null;
 }
 
+// ---- Materiali allegati all'impianto (linguetta Materiali): solo quelli che contano per la categoria ----
+/** Tubi in rame del climatizzatore (1/4" 3/8" 1/2" 5/8" 7/8"), come per il documento F-gas */
+const TUBO_CLIMA = (t: string) =>
+  /tubo|rame|rotolo|matass|coibentat|isolat/i.test(t) && /1\/4|3\/8|1\/2|5\/8|7\/8/.test(t)
+  && !/raccord|bocchetton|curva|gomito|riduz|cartell|\bdado|manicott|\btee?\b|giunt|valvol|rubinett|flessibil|filtro|tappo|staff|nastro|canalin|isolante tubo|coppella|pinza|cartellatrice|tagliatubi|piegatubi/i.test(t);
+const MAT_AUTOMATISMO = /motor|fotocellul|lampeggiant|selettor|cremaglier|radiocomand|telecomand|trasmettitor|ricevent|ricevitor|\bschede?\b|centrale/i;
+const MAT_ALLARME = /centrale|sensor|rilevator|volumetric|contatt\w* magnetic|sirena|telecamer/i;
+const NON_MAT_ALLARME = /centrale .*(comando|cancell|motor|termic|caldai)/i;
+const TVCC = /telecamer|videosorveglian|\btvcc\b|\b[ndx]vr\b|videoregistrator|\bipc\b|hikvision|hiwatch|dahua|ezviz/i;
+const MAT_TVCC = /telecamer|videosorveglian|\btvcc\b|\b[ndx]vr\b|videoregistrator|\bipc\b|\bdome\b|\bbullet\b|hard ?disk|\bhdd\b|switch.*poe|\bpoe\b.*switch|monitor|balun|alimentator\w* .*(telecam|tvcc|videosorv)/i;
+
+/** Righe da allegare all'impianto (descrizione, quantità, unità di misura, materiale di magazzino) */
+const materiali = (righe: Riga[], tiene: (t: string) => boolean) =>
+  righe.filter((r) => d(r) && tiene(d(r))).map((r) => ({
+    descrizione: d(r), quantita: Number(r.quantita) || 1, unita_misura: r.unita_misura ?? null, materiale_id: r.materiale_id ?? null,
+  }));
+
 // ---- Allarmi e automatismi ----
 const ALLARME = /centrale.*(allarm|antifurto|antintrusion|ibrida)|(allarm|antifurto|antintrusion)\w*.*centrale|combivox|bentel|\binim\b|ksenia|ajax|paradox|\bantifurto\b|sistema (di )?allarme/i;
 const COMPONENTI_ALLARME = /centrale|sensor|rilevator\w* (volumetric|infrarossi|doppia|perimetral)|volumetric|contatt\w* magnetic|sirena|tastiera|inseritore|chiave (elettronica|di prossimit)|combinatore|modulo (gsm|lte|wi-?fi|radio)|espansione|barriera (infrarossi|ir)|ricevitore radio|telecomando .*(allarm|antifurto)|batteria .*12 ?v/i;
@@ -104,6 +122,7 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
       unita_interne: testoUnitaInterne(righe) || null,
       tipo_gas: (rapporto.tipo_gas as string) || gasDaDescrizione(descr) || null,
       gas_kg: rapporto.gas_aggiunto_kg ?? null,
+      materiali: materiali(righe, (t) => eUnitaEsterna(t) || eUnitaInterna(t) || TUBO_CLIMA(t)),
     } });
   }
 
@@ -120,6 +139,8 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
       canna_fumaria_m: canna?.metri ?? null,
       canna_fumaria_sezione: canna?.sezione ?? null,
       impianto_termico: impiantoTermico(righe),
+      materiali: materiali(righe, (t) => (CALDAIA.test(t) && !NON_CALDAIA.test(t)) || DEFANGATORE.test(t) || SDOPPIATORE.test(t)
+        || (DOSATORE.test(t) && !NON_DOSATORE.test(t)) || (POMPE_VALVOLE.test(t) && !NON_POMPE.test(t)) || (FUMI.test(t) && !NON_FUMI.test(t))),
     } });
   }
 
@@ -129,6 +150,7 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
     out.push({ categoria: "Allarmi", dati: {
       tipo_impianto: "Allarme", impianto: "Impianto di allarme", marca: marcaMateriale(d(centrale)), modello: d(centrale), anno,
       componenti: elenco(righe, COMPONENTI_ALLARME) || null,
+      materiali: materiali(righe, (t) => MAT_ALLARME.test(t) && !NON_MAT_ALLARME.test(t)),
     } });
   }
 
@@ -139,6 +161,22 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
       tipo_impianto: "Automatismo", impianto: /scorrev/i.test(d(motore)) ? "Cancello scorrevole" : /battent/i.test(d(motore)) ? "Cancello a battente" : /bascul|garage/i.test(d(motore)) ? "Basculante / garage" : /serrand/i.test(d(motore)) ? "Serranda" : /barriera/i.test(d(motore)) ? "Barriera" : "Automatismo",
       marca: marcaMateriale(d(motore)), modello: d(motore), anno,
       componenti: elenco(righe, COMPONENTI_AUTOMATISMO) || null,
+      materiali: materiali(righe, (t) => MAT_AUTOMATISMO.test(t) && !ALLARME.test(t)),
+    } });
+  }
+
+  // TVCC: solo i sistemi di videosorveglianza (telecamere, videoregistratori, hard disk, switch PoE, monitor)
+  const tvcc = righe.filter((r) => TVCC.test(d(r)));
+  if (tvcc.length) {
+    const registratore = tvcc.find((r) => /\b[ndx]vr\b|videoregistrator/i.test(d(r)));
+    const principale = registratore ?? tvcc[0];
+    const telecamere = righe.filter((r) => /telecamer|\bipc\b|\bdome\b|\bbullet\b/i.test(d(r)) && !/staff|supporto|scatola|box|alimentator/i.test(d(r)))
+      .reduce((n, r) => n + q(r), 0);
+    out.push({ categoria: "TVCC", dati: {
+      tipo_impianto: "Videosorveglianza", impianto: telecamere ? `Videosorveglianza (${fmt(telecamere)} telecamere)` : "Videosorveglianza",
+      marca: marcaMateriale(d(principale)), modello: d(principale), anno,
+      componenti: elenco(righe, MAT_TVCC) || null,
+      materiali: materiali(righe, (t) => MAT_TVCC.test(t)),
     } });
   }
   return out;

@@ -14,6 +14,7 @@ const DETTAGLI: Record<string, [string, string][]> = {
   Clima: [["unita_interne", "Interne"], ["tipo_gas", "Gas"], ["gas_kg", "Kg"]],
   Allarmi: [["componenti", "Componenti"]],
   Automatismi: [["componenti", "Componenti"]],
+  TVCC: [["componenti", "Componenti"]],
 };
 
 export default function ImpiantiDaStorico({ onChiudi, onFinito }: { onChiudi: () => void; onFinito: () => void }) {
@@ -36,7 +37,7 @@ export default function ImpiantiDaStorico({ onChiudi, onFinito }: { onChiudi: ()
       }
       rapporti = rapporti.filter((r) => !r.eliminato_il && r.cliente_id && (!dal || String(r.data ?? "") >= dal));
       setStato(`Lettura dei materiali di ${rapporti.length} rapportini…`);
-      const righe = await leggiTutto("righe_rapporto", "id, rapporto_id, descrizione, quantita, unita_misura");
+      const righe = await leggiTutto("righe_rapporto", "id, rapporto_id, materiale_id, descrizione, quantita, unita_misura");
       const perRapporto = new Map<number, Record<string, unknown>[]>();
       for (const r of righe) { const k = Number(r.rapporto_id); perRapporto.set(k, [...(perRapporto.get(k) ?? []), r]); }
       setStato("Controllo degli impianti già catalogati…");
@@ -122,6 +123,7 @@ export default function ImpiantiDaStorico({ onChiudi, onFinito }: { onChiudi: ()
                           {(DETTAGLI[p.categoria] ?? []).filter(([k]) => p.dati[k] != null && p.dati[k] !== "").map(([k, t]) => (
                             <div key={k}><b>{t}:</b> {String(p.dati[k])}</div>
                           ))}
+                          {Array.isArray(p.dati.materiali) && <div><b>Materiali allegati:</b> {p.dati.materiali.length}</div>}
                         </td>
                       </tr>
                     ))}
