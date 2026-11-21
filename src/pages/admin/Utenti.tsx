@@ -22,10 +22,10 @@ const PERMESSI_TIPICI: Record<string, Record<string, Livello>> = {
   Commerciale: { home: "V", clienti: "VCM", impianti: "V", rapporti: "V", agenda: "V", preventivi: "VCME", richieste: "VCM", materiali: "V" },
   Amministrativo: {
     home: "V", clienti: "VCME", fornitori: "VCME", tecnici: "VCM", impianti: "VCM", rapporti: "VCME", agenda: "V", preventivi: "VCME",
-    richieste: "VCM", ddt_acquisto: "VCME", materiali: "VCME", scadenziario: "VCME", conti_clienti: "VCME",
+    richieste: "VCM", ddt_acquisto: "VCME", materiali: "VCME", scadenziario: "VCME", conti_clienti: "VCME", fgas: "VCME",
   },
   Magazzino: { home: "V", fornitori: "V", rapporti: "V", ddt_acquisto: "VCM", materiali: "VCME" },
-  Titolare: Object.fromEntries(["home", "clienti", "fornitori", "tecnici", "impianti", "rapporti", "agenda", "preventivi", "richieste", "ddt_acquisto", "materiali", "scadenziario", "conti_clienti"].map((k) => [k, "tutto" as Livello])),
+  Titolare: Object.fromEntries(["home", "clienti", "fornitori", "tecnici", "impianti", "rapporti", "agenda", "preventivi", "richieste", "ddt_acquisto", "materiali", "scadenziario", "conti_clienti", "fgas"].map((k) => [k, "tutto" as Livello])),
 };
 
 // Parole di un nome in ordine (per abbinare "Michael Gronchi" a "Gronchi Michael")

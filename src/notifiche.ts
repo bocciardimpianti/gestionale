@@ -105,4 +105,5 @@ export function controllaConti() {
   if (Date.now() - ultimoControlloConti < 30_000) return;
   ultimoControlloConti = Date.now();
   supabase.functions.invoke("notifiche", { body: { azione: "conti" } }).catch(() => {});
+  supabase.functions.invoke("notifiche", { body: { azione: "fgas" } }).catch(() => {});
 }

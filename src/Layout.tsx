@@ -4,7 +4,7 @@ import {
   Banknote, CalendarDays, CircleHelp, CirclePlus, ClipboardCheck, ClipboardList, Database, FileText,
   LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
   Search, Settings, Smartphone, Star, Type, User, UserRound, Users, Wrench, X, type LucideIcon,
-  ChevronDown, MapPin, PackageSearch, PanelLeftClose, PanelLeftOpen, Plus, Zap,
+  ChevronDown, MapPin, PackageSearch, PanelLeftClose, PanelLeftOpen, Plus, Snowflake, Zap,
 } from "lucide-react";
 import TavolozzaComandi, { type Comando } from "./components/TavolozzaComandi";
 import { ARCHIVI } from "./archivi";
@@ -13,7 +13,7 @@ import FinestraAspetto from "./components/FinestraAspetto";
 import { useAuth } from "./auth";
 import UscitaBackup from "./components/UscitaBackup";
 import PulsanteVoce from "./components/PulsanteVoce";
-import { ricollegaNotifiche } from "./notifiche";
+import { controllaConti, ricollegaNotifiche } from "./notifiche";
 import { useIndietroChiude } from "./telefono";
 
 // Icone delle voci di menu, come nel programma originale
@@ -32,6 +32,7 @@ export const ICONE: Record<string, LucideIcon> = {
   materiali: Wrench,
   scadenziario: Banknote,
   conti_clienti: Banknote,
+  fgas: Snowflake,
 };
 
 // Colore dell'icona di ogni voce del menu (anche le voci di Amministrazione)
@@ -40,7 +41,7 @@ export const COLORI_ICONE: Record<string, string> = {
   clienti: "#81c784", fornitori: "#ffb74d", tecnici: "#64b5f6", impianti: "#ce93d8",
   rapporti: "#4dd0e1", agenda: "#f48fb1", preventivi: "#aed581", richieste: "#ff8a65",
   ddt_acquisto: "#b39ddb", materiali: "#ffca28",
-  scadenziario: "#4db6ac", conti_clienti: "#ef9a9a",
+  scadenziario: "#4db6ac", conti_clienti: "#ef9a9a", fgas: "#80deea",
   "admin/utenti": "#90caf9", "admin/materiali-tecnici": "#ffb300", "admin/chiamata": "#ef5350",
   "admin/impianti-tipo": "#fff176", "admin/registro": "#bcaaa4",
 };
@@ -94,6 +95,20 @@ export default function Layout({ children }: { children: ReactNode }) {
   // Conti Clienti: quanti clienti hanno superato la soglia di avviso (numero rosso nel menu)
   const [contiOltre, setContiOltre] = useState(0);
   const vedeConti = puo("conti_clienti", "vedere");
+  // F-gas: impianti dal 20° giorno senza documento depositato (numero rosso nel menu)
+  const [fgasScadenza, setFgasScadenza] = useState(0);
+  const vedeFgas = puo("fgas", "vedere");
+  useEffect(() => {
+    if (!vedeFgas) return;
+    let attivo = true;
+    const conta = () => supabase.rpc("fgas_in_scadenza").then(({ data, error }) => { if (attivo && !error) setFgasScadenza(Number(data ?? 0)); });
+    conta();
+    const ogni = setInterval(conta, 10 * 60 * 1000);
+    window.addEventListener("conti-aggiornati", conta);
+    return () => { attivo = false; clearInterval(ogni); window.removeEventListener("conti-aggiornati", conta); };
+  }, [vedeFgas]);
+  // All'apertura (amministratore): controllo di conti e F-gas da notificare
+  useEffect(() => { if (admin) controllaConti(); }, [admin]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!vedeConti) return;
     let attivo = true;
@@ -237,14 +252,14 @@ export default function Layout({ children }: { children: ReactNode }) {
               {(!chiusi[g.nome] || stretto) &&
                 g.voci.map((s) => {
                   const Icona = ICONE[s.chiave] ?? iconaAdmin[s.chiave] ?? FileText;
-                  const contatore = s.chiave === "richieste" ? richiesteAperte : s.chiave === "conti_clienti" ? contiOltre : 0;
+                  const contatore = s.chiave === "richieste" ? richiesteAperte : s.chiave === "conti_clienti" ? contiOltre : s.chiave === "fgas" ? fgasScadenza : 0;
                   return (
                     <NavLink key={s.chiave} to={percorso(s.chiave)} end className="voce" title={s.etichetta}>
                       <span className="icona-voce" style={{ "--colore-icona": COLORI_ICONE[s.chiave] ?? "#cfd8dc" } as React.CSSProperties}>
                         <Icona size={16} strokeWidth={2} />
                       </span>
                       <span className="testo-voce">{s.etichetta}</span>
-                      {contatore > 0 && <span className="contatore" title={s.chiave === "conti_clienti" ? `${contatore} clienti oltre la soglia del conto` : `${contatore} richieste aperte`}>{contatore > 99 ? "99+" : contatore}</span>}
+                      {contatore > 0 && <span className="contatore" title={s.chiave === "conti_clienti" ? `${contatore} clienti oltre la soglia del conto` : s.chiave === "fgas" ? `${contatore} documenti F-gas da depositare entro pochi giorni (o scaduti)` : `${contatore} richieste aperte`}>{contatore > 99 ? "99+" : contatore}</span>}
                     </NavLink>
                   );
                 })}

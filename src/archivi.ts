@@ -263,7 +263,66 @@ export function creaRapportinoDa(r: Record<string, unknown>) {
 }
 
 // Configurazione delle sezioni a griglia, colonne nello stesso ordine e con gli stessi titoli dell'originale
+// F-gas: giorni che mancano ai 30 dall'installazione per depositare il documento
+export function giorniFgas(r: Record<string, unknown>) {
+  const d = dataIso(r.data_installazione);
+  if (!d) return null;
+  const oggi = new Date(dataIso(new Date())!);
+  return 30 - Math.round((oggi.getTime() - new Date(d).getTime()) / 86400000);
+}
+export function scadenzaFgas(r: Record<string, unknown>) {
+  if (r.documento || r.depositato_il) return "✅ Depositato";
+  const g = giorniFgas(r);
+  if (g === null) return "";
+  if (g < 0) return `❗ Scaduto da ${-g} ${-g === 1 ? "giorno" : "giorni"}`;
+  if (g === 0) return "❗ Scade oggi";
+  return `${g <= 10 ? "⚠️" : "⏳"} ${g} ${g === 1 ? "giorno" : "giorni"}`;
+}
+const fgasDaDepositare = (r: Record<string, unknown>) => !r.documento && !r.depositato_il;
+
 export const ARCHIVI: Record<string, Archivio> = {
+  fgas: {
+    sezione: "fgas",
+    titolo: "F-gas",
+    titoloNuovo: "Nuovo impianto F-gas",
+    titoloScheda: (v) => `F-gas – ${v.cliente ?? ""}${v.macchina ? ` – ${v.macchina}` : ""}`,
+    linguette: ["Log Cloud"],
+    tabella: "fgas",
+    select: "*, cliente:clienti(nome), tecnico:tecnici(nome)",
+    chiaveImport: ["data_installazione", "cliente"],
+    ordineIniziale: { chiave: "data_installazione", su: false },
+    valoriNuovo: async () => ({ data_installazione: dataIso(new Date()) }),
+    visteRapide: [
+      { nome: "Da depositare", filtro: fgasDaDepositare, ordine: { chiave: "data_installazione", su: true } },
+      { nome: "In scadenza (dal 20° giorno)", filtro: (r) => fgasDaDepositare(r) && (giorniFgas(r) ?? 99) <= 10, ordine: { chiave: "data_installazione", su: true } },
+      { nome: "Scaduti", filtro: (r) => fgasDaDepositare(r) && (giorniFgas(r) ?? 99) < 0, ordine: { chiave: "data_installazione", su: true } },
+      { nome: "Depositati", filtro: (r) => !fgasDaDepositare(r) },
+    ],
+    colonne: [
+      { chiave: "scadenza", titolo: "Countdown", excel: "Countdown", calcolata: true, larghezza: 150, valore: scadenzaFgas },
+      { chiave: "cliente", titolo: "Cliente", excel: "Cliente", larghezza: 200, riferimento: { campo: "cliente_id", tabella: "clienti" } },
+      { chiave: "impianto", titolo: "Impianto", excel: "Impianto", larghezza: 170 },
+      { chiave: "macchina", titolo: "Unità esterna", excel: "Unità esterna", larghezza: 260 },
+      { chiave: "matricola", titolo: "Matricola", excel: "Matricola", larghezza: 110 },
+      { chiave: "data_installazione", titolo: "Installata il", excel: "Installata il", larghezza: 90, tipo: "data" },
+      { chiave: "rapporto_numero", titolo: "Rapportino", excel: "Rapportino", larghezza: 75 },
+      { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 130, riferimento: { campo: "tecnico_id", tabella: "tecnici" }, classe: "cella-tecnico" },
+      { chiave: "depositato_il", titolo: "Depositato il", excel: "Depositato il", larghezza: 90, tipo: "data" },
+      { chiave: "note", titolo: "Note", excel: "Note", larghezza: 200, nascostaInElenco: true },
+    ],
+    campi: [
+      { chiave: "cliente_id", etichetta: "Cliente", tipo: "riferimento", riferimentoA: "clienti", larghezza: 2 },
+      { chiave: "impianto", etichetta: "Impianto", larghezza: 2 },
+      { chiave: "macchina", etichetta: "Unità esterna installata", larghezza: 2 },
+      { chiave: "matricola", etichetta: "Matricola", larghezza: 1 },
+      { chiave: "data_installazione", etichetta: "Data installazione", tipo: "data", larghezza: 1, obbligatorio: true },
+      { chiave: "tecnico_id", etichetta: "Tecnico", tipo: "riferimento", riferimentoA: "tecnici", larghezza: 2 },
+      { chiave: "rapporto_numero", etichetta: "Rapportino n.", larghezza: 1, solaLettura: true },
+      { chiave: "depositato_il", etichetta: "Documento depositato il", tipo: "data", larghezza: 1 },
+      { chiave: "documento", etichetta: "Documento F-gas (PDF o foto)", tipo: "pdf", larghezza: 4, finisciRiga: true },
+      { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
+    ],
+  },
   clienti: {
     sezione: "clienti",
     titolo: "Clienti",

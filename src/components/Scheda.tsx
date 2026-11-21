@@ -7,6 +7,7 @@ import { ARCHIVI, type Archivio, type Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
 import { TestoConTecnici } from "./NomeTecnico";
+import CampoDocumento from "./CampoDocumento";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
 import CampoImmagine, { immagineDa, Miniatura, riduci, urlFirmato } from "./CampoImmagine";
 import { eUnitaEsterna } from "../clima";
@@ -389,6 +390,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     }
     // Foto e firma: caricamento dei nuovi file e rimozione di quelli sostituiti o eliminati
     const id = risposta.data.id;
+    // Unità esterna installata: il rapportino entra (o si aggiorna) nella sezione F-gas (script 0042)
+    if (cfg.sezione === "rapporti" && unitaEsterna) {
+      await supabase.rpc("registra_fgas", { p_rapporto: id, p_macchina: String(unitaEsterna.descrizione ?? "") });
+    }
     if (cfg.sezione === "rapporti" && prelieviDdt.current.length) {
       const { error } = await supabase.rpc("registra_prelievi_ddt", { p_rapporto: id, p_righe: prelieviDdt.current });
       // Senza lo script 0038 il rapportino si salva lo stesso: manca solo il segno "Già inserito"
@@ -457,6 +462,17 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   const campo = (c: Campo, aCapo: boolean) => {
     if (c.tipo === "titolo") return <div key={c.chiave} className={`sezione-scheda ${c.stile ?? "grigio"}`}>{c.etichetta}</div>;
+    if (c.tipo === "pdf" && !c.solaLettura)
+      return (
+        <div key={c.chiave} style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
+          <CampoDocumento etichetta={c.etichetta} valore={dati[c.chiave]} archivio={cfg.sezione} modificabile={modificabile}
+            onCambia={(v) => {
+              cambia(c.chiave, v);
+              // F-gas: con il documento caricato risulta depositato oggi (se non c'è già una data)
+              if (v && cfg.sezione === "fgas" && !dati.depositato_il) cambia("depositato_il", dataIso(new Date()));
+            }} />
+        </div>
+      );
     if (c.tipo === "pdf")
       return (
         <div key={c.chiave} className="campo-pdf" style={{ gridColumn: `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>

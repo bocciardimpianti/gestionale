@@ -3,6 +3,7 @@
 // - "richiesta": avvisa il tecnico assegnato, oppure tutti i tecnici se la richiesta non è assegnata
 // - "prova": manda una notifica di prova ai dispositivi di chi la chiede
 // - "conti": clienti appena andati oltre la soglia del conto (Conti Clienti) → avviso agli amministratori, una volta per cliente
+// - "fgas": impianti arrivati al 20° giorno dall'installazione senza documento F-gas → avviso agli amministratori, una volta
 //
 // Pubblicare con "Verify JWT" disattivato (la verifica dell'utente è fatta qui). Nessun segreto da impostare.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -114,6 +115,26 @@ Deno.serve(async (req) => {
         }
         await servizio.from("registro").insert({ utente_id: io.id, azione: "conti_oltre_soglia", dettagli: { clienti: clienti.map((c) => c.cliente), dispositivi: inviate } });
         return risposta({ inviate, clienti: clienti.map((c) => c.cliente) });
+      }
+
+      case "fgas": {
+        const { data: daAvvisare, error } = await servizio.rpc("fgas_da_avvisare");
+        if (error) return risposta({ inviate: 0, motivo: `Esegui lo script 0042_fgas.sql (${error.message})` });
+        const impianti = (daAvvisare ?? []) as { id: number; cliente: string | null; macchina: string | null; data_installazione: string; giorni_mancanti: number }[];
+        if (!impianti.length) return risposta({ inviate: 0 });
+        const { data: amministratori } = await servizio.from("profili").select("id").eq("ruolo", "admin").eq("attivo", true);
+        let inviate = 0;
+        for (const f of impianti) {
+          const g = f.giorni_mancanti;
+          inviate += await invia((amministratori ?? []).map((p) => p.id as string), {
+            titolo: g < 0 ? "Documento F-gas scaduto" : "Documento F-gas da depositare",
+            testo: `${f.cliente ?? "Cliente"}${f.macchina ? ` – ${f.macchina}` : ""}: ${g < 0 ? `scaduto da ${-g} giorni` : g === 0 ? "scade oggi" : `mancano ${g} giorni`}`,
+            url: `${SITO}#/s/fgas?apri=${f.id}`,
+            tag: `fgas-${f.id}`,
+          });
+        }
+        await servizio.from("registro").insert({ utente_id: io.id, azione: "fgas_avviso", dettagli: { impianti: impianti.map((f) => f.id), dispositivi: inviate } });
+        return risposta({ inviate, impianti: impianti.length });
       }
     }
     return risposta({ errore: "Azione sconosciuta" }, 400);
