@@ -179,23 +179,14 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   // Esito del calcolo, mostrato in un riquadro nella scheda (sul telefono la barra di stato è nascosta)
   const [infoDiritto, setInfoDiritto] = useState<{ testo: string; errore: boolean } | null>(null);
   const salvaDopoDiritto = useRef(false);
-  // Unità esterna del climatizzatore tra i materiali: si chiede la foto della matricola (subito, o al salvataggio)
+  // Unità esterna del climatizzatore tra i materiali: al salvataggio (come per il diritto di chiamata) si chiede la foto della matricola
   const [chiediMatricola, setChiediMatricola] = useState<{ descrizione: string; salvando: boolean } | null>(null);
-  const matricolaChiesta = useRef(false);
   const unitaEsterna = cfg.sezione === "rapporti" ? righe.find((r) => eUnitaEsterna(r.descrizione)) : undefined;
   const manca = !!unitaEsterna && !dati.foto_matricola;
-  useEffect(() => {
-    if (!manca || !modificabile || matricolaChiesta.current || dati.matricola_da_fare) return;
-    // Solo quando l'unità esterna viene aggiunta adesso (non riaprendo un rapportino già salvato)
-    if (!modificata.current) return;
-    matricolaChiesta.current = true;
-    setChiediMatricola({ descrizione: String(unitaEsterna!.descrizione ?? ""), salvando: false });
-  }, [manca, righe.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const fotoMatricolaRef = useRef<HTMLInputElement>(null);
   const sceltaMatricola = (azione: "foto" | "dopo") => {
     const salvando = chiediMatricola?.salvando;
     setChiediMatricola(null);
-    matricolaChiesta.current = true;
     if (azione === "foto") { fotoMatricolaRef.current?.click(); salvaDopoMatricola.current = !!salvando; return; }
     segna();
     if (salvando) salvaDopoDiritto.current = true; // si salva appena il dato è aggiornato
