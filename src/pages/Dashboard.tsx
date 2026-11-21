@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
+import GraficoTecnici from "../components/GraficoTecnici";
 
 // Formato compatto come nell'originale: 17920 -> 17.92K
 export function compatto(n: number | null) {
@@ -74,8 +75,10 @@ export default function Dashboard() {
     spesa: null, pagamento: null, redditivita: null,
   });
 
+  const { puo } = useAuth();
   return (
     <div className="dashboard">
+      {puo("rapporti", "vedere") && <div className="cella cella-larga"><GraficoTecnici /></div>}
       <div className="cella">
         <div className="intestazione-chiara"><span>Tabella</span><Ingranaggio /></div>
         <div className="riquadro-dash bianco" />
