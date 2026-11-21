@@ -1607,8 +1607,17 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .campi-sposta label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; margin-bottom: 8px; }
 .campi-sposta input, .campi-sposta select { height: 36px; border: 1px solid var(--bordo-forte, #ccd); border-radius: 6px; padding: 0 8px; font-size: 14px; }
 @media (max-width: 760px) {
-  .tabella-registro th:nth-child(5), .tabella-registro td:nth-child(5), .tabella-registro th:nth-child(7), .tabella-registro td:nth-child(7) { display: none; }
+  .tabella-registro .c-ricevuto, .tabella-registro .c-spostato, .tabella-registro .c-data { display: none; }
 }
+/* Intestazione della tabella sempre visibile scorrendo i materiali */
+.tabella-registro { border-collapse: separate; border-spacing: 0; }
+.tabella-registro thead th { position: sticky; top: -20px; z-index: 2; box-shadow: 0 2px 0 var(--bordo); }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) { .tabella-registro thead th { top: -12px; } }
+.tabella-registro tr.gruppo-registro td { background: #eef3f4; font-weight: 700; color: var(--petrolio); padding-top: 9px; }
+.fornitore-registro { color: var(--tenue); font-size: 11.5px; }
+.scheda-tecnico.tutti { background: #eef4fb; border-color: #bcd3ee; }
+.scheda-tecnico.tutti.attiva { border-color: #1f5fbf; background: #dfeaf8; }
+.ordina-registro select { height: 30px; border: 1px solid var(--bordo); border-radius: 6px; padding: 0 6px; font-size: 13px; }
 .barra-registro label, .periodo-registro label { flex-direction: row !important; align-items: center; }
 
 /* ---- Preventivo guidato ---- */

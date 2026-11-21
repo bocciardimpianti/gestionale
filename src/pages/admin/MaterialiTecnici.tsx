@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRightLeft, ChevronDown, ChevronRight, Warehouse } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, ChevronRight, PackageSearch, Users, Warehouse } from "lucide-react";
 import { dataIso, dataIt, supabase } from "../../supabase";
 
 // Registro materiali per tecnico: nel periodo scelto, per ogni tecnico (e per il Magazzino)
@@ -11,8 +11,13 @@ type Voce = { chiave: string; materiale_id: number | null; descrizione: string; 
 type Riga = Voce & {
   ordinato: number; installato: number; ricevuto: number; spostato: number;
   ddt: string[]; rapportini: string[];
+  // Per ordinare: data più recente (DDT, rapportino o spostamento) e fornitori dei DDT
+  ultima: string; fornitori: string[];
 };
+type RigaTec = Riga & { tec: number };
 const MAGAZZINO = 0; // "tecnico" del Magazzino
+const TUTTI = -1; // scheda "Tutti i tecnici"
+type Ordine = "materiale" | "data" | "tecnico" | "fornitore";
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
 const fmt = (v: number) => (Math.round(v * 1000) / 1000).toLocaleString("it-IT");
@@ -60,7 +65,9 @@ export default function MaterialiTecnici() {
   const [scelto, setScelto] = useState<number>(MAGAZZINO);
   const [soloRimasti, setSoloRimasti] = useState(true);
   const [aperta, setAperta] = useState<string | null>(null);
-  const [sposta, setSposta] = useState<{ riga: Riga; quantita: string; a: number; note: string } | null>(null);
+  const [sposta, setSposta] = useState<{ riga: Riga; da: number; quantita: string; a: number; note: string } | null>(null);
+  const [ordine, setOrdine] = useState<Ordine>(() => { try { return (localStorage.getItem("registro-ordine") as Ordine) || "materiale"; } catch { return "materiale"; } });
+  const cambiaOrdine = (o: Ordine) => { setOrdine(o); try { localStorage.setItem("registro-ordine", o); } catch { /* niente */ } };
   const [errore, setErrore] = useState("");
   const [messaggio, setMessaggio] = useState("");
   const [versione, setVersione] = useState(0);
@@ -81,11 +88,11 @@ export default function MaterialiTecnici() {
       type Rap = { id: number; data: string; numero: number | null; tecnico_id: number | null };
       type RigaD = { ddt_id: number; materiale_id: number | null; descrizione: string | null; unita_misura: string | null; quantita: number | null; servizio: boolean };
       type RigaR = { rapporto_id: number; materiale_id: number | null; descrizione: string | null; unita_misura: string | null; quantita: number | null };
-      type Mov = { id: number; materiale_id: number | null; descrizione: string | null; unita_misura: string | null; quantita: number; da_tecnico_id: number | null; a_tecnico_id: number | null };
+      type Mov = { id: number; data: string; materiale_id: number | null; descrizione: string | null; unita_misura: string | null; quantita: number; da_tecnico_id: number | null; a_tecnico_id: number | null };
       const [ddt, rap, mov] = await Promise.all([
         tutte<Ddt>(() => supabase.from("ddt_acquisto").select("id, data, numero_ddt, tecnico_id, fornitore:fornitori(nome)").gte("data", dal).lte("data", al).is("eliminato_il", null).order("id") as never),
         tutte<Rap>(() => supabase.from("rapporti").select("id, data, numero, tecnico_id").gte("data", dal).lte("data", al).is("eliminato_il", null).order("id") as never),
-        tutte<Mov>(() => supabase.from("movimenti_materiali").select("id, materiale_id, descrizione, unita_misura, quantita, da_tecnico_id, a_tecnico_id").gte("data", dal).lte("data", al).order("id") as never)
+        tutte<Mov>(() => supabase.from("movimenti_materiali").select("id, data, materiale_id, descrizione, unita_misura, quantita, da_tecnico_id, a_tecnico_id").gte("data", dal).lte("data", al).order("id") as never)
           .catch((e) => { throw new Error(/movimenti_materiali/.test(String(e.message)) ? "Esegui su Supabase lo script 0030_movimenti_materiali.sql" : e.message); }),
       ]);
       const [righeD, righeR] = await Promise.all([
@@ -95,23 +102,25 @@ export default function MaterialiTecnici() {
       const ddtPerId = new Map(ddt.map((d) => [d.id, d]));
       const rapPerId = new Map(rap.map((r) => [r.id, r]));
       const reg = new Map<number, Map<string, Riga>>();
-      const riga = (tec: number, materiale_id: number | null, descrizione: string | null, um: string | null) => {
+      const riga = (tec: number, materiale_id: number | null, descrizione: string | null, um: string | null, data = "") => {
         const t = reg.get(tec) ?? new Map<string, Riga>();
         reg.set(tec, t);
         const k = chiaveDi(materiale_id, descrizione);
         let r = t.get(k);
         if (!r) {
-          r = { chiave: k, materiale_id, descrizione: String(descrizione ?? "").trim() || "(senza descrizione)", um: String(um ?? ""), ordinato: 0, installato: 0, ricevuto: 0, spostato: 0, ddt: [], rapportini: [] };
+          r = { chiave: k, materiale_id, descrizione: String(descrizione ?? "").trim() || "(senza descrizione)", um: String(um ?? ""), ordinato: 0, installato: 0, ricevuto: 0, spostato: 0, ddt: [], rapportini: [], ultima: "", fornitori: [] };
           t.set(k, r);
         }
+        if (data > r.ultima) r.ultima = data;
         return r;
       };
       for (const x of righeD) {
         if (x.servizio || !(n(x.quantita) > 0)) continue;
         const d = ddtPerId.get(x.ddt_id);
         if (!d) continue;
-        const r = riga(d.tecnico_id ?? MAGAZZINO, x.materiale_id, x.descrizione, x.unita_misura);
+        const r = riga(d.tecnico_id ?? MAGAZZINO, x.materiale_id, x.descrizione, x.unita_misura, d.data);
         r.ordinato += n(x.quantita);
+        if (d.fornitore?.nome && !r.fornitori.includes(d.fornitore.nome)) r.fornitori.push(d.fornitore.nome);
         const nome = `DDT ${d.numero_ddt ?? ""} del ${dataIt(d.data)}${d.fornitore?.nome ? ` (${d.fornitore.nome})` : ""}`;
         if (!r.ddt.includes(nome)) r.ddt.push(nome);
       }
@@ -119,14 +128,14 @@ export default function MaterialiTecnici() {
         if (!(n(x.quantita) > 0)) continue;
         const p = rapPerId.get(x.rapporto_id);
         if (!p || p.tecnico_id === null) continue;
-        const r = riga(p.tecnico_id, x.materiale_id, x.descrizione, x.unita_misura);
+        const r = riga(p.tecnico_id, x.materiale_id, x.descrizione, x.unita_misura, p.data);
         r.installato += n(x.quantita);
         const nome = `Rapportino ${p.numero ?? ""} del ${dataIt(p.data)}`;
         if (!r.rapportini.includes(nome)) r.rapportini.push(nome);
       }
       for (const m of mov) {
-        riga(m.da_tecnico_id ?? MAGAZZINO, m.materiale_id, m.descrizione, m.unita_misura).spostato += n(m.quantita);
-        riga(m.a_tecnico_id ?? MAGAZZINO, m.materiale_id, m.descrizione, m.unita_misura).ricevuto += n(m.quantita);
+        riga(m.da_tecnico_id ?? MAGAZZINO, m.materiale_id, m.descrizione, m.unita_misura, m.data).spostato += n(m.quantita);
+        riga(m.a_tecnico_id ?? MAGAZZINO, m.materiale_id, m.descrizione, m.unita_misura, m.data).ricevuto += n(m.quantita);
       }
       if (attivo) setRegistro(reg);
     })().catch((e) => attivo && setErrore((e as Error).message));
@@ -135,8 +144,24 @@ export default function MaterialiTecnici() {
 
   const rimasto = (r: Riga) => Math.round((r.ordinato + r.ricevuto - r.installato - r.spostato) * 1000) / 1000;
   const righeDi = (tec: number) => [...(registro?.get(tec)?.values() ?? [])].sort((a, b) => a.descrizione.localeCompare(b.descrizione));
-  const nomeDi = (tec: number) => (tec === MAGAZZINO ? "Magazzino" : tecnici.find((t) => t.id === tec)?.nome ?? "?");
-  const elenco = useMemo(() => righeDi(scelto).filter((r) => !soloRimasti || rimasto(r) > 0), [registro, scelto, soloRimasti]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nomeDi = (tec: number) => (tec === MAGAZZINO ? "Magazzino" : tec === TUTTI ? "Tutti i tecnici" : tecnici.find((t) => t.id === tec)?.nome ?? "?");
+  // Righe della scheda scelta (con "Tutti i tecnici": quelle di tutti, Magazzino compreso), nell'ordine scelto
+  const elenco: RigaTec[] = useMemo(() => {
+    const tec = scelto === TUTTI ? [...tecnici.map((t) => t.id), MAGAZZINO] : [scelto];
+    const righe = tec.flatMap((t) => righeDi(t).map((r) => ({ ...r, tec: t }))).filter((r) => !soloRimasti || rimasto(r) > 0);
+    const perNome = (a: RigaTec, b: RigaTec) => a.descrizione.localeCompare(b.descrizione, "it");
+    // Magazzino e "senza fornitore" sempre in fondo
+    const perTec = (a: RigaTec, b: RigaTec) => Number(a.tec === MAGAZZINO) - Number(b.tec === MAGAZZINO) || nomeDi(a.tec).localeCompare(nomeDi(b.tec), "it");
+    const perForn = (a: RigaTec, b: RigaTec) => Number(!a.fornitori.length) - Number(!b.fornitori.length) || (a.fornitori[0] ?? "").localeCompare(b.fornitori[0] ?? "", "it");
+    return righe.sort((a, b) =>
+      ordine === "data" ? b.ultima.localeCompare(a.ultima) || perNome(a, b)
+      : ordine === "tecnico" ? perTec(a, b) || perNome(a, b)
+      : ordine === "fornitore" ? perForn(a, b) || perNome(a, b)
+      : perNome(a, b) || perTec(a, b));
+  }, [registro, scelto, soloRimasti, ordine, tecnici]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tutti = scelto === TUTTI;
+  // Ordinando per tecnico o fornitore, una riga di titolo per ogni gruppo
+  const gruppoDi = (r: RigaTec) => (ordine === "tecnico" ? nomeDi(r.tec) : ordine === "fornitore" ? (r.fornitori[0] ?? "Senza fornitore (installati o spostati)") : "");
 
   const conferma = async () => {
     if (!sposta) return;
@@ -145,10 +170,10 @@ export default function MaterialiTecnici() {
     const { error } = await supabase.from("movimenti_materiali").insert({
       data: al < dataIso(new Date())! ? al : dataIso(new Date()),
       materiale_id: sposta.riga.materiale_id, descrizione: sposta.riga.descrizione, unita_misura: sposta.riga.um || null, quantita: q,
-      da_tecnico_id: scelto === MAGAZZINO ? null : scelto, a_tecnico_id: sposta.a === MAGAZZINO ? null : sposta.a, note: sposta.note.trim() || null,
+      da_tecnico_id: sposta.da === MAGAZZINO ? null : sposta.da, a_tecnico_id: sposta.a === MAGAZZINO ? null : sposta.a, note: sposta.note.trim() || null,
     });
     if (error) return setErrore(/movimenti_materiali/.test(error.message) ? "Esegui su Supabase lo script 0030_movimenti_materiali.sql" : error.message);
-    setMessaggio(`${fmt(q)} ${sposta.riga.um} di "${sposta.riga.descrizione}" spostati da ${nomeDi(scelto)} a ${nomeDi(sposta.a)}`);
+    setMessaggio(`${fmt(q)} ${sposta.riga.um} di "${sposta.riga.descrizione}" spostati da ${nomeDi(sposta.da)} a ${nomeDi(sposta.a)}`);
     setSposta(null);
     setVersione((v) => v + 1);
   };
@@ -166,10 +191,10 @@ export default function MaterialiTecnici() {
     setVersione((v) => v + 1);
   };
 
-  const schede = [...tecnici.map((t) => t.id), MAGAZZINO];
+  const schede = [TUTTI, ...tecnici.map((t) => t.id), MAGAZZINO];
   return (
     <div className="pagina-registro">
-      <div className="testata"><h1>Materiali per tecnico</h1></div>
+      <div className="testata"><h1><span className="icona-titolo"><PackageSearch size={20} strokeWidth={2} /></span>Materiali per tecnico</h1></div>
       <p className="piccolo">Per il periodo scelto: materiali <b>ordinati</b> nei DDT di acquisto di ogni tecnico, <b>installati</b> nei suoi rapportini e <b>rimasti</b>. I DDT senza tecnico vanno al Magazzino. I rimasti si possono spostare in Magazzino.</p>
 
       <div className="periodo-registro">
@@ -184,11 +209,11 @@ export default function MaterialiTecnici() {
 
       <div className="schede-tecnici">
         {schede.map((t) => {
-          const righe = righeDi(t);
+          const righe = t === TUTTI ? schede.filter((x) => x !== TUTTI).flatMap((x) => righeDi(x)) : righeDi(t);
           const rimasti = righe.filter((r) => rimasto(r) > 0).length;
           return (
-            <button key={t} className={`scheda-tecnico${t === scelto ? " attiva" : ""}${t === MAGAZZINO ? " magazzino" : ""}`} onClick={() => { setScelto(t); setAperta(null); }}>
-              <b>{t === MAGAZZINO ? <><Warehouse size={15} /> Magazzino</> : <span className="nome-tecnico">{nomeDi(t)}</span>}</b>
+            <button key={t} className={`scheda-tecnico${t === scelto ? " attiva" : ""}${t === MAGAZZINO ? " magazzino" : ""}${t === TUTTI ? " tutti" : ""}`} onClick={() => { setScelto(t); setAperta(null); }}>
+              <b>{t === MAGAZZINO ? <><Warehouse size={15} /> Magazzino</> : t === TUTTI ? <><Users size={15} /> Tutti i tecnici</> : <span className="nome-tecnico">{nomeDi(t)}</span>}</b>
               <span>{registro ? `${rimasti} ${rimasti === 1 ? "materiale rimasto" : "materiali rimasti"}` : "…"}</span>
               <span className="piccolo">{registro ? `${fmt(righe.reduce((s, r) => s + r.ordinato, 0))} ordinati · ${fmt(righe.reduce((s, r) => s + r.installato, 0))} installati` : ""}</span>
             </button>
@@ -198,32 +223,50 @@ export default function MaterialiTecnici() {
 
       <div className="barra-registro">
         <label><input type="checkbox" checked={soloRimasti} onChange={(e) => setSoloRimasti(e.target.checked)} /> Solo i materiali rimasti</label>
+        <label className="ordina-registro">Ordina per
+          <select value={ordine} onChange={(e) => cambiaOrdine(e.target.value as Ordine)}>
+            <option value="materiale">Materiale</option>
+            <option value="data">Data (più recenti prima)</option>
+            {tutti && <option value="tecnico">Tecnico</option>}
+            <option value="fornitore">Fornitore</option>
+          </select>
+        </label>
         <span style={{ flex: 1 }} />
-        {scelto !== MAGAZZINO && <button className="btn grigio" onClick={spostaTuttiInMagazzino}><Warehouse size={15} /> Sposta tutti i rimasti in Magazzino</button>}
+        {scelto !== MAGAZZINO && !tutti && <button className="btn grigio" onClick={spostaTuttiInMagazzino}><Warehouse size={15} /> Sposta tutti i rimasti in Magazzino</button>}
       </div>
 
       {!registro && !errore ? <p className="piccolo">Calcolo…</p> : (
         <table className="griglia tabella-registro">
           <thead>
-            <tr><th /><th>Materiale</th><th>UM</th><th className="destra">Ordinato</th><th className="destra">Ricevuto</th><th className="destra">Installato</th><th className="destra">Spostato</th><th className="destra">Rimasto</th><th /></tr>
+            <tr><th /><th>Materiale</th>{tutti && <th>Tecnico</th>}<th className="c-data">Data</th><th>UM</th><th className="destra">Ordinato</th><th className="destra c-ricevuto">Ricevuto</th><th className="destra">Installato</th><th className="destra c-spostato">Spostato</th><th className="destra">Rimasto</th><th /></tr>
           </thead>
           <tbody>
-            {elenco.map((r) => {
+            {elenco.map((r, i) => {
               const rim = rimasto(r);
+              const id = `${r.tec}-${r.chiave}`;
+              const gruppo = gruppoDi(r);
+              const colonne = tutti ? 11 : 10;
               return [
-                <tr key={r.chiave} className={rim > 0 ? "rimasto" : rim < 0 ? "in-piu" : ""}>
-                  <td><button className="link" onClick={() => setAperta(aperta === r.chiave ? null : r.chiave)} aria-label="Dettagli">{aperta === r.chiave ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button></td>
-                  <td>{r.descrizione}</td>
+                gruppo && gruppo !== (i ? gruppoDi(elenco[i - 1]) : null) && (
+                  <tr key={`${id}-g`} className="gruppo-registro"><td colSpan={colonne}>
+                    {ordine === "tecnico" && r.tec !== MAGAZZINO ? <span className="nome-tecnico">{gruppo}</span> : gruppo}
+                  </td></tr>
+                ),
+                <tr key={id} className={rim > 0 ? "rimasto" : rim < 0 ? "in-piu" : ""}>
+                  <td><button className="link" onClick={() => setAperta(aperta === id ? null : id)} aria-label="Dettagli">{aperta === id ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button></td>
+                  <td>{r.descrizione}{ordine !== "fornitore" && r.fornitori.length > 0 && <div className="piccolo fornitore-registro">{r.fornitori.join(", ")}</div>}</td>
+                  {tutti && <td>{r.tec === MAGAZZINO ? <><Warehouse size={13} /> Magazzino</> : <span className="nome-tecnico">{nomeDi(r.tec)}</span>}</td>}
+                  <td className="c-data">{r.ultima ? dataIt(r.ultima) : ""}</td>
                   <td>{r.um}</td>
                   <td className="destra">{r.ordinato ? fmt(r.ordinato) : ""}</td>
-                  <td className="destra">{r.ricevuto ? fmt(r.ricevuto) : ""}</td>
+                  <td className="destra c-ricevuto">{r.ricevuto ? fmt(r.ricevuto) : ""}</td>
                   <td className="destra">{r.installato ? fmt(r.installato) : ""}</td>
-                  <td className="destra">{r.spostato ? fmt(r.spostato) : ""}</td>
-                  <td className="destra"><b>{fmt(rim)}</b></td>
-                  <td>{rim > 0 && <button className="btn grigio piccolo-btn" onClick={() => setSposta({ riga: r, quantita: fmt(rim), a: scelto === MAGAZZINO ? (tecnici[0]?.id ?? MAGAZZINO) : MAGAZZINO, note: "" })}><ArrowRightLeft size={14} /> Sposta</button>}</td>
+                  <td className="destra c-spostato">{r.spostato ? fmt(r.spostato) : ""}</td>
+                  <td className="destra c-rimasto"><b>{fmt(rim)}</b></td>
+                  <td>{rim > 0 && <button className="btn grigio piccolo-btn" onClick={() => setSposta({ riga: r, da: r.tec, quantita: fmt(rim), a: r.tec === MAGAZZINO ? (tecnici[0]?.id ?? MAGAZZINO) : MAGAZZINO, note: "" })}><ArrowRightLeft size={14} /> Sposta</button>}</td>
                 </tr>,
-                aperta === r.chiave && (
-                  <tr key={`${r.chiave}-d`} className="dettaglio-registro"><td /><td colSpan={8}>
+                aperta === id && (
+                  <tr key={`${id}-d`} className="dettaglio-registro"><td /><td colSpan={colonne - 1}>
                     {r.ddt.length > 0 && <div><b>Ordinato in:</b> {r.ddt.join(" · ")}</div>}
                     {r.rapportini.length > 0 && <div><b>Installato in:</b> {r.rapportini.join(" · ")}</div>}
                     {rim < 0 && <div className="piccolo">Installato più di quanto ordinato nel periodo: preso dal Magazzino o ordinato in un periodo precedente.</div>}
@@ -231,7 +274,7 @@ export default function MaterialiTecnici() {
                 ),
               ];
             })}
-            {!elenco.length && <tr><td colSpan={9} className="piccolo">{soloRimasti ? "Nessun materiale rimasto in questo periodo." : "Nessun materiale in questo periodo."}</td></tr>}
+            {!elenco.length && <tr><td colSpan={tutti ? 11 : 10} className="piccolo">{soloRimasti ? "Nessun materiale rimasto in questo periodo." : "Nessun materiale in questo periodo."}</td></tr>}
           </tbody>
         </table>
       )}
@@ -241,11 +284,11 @@ export default function MaterialiTecnici() {
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
             <div className="finestra-titolo">Sposta materiale</div>
             <div className="finestra-corpo campi-sposta">
-              <p><b>{sposta.riga.descrizione}</b><br /><span className="piccolo">da {nomeDi(scelto)} · rimasti {fmt(rimasto(sposta.riga))} {sposta.riga.um}</span></p>
+              <p><b>{sposta.riga.descrizione}</b><br /><span className="piccolo">da {nomeDi(sposta.da)} · rimasti {fmt(rimasto(sposta.riga))} {sposta.riga.um}</span></p>
               <label>Quantità <input inputMode="decimal" value={sposta.quantita} onChange={(e) => setSposta({ ...sposta, quantita: e.target.value })} /></label>
               <label>A
                 <select value={sposta.a} onChange={(e) => setSposta({ ...sposta, a: Number(e.target.value) })}>
-                  {[MAGAZZINO, ...tecnici.map((t) => t.id)].filter((t) => t !== scelto).map((t) => <option key={t} value={t}>{nomeDi(t)}</option>)}
+                  {[MAGAZZINO, ...tecnici.map((t) => t.id)].filter((t) => t !== sposta.da).map((t) => <option key={t} value={t}>{nomeDi(t)}</option>)}
                 </select>
               </label>
               <label>Note <input value={sposta.note} onChange={(e) => setSposta({ ...sposta, note: e.target.value })} placeholder="es. reso in sede, scorta furgone…" /></label>
