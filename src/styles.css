@@ -1832,3 +1832,8 @@ span.filtro-marca { cursor: default; }
 .riga-ddt.gia-presa:not(.scelta) { opacity: .6; }
 .riga-ddt.gia-presa:not(.scelta) .quantita-ddt { visibility: hidden; }
 .carta-ddt .gia-inserito { margin-top: 4px; }
+/* Nomi dei tecnici: blu dappertutto (elenchi, schede, agenda, ricerca, DDT, amministrazione) */
+.nome-tecnico, .cella-tecnico { color: #1f5fbf; font-weight: 600; }
+.campo-tecnico input, .campo-tecnico select { color: #1f5fbf; font-weight: 600; }
+.scheda-tecnico.attiva .nome-tecnico { color: inherit; }
+.impegno .nome-tecnico { color: #1f5fbf; }

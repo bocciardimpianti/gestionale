@@ -157,7 +157,7 @@ export default function Utenti() {
                   return (
                     <label className="interruttore" title="Compare nei rapportini e in agenda, prende in carico le richieste, riceve le notifiche">
                       <input type="checkbox" checked={!!t} onChange={(e) => impostaTecnico(u, e.target.checked)} />
-                      {t ? t.nome : "No"}
+                      {t ? <span className="nome-tecnico">{t.nome}</span> : "No"}
                     </label>
                   );
                 })()}

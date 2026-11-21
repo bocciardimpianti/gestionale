@@ -111,7 +111,9 @@ export interface Archivio {
     campo: string;
     colonne: { chiave: string; titolo: string; larghezza: number; tipo?: "testo" | "numero" | "euro"; solaLettura?: boolean;
       // Calcolata dal database (campo calcolato nella "select"): si mostra ma non si salva
-      calcolata?: boolean }[];
+      calcolata?: boolean;
+      // Testo con il nome del tecnico tra parentesi (mostrato in blu)
+      conTecnici?: boolean }[];
     // Colonne da leggere per le righe (predefinito "*"); se manca un campo calcolato si legge "*"
     select?: string;
     // "chiave" è il campo appena modificato (assente per una riga nuova)
@@ -375,7 +377,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     tabella: "tecnici",
     chiaveImport: "nome",
     colonne: [
-      { chiave: "nome", titolo: "Tecnico", excel: "Tecnico", larghezza: 810 },
+      { chiave: "nome", titolo: "Tecnico", excel: "Tecnico", larghezza: 810, classe: "cella-tecnico" },
       { chiave: "id_tecnico", titolo: "ID Tecnico", excel: "ID Tecnico", larghezza: 812 },
     ],
     campi: [
@@ -908,7 +910,7 @@ export const ARCHIVI: Record<string, Archivio> = {
         { chiave: "sconto", titolo: "Sconto %", larghezza: 60, tipo: "numero" },
         { chiave: "iva", titolo: "Iva", larghezza: 55, tipo: "numero" },
         { chiave: "totale_ivato", titolo: "Totale Ivato", larghezza: 90, tipo: "euro", solaLettura: true },
-        { chiave: "in_rapportini", titolo: "Inserito nel rapportino", larghezza: 380, solaLettura: true, calcolata: true },
+        { chiave: "in_rapportini", titolo: "Inserito nel rapportino", larghezza: 380, solaLettura: true, calcolata: true, conTecnici: true },
       ],
       ricalcola: (r) => {
         const q = n(r.quantita);
@@ -978,7 +980,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "descrizione", titolo: "Descrizione richiesta", excel: "Descrizione richiesta", larghezza: 420 },
       { chiave: "urgente", titolo: "Urgente", excel: "Urgente", larghezza: 70, tipo: "booleano" },
       { chiave: "stato", titolo: "Stato", excel: "Stato", larghezza: 120, tipo: "stato" },
-      { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 150, riferimento: { campo: "tecnico_id", tabella: "tecnici" } },
+      { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 150, riferimento: { campo: "tecnico_id", tabella: "tecnici" }, classe: "cella-tecnico" },
       { chiave: "presa_in_carico_il", titolo: "Presa in carico", excel: "Presa in carico", larghezza: 100, tipo: "data" },
       { chiave: "telefono", titolo: "Telefono", excel: "Telefono", larghezza: 120 },
     ],

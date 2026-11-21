@@ -5,6 +5,7 @@ import { useIndietroChiude } from "../telefono";
 import { pulisciRicerca } from "../testo";
 import { Miniatura } from "./CampoImmagine";
 import { useFotoMateriali } from "../fotoMateriali";
+import { TestoConTecnici } from "./NomeTecnico";
 
 // "Aggiungi da DDT" nel rapportino: si sceglie un DDT di acquisto (del giorno o tra tutti),
 // poi i suoi materiali da aggiungere con la quantità. I DDT presi dal tecnico del rapportino hanno il bordo rosso.
@@ -145,7 +146,7 @@ export default function AggiungiDaDdt({ tecnicoId, data, onAggiungi, onChiudi }:
                           {r.descrizione}{!r.materiale_id && <span className="piccolo"> (non in magazzino: riga libera)</span>}
                           {presa(r) > 0 && (
                             <span className={`gia-inserito${tuttaPresa(r) ? "" : " in-parte"}`}>
-                              {tuttaPresa(r) ? "✓ Già inserito" : `Già inseriti ${testoQ(presa(r))} su ${testoQ(Number(r.quantita ?? 0))}`}: {r.presa_in}
+                              {tuttaPresa(r) ? "✓ Già inserito" : `Già inseriti ${testoQ(presa(r))} su ${testoQ(Number(r.quantita ?? 0))}`}: <TestoConTecnici testo={r.presa_in ?? ""} />
                             </span>
                           )}
                         </span>

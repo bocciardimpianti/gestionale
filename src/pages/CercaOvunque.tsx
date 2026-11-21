@@ -207,7 +207,7 @@ export default function CercaOvunque() {
                   return (
                     <button type="button" key={r.id} className={`risultato${evidenza ? " in-evidenza" : ""}`} onClick={() => apri(g, r)}>
                       <b>{d.titolo}</b>
-                      <span>{d.dettagli.filter(Boolean).join(" · ")}</span>
+                      <span><Dettagli dettagli={d.dettagli} /></span>
                     </button>
                   );
                 })}
@@ -226,7 +226,7 @@ export default function CercaOvunque() {
             return (
               <button type="button" key={r.id} className="risultato" onClick={() => apri(g, r)}>
                 <b>{d.titolo}</b>
-                <span>{d.dettagli.filter(Boolean).join(" · ")}</span>
+                <span><Dettagli dettagli={d.dettagli} /></span>
               </button>
             );
           })}
@@ -246,4 +246,11 @@ export default function CercaOvunque() {
       )}
     </div>
   );
+}
+
+// Dettagli separati da " · ", con il nome del tecnico ("Tecnico: …") in blu
+function Dettagli({ dettagli }: { dettagli: string[] }) {
+  return <>{dettagli.filter(Boolean).map((d, i) => (
+    <span key={i}>{i > 0 && " · "}{d.startsWith("Tecnico: ") ? <>Tecnico: <span className="nome-tecnico">{d.slice(9)}</span></> : d}</span>
+  ))}</>;
 }

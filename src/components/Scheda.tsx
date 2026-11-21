@@ -6,6 +6,7 @@ import { useAuth } from "../auth";
 import { ARCHIVI, type Archivio, type Campo } from "../archivi";
 import type { Cartella } from "../pages/PaginaArchivio";
 import GestioneElenco from "./GestioneElenco";
+import { TestoConTecnici } from "./NomeTecnico";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
 import CampoImmagine, { immagineDa, Miniatura, urlFirmato } from "./CampoImmagine";
 import { useFotoMateriali } from "../fotoMateriali";
@@ -535,7 +536,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     else controllo = <input {...props} />;
 
     return (
-      <div key={c.chiave} className={`cornice${c.finisciRiga ? " fine-riga" : ""}`} data-chiave={c.chiave} data-larghezza={c.larghezza ?? 2}
+      <div key={c.chiave} className={`cornice${c.finisciRiga ? " fine-riga" : ""}${c.riferimentoA === "tecnici" || c.chiave === "tecnico_vecchio" ? " campo-tecnico" : ""}`} data-chiave={c.chiave} data-larghezza={c.larghezza ?? 2}
         style={{ gridColumn: c.larghezza === 4 ? "1 / -1" : `${aCapo ? "1 / " : ""}span ${(c.larghezza ?? 2) * 2}` }}>
         <label htmlFor={props.id}>{c.etichetta}</label>
         {controllo}
@@ -625,7 +626,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
               const altre = rc.colonne.filter((c) => ["prezzo", "ricarico", "costo", "sconto", "iva"].includes(c.chiave)).slice(0, 2);
               const campo = (r: Record<string, unknown>, i: number, c: typeof rc.colonne[number]) =>
                 c.solaLettura || !modificabile ? (
-                  <span className="valore-riga">{c.tipo === "euro" ? euro(r[c.chiave]) : String(r[c.chiave] ?? "")}</span>
+                  <span className="valore-riga">{c.tipo === "euro" ? euro(r[c.chiave]) : c.conTecnici ? <TestoConTecnici testo={String(r[c.chiave] ?? "")} /> : String(r[c.chiave] ?? "")}</span>
                 ) : (
                   <input type={c.tipo && c.tipo !== "testo" ? "number" : "text"} inputMode={c.tipo && c.tipo !== "testo" ? "decimal" : undefined} step="0.01"
                     aria-label={c.titolo}
@@ -694,7 +695,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                   {rc.colonne.map((c) => (
                     <td key={c.chiave} className={c.tipo && c.tipo !== "testo" ? "destra" : ""}>
                       {c.solaLettura || !modificabile ? (
-                        c.tipo === "euro" ? euro(r[c.chiave]) : String(r[c.chiave] ?? "")
+                        c.tipo === "euro" ? euro(r[c.chiave]) : c.conTecnici ? <TestoConTecnici testo={String(r[c.chiave] ?? "")} /> : String(r[c.chiave] ?? "")
                       ) : (
                         <input
                           type={c.tipo && c.tipo !== "testo" ? "number" : "text"}

@@ -188,7 +188,7 @@ export default function MaterialiTecnici() {
           const rimasti = righe.filter((r) => rimasto(r) > 0).length;
           return (
             <button key={t} className={`scheda-tecnico${t === scelto ? " attiva" : ""}${t === MAGAZZINO ? " magazzino" : ""}`} onClick={() => { setScelto(t); setAperta(null); }}>
-              <b>{t === MAGAZZINO ? <><Warehouse size={15} /> Magazzino</> : nomeDi(t)}</b>
+              <b>{t === MAGAZZINO ? <><Warehouse size={15} /> Magazzino</> : <span className="nome-tecnico">{nomeDi(t)}</span>}</b>
               <span>{registro ? `${rimasti} ${rimasti === 1 ? "materiale rimasto" : "materiali rimasti"}` : "…"}</span>
               <span className="piccolo">{registro ? `${fmt(righe.reduce((s, r) => s + r.ordinato, 0))} ordinati · ${fmt(righe.reduce((s, r) => s + r.installato, 0))} installati` : ""}</span>
             </button>

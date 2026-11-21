@@ -274,7 +274,7 @@ export default function Agenda() {
                       }}
                     />
                     <span className="pallino" style={{ background: t.id ? colore(t.id) : colore(null) }} />
-                    {t.nome}
+                    <span className={t.id ? "nome-tecnico" : ""}>{t.nome}</span>
                   </label>
                 ))}
               </div>
@@ -358,7 +358,7 @@ export default function Agenda() {
             <div className="anteprima-dati">
               <span>🕒 {new Date(`${anteprima.data}T12:00:00`).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
                 {anteprima.ora_inizio ? `, ${hhmm(anteprima.ora_inizio)}${anteprima.ora_fine && hhmm(anteprima.ora_fine) !== hhmm(anteprima.ora_inizio) ? ` – ${hhmm(anteprima.ora_fine)}` : ""}` : ""}</span>
-              <span style={{ color: colore(anteprima.tecnico_id), fontWeight: 700 }}>👷 {nomeTecnico(anteprima.tecnico_id)}</span>
+              <span style={{ fontWeight: 700 }}>👷 <span className="nome-tecnico">{nomeTecnico(anteprima.tecnico_id)}</span></span>
               {anteprima.numero ? <span>Rapportino n. {anteprima.numero}{anteprima.stato ? ` · ${anteprima.stato}` : ""}</span> : null}
             </div>
             {anteprima.attivita && <p className="anteprima-attivita">{anteprima.attivita}</p>}
@@ -506,15 +506,15 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
     <div key={c.chiave} className={`intestazione-colonna${classeColonna(c)}`} title={c.tecnico ? nomeTecnico(c.tecnico) : undefined}
       style={strette && c.tecnico ? { borderTop: `3px solid ${colore(c.tecnico)}` } : undefined}>
       {strette && c.tecnico
-        ? <div><span className="nome-lungo">{c.titolo}</span><span className="iniziali" style={{ color: colore(c.tecnico) }}>{iniziali(nomeTecnico(c.tecnico))}</span></div>
-        : <div>{c.titolo}</div>}
+        ? <div><span className="nome-lungo nome-tecnico">{c.titolo}</span><span className="iniziali nome-tecnico">{iniziali(nomeTecnico(c.tecnico))}</span></div>
+        : <div className={c.tecnico ? "nome-tecnico" : undefined}>{c.titolo}</div>}
       {c.sotto && <div className="sotto">{c.sotto}</div>}
       {/* Rapporti senza orario: in cima alla colonna */}
       <div className="senza-orario">
         {perColonna(c).filter((i) => minuti(i.ora_inizio) === null).map((i) => (
           <button key={i.id} className="impegno" style={{ borderLeftColor: colore(i.tecnico_id) }} onClick={() => onApri(i.id)}
             title={`${etichetta(i)}\n${i.attivita ?? ""}`}>
-            {mostraTecnico && <b>{nomeTecnico(i.tecnico_id)}: </b>}{etichetta(i)}
+            {mostraTecnico && <><b className="nome-tecnico">{nomeTecnico(i.tecnico_id)}</b>: </>}{etichetta(i)}
           </button>
         ))}
       </div>
@@ -576,7 +576,7 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
                   title={`${strette ? `${nomeTecnico(e.i.tecnico_id)}\n` : ""}${etichetta(e.i)}\n${e.i.attivita ?? ""}${e.i.stato ? `\nStato: ${e.i.stato}` : ""}`}
                   onClick={() => onApri(e.i.id)}
                 >
-                  {mostraTecnico && <b>{nomeTecnico(e.i.tecnico_id)}</b>}
+                  {mostraTecnico && <b className="nome-tecnico">{nomeTecnico(e.i.tecnico_id)}</b>}
                   <span className="orario">{orario(e.i)}</span>
                   <span className="cliente">{e.i.cliente?.nome ?? "(senza cliente)"}</span>
                   {strette && <span className="inizio-breve">{hhmm(e.i.ora_inizio)}</span>}
