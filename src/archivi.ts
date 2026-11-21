@@ -645,6 +645,9 @@ export const ARCHIVI: Record<string, Archivio> = {
       // Unità esterna del climatizzatore montata: foto della targhetta con la matricola (script 0041)
       { chiave: "foto_matricola", etichetta: "Foto matricola unità esterna", tipo: "foto", larghezza: 2, linguetta: "Dettaglio" },
       { chiave: "matricola_da_fare", etichetta: "Foto matricola da fare", tipo: "booleano", larghezza: 1, linguetta: "Dettaglio" },
+      // Gas refrigerante aggiunto montando un climatizzatore (chiesto al salvataggio; script 0045)
+      { chiave: "gas_aggiunto_kg", etichetta: "Gas aggiunto (kg)", tipo: "numero", larghezza: 1, linguetta: "Dettaglio" },
+      { chiave: "tipo_gas", etichetta: "Tipo di gas", tipo: "scelta", opzioniFisse: ["R32", "R410A", "R290", "R454B", "R134A", "R407C", "R22"], larghezza: 1, linguetta: "Dettaglio" },
       {
         chiave: "tariffa", etichetta: "Tariffa", tipo: "scelta", opzioniDa: "tariffe", titoloOpzioni: "Tariffe", larghezza: 1, linguetta: "Tariffe",
         copiaDaOpzione: ["diritto_chiamata", "tariffa_fissa", "tariffa_oraria", "tariffa_km"],

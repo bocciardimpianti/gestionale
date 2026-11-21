@@ -24,3 +24,10 @@ export function testoUnitaInterne(righe: { descrizione?: unknown; quantita?: unk
   }
   return [...per.entries()].map(([d, q]) => `${q.toLocaleString("it-IT")} × ${d}`).join("; ");
 }
+
+export const GAS_REFRIGERANTI = ["R32", "R410A", "R290", "R454B", "R134A", "R407C", "R22"];
+/** Gas scritto nella descrizione della macchina (es. "… R32 …" → "R32") */
+export function gasDaDescrizione(descrizione: unknown) {
+  const m = String(descrizione ?? "").match(/\bR-?\s?(32|410\s?A|290|454\s?B|134\s?A|407\s?C|22)\b/i);
+  return m ? `R${m[1].replace(/\s/g, "").toUpperCase()}` : "";
+}

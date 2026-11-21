@@ -10,7 +10,7 @@ import { TestoConTecnici } from "./NomeTecnico";
 import CampoDocumento from "./CampoDocumento";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
 import CampoImmagine, { immagineDa, Miniatura, riduci, urlFirmato } from "./CampoImmagine";
-import { eUnitaEsterna, testoUnitaInterne } from "../clima";
+import { eUnitaEsterna, gasDaDescrizione, GAS_REFRIGERANTI, testoUnitaInterne } from "../clima";
 import { useFotoMateriali } from "../fotoMateriali";
 import { dirittoPerCliente } from "../distanze";
 import CercaMateriale from "./CercaMateriale";
@@ -195,6 +195,15 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     setDati((d) => ({ ...d, matricola_da_fare: true }));
   };
   const salvaDopoMatricola = useRef(false);
+  // Climatizzatore montato: al salvataggio si chiede se è stato aggiunto gas refrigerante (kg e tipo)
+  const [chiediGas, setChiediGas] = useState<{ kg: string; tipo: string; si: boolean } | null>(null);
+  const rispostaGas = (kg: number) => {
+    const tipo = chiediGas?.tipo || null;
+    setChiediGas(null);
+    segna();
+    salvaDopoDiritto.current = true; // si salva appena il dato è aggiornato
+    setDati((d) => ({ ...d, gas_aggiunto_kg: kg, ...(kg > 0 && tipo ? { tipo_gas: tipo } : {}) }));
+  };
   // Foto della matricola scattata o scelta dalla galleria; se la richiesta era arrivata salvando, si salva subito
   const caricaMatricola = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -326,6 +335,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     if (!modificabile) return;
     if (manca && !dati.matricola_da_fare) {
       setChiediMatricola({ descrizione: String(unitaEsterna!.descrizione ?? ""), salvando: true });
+      return;
+    }
+    if (unitaEsterna && vuoto(dati.gas_aggiunto_kg) && tuttiCampi.some((c) => c.chiave === "gas_aggiunto_kg")) {
+      setChiediGas({ kg: "", tipo: String(dati.tipo_gas ?? "") || gasDaDescrizione(unitaEsterna.descrizione) || "R32", si: false });
       return;
     }
     if (dirittoAuto.current && !dirittoDeciso.current && dirittoAuto.current.importo > 0
@@ -975,6 +988,47 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           </>
         )}
       </form>
+      {chiediGas && (
+        <div className="velo chiedi-salva-velo" onMouseDown={(e) => { e.stopPropagation(); setChiediGas(null); }}>
+          <div className="finestra chiedi-salva finestra-matricola finestra-gas" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo">❄️ Gas refrigerante</div>
+            <div className="finestra-corpo">
+              <p>È stato montato un climatizzatore ({String(unitaEsterna?.descrizione ?? "")}).</p>
+              <p><b>È stato aggiunto del gas refrigerante?</b></p>
+              {chiediGas.si && (
+                <div className="campi-gas">
+                  <label>Kg aggiunti
+                    <input inputMode="decimal" autoFocus value={chiediGas.kg} placeholder="es. 0,35"
+                      onChange={(e) => setChiediGas({ ...chiediGas, kg: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === "Enter") { const n = Number(chiediGas.kg.replace(",", ".")); if (n > 0) rispostaGas(n); } }} />
+                  </label>
+                  <label>Tipo di gas
+                    <select value={chiediGas.tipo} onChange={(e) => setChiediGas({ ...chiediGas, tipo: e.target.value })}>
+                      {GAS_REFRIGERANTI.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </label>
+                </div>
+              )}
+            </div>
+            <div className="finestra-piede piede-diritto">
+              {!chiediGas.si ? (
+                <>
+                  <button type="button" className="btn grigio" onClick={() => rispostaGas(0)}>No, nessun gas aggiunto</button>
+                  <span style={{ flex: 1 }} />
+                  <button type="button" className="btn blu" autoFocus onClick={() => setChiediGas({ ...chiediGas, si: true })}>Sì, è stato aggiunto</button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="btn grigio" onClick={() => setChiediGas({ ...chiediGas, si: false })}>Indietro</button>
+                  <span style={{ flex: 1 }} />
+                  <button type="button" className="btn blu" disabled={!(Number(chiediGas.kg.replace(",", ".")) > 0)}
+                    onClick={() => rispostaGas(Number(chiediGas.kg.replace(",", ".")))}>Conferma e salva</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {chiediMatricola && (
         <div className="velo chiedi-salva-velo" onMouseDown={(e) => { e.stopPropagation(); setChiediMatricola(null); }}>
           <div className="finestra chiedi-salva finestra-matricola" onMouseDown={(e) => e.stopPropagation()}>

@@ -1971,3 +1971,6 @@ tr.oltre .barra-soglia span { background: #e5484d; }
 .comandi-documento { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 .contenuto-documento .btn { display: inline-flex; align-items: center; gap: 5px; }
 .documento-pronto { font-size: 13px; color: var(--ok); font-weight: 600; }
+.campi-gas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.campi-gas label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--tenue); }
+.campi-gas input, .campi-gas select { height: 40px; border: 1px solid var(--bordo-forte, #bbb); border-radius: 8px; padding: 0 10px; font-size: 16px; color: var(--testo); }
