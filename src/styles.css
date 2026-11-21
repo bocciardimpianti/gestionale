@@ -1953,3 +1953,11 @@ tr.oltre .barra-soglia span { background: #e5484d; }
 .comandi-immagine button.con-testo { width: auto !important; height: 40px !important; border-radius: 20px; padding: 0 12px; gap: 5px; display: inline-flex; align-items: center; font-size: 13.5px; font-weight: 600; color: var(--ottanio-scuro); border-color: var(--ottanio); }
 .comandi-immagine { flex-wrap: wrap; }
 .avviso-matricola .btn + .btn { margin-left: 6px; }
+/* Tablet (schermo largo ma touch): riquadro foto alto quanto serve, "Scatta" e "Galleria" affiancati sotto il nome */
+@media (pointer: coarse) {
+  .cornice-immagine { height: auto; min-height: 96px; }
+  .cornice-immagine .contenuto-immagine { flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0 8px; }
+  .cornice-immagine .comandi-immagine { flex-wrap: nowrap; flex: none; }
+  .cornice-immagine .comandi-immagine button.con-testo { height: 38px !important; }
+  .cornice-immagine .suggerimento-foto { flex: 1 1 160px; white-space: normal; }
+}
