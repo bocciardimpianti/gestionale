@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ICONE } from "../Layout";
 import { useTelefono } from "../telefono";
 import { elencoAggiornato, elencoSalvato } from "../cacheElenchi";
 import readXlsxFile from "read-excel-file";
@@ -475,10 +476,11 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     : vista.tipo === "archivio" ? `${cfg.titolo} - ${vista.nome}`
     : rapida ? `${cfg.titolo} - ${rapida.nome}` : cfg.titolo;
 
+  const IconaSezione = ICONE[cfg.sezione];
   return (
     <div className="pagina-archivio" onClick={() => menu && setMenu("")}>
       <div className="testata">
-        <h1>{titoloVista}</h1>
+        <h1>{IconaSezione && <span className="icona-titolo"><IconaSezione size={20} strokeWidth={2} /></span>}{titoloVista}</h1>
         <div className="ricerca">
           <select value={colonnaRicerca} onChange={(e) => setColonnaRicerca(e.target.value)} title="Colonna in cui cercare">
             <option value="">Tutte le colonne</option>

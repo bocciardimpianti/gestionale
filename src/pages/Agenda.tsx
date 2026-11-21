@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QUERY as QUERY_TELEFONO } from "../telefono";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Printer, RefreshCw, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Printer, RefreshCw, X } from "lucide-react";
 import { dataIso, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { ARCHIVI } from "../archivi";
@@ -226,7 +226,7 @@ export default function Agenda() {
       </div>
       <div className="solo-stampa piede-riservato">{DICITURA_RISERVATA} – {AZIENDA.nome}</div>
       <div className="testata">
-        <h1>Agenda</h1>
+        <h1><span className="icona-titolo"><CalendarDays size={20} strokeWidth={2} /></span>Agenda</h1>
         <div className="pulsanti" onClick={(e) => e.stopPropagation()}>
           <div className="tendina">
             <button className="btn giallo con-punta" onClick={() => setMenu(menu === "vista" ? "" : "vista")}>

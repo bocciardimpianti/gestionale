@@ -86,6 +86,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   // Richieste di intervento ancora aperte: contatore accanto alla voce del menu
   const [richiesteAperte, setRichiesteAperte] = useState(0);
   const percorsoAttuale = useLocation().pathname;
+  // Colore della sezione aperta (lo stesso della sua icona nel menu): colora la barra in alto della pagina
+  const chiaveSezione = percorsoAttuale === "/" ? "home" : percorsoAttuale.startsWith("/s/") ? percorsoAttuale.slice(3).split("/")[0]
+    : percorsoAttuale.startsWith("/admin/") ? percorsoAttuale.slice(1) : percorsoAttuale === "/preventivo-guidato" ? "preventivi" : "";
+  const coloreSezione = COLORI_ICONE[chiaveSezione];
   const vedeRichieste = puo("richieste", "vedere");
   useEffect(() => {
     if (!vedeRichieste) return;
@@ -250,7 +254,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </aside>
       {tavolozza && <TavolozzaComandi comandi={comandi} onChiudi={() => setTavolozza(false)} cercaOvunque={(t) => naviga(`/cerca?q=${encodeURIComponent(t)}`)} />}
 
-      <main className="centro">{children}</main>
+      <main className={`centro${coloreSezione ? " con-colore" : ""}`} style={coloreSezione ? { "--colore-sezione": coloreSezione } as React.CSSProperties : undefined}>{children}</main>
 
       <footer className="barra-bassa">
         <div className="gruppo-icone">
