@@ -10,7 +10,7 @@ import { TestoConTecnici } from "./NomeTecnico";
 import CampoDocumento from "./CampoDocumento";
 import AggiungiDaDdt, { type MaterialeDaDdt } from "./AggiungiDaDdt";
 import CampoImmagine, { immagineDa, Miniatura, riduci, urlFirmato } from "./CampoImmagine";
-import { eUnitaEsterna } from "../clima";
+import { eUnitaEsterna, testoUnitaInterne } from "../clima";
 import { useFotoMateriali } from "../fotoMateriali";
 import { dirittoPerCliente } from "../distanze";
 import CercaMateriale from "./CercaMateriale";
@@ -392,7 +392,10 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     const id = risposta.data.id;
     // Unità esterna installata: il rapportino entra (o si aggiorna) nella sezione F-gas (script 0042)
     if (cfg.sezione === "rapporti" && unitaEsterna) {
-      await supabase.rpc("registra_fgas", { p_rapporto: id, p_macchina: String(unitaEsterna.descrizione ?? "") });
+      const macchina = String(unitaEsterna.descrizione ?? "");
+      const { error } = await supabase.rpc("registra_fgas", { p_rapporto: id, p_macchina: macchina, p_interne: testoUnitaInterne(righe) });
+      // Senza lo script 0043 (unità interne) si registra come prima
+      if (error) await supabase.rpc("registra_fgas", { p_rapporto: id, p_macchina: macchina });
     }
     if (cfg.sezione === "rapporti" && prelieviDdt.current.length) {
       const { error } = await supabase.rpc("registra_prelievi_ddt", { p_rapporto: id, p_righe: prelieviDdt.current });
