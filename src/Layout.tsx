@@ -91,6 +91,20 @@ export default function Layout({ children }: { children: ReactNode }) {
     : percorsoAttuale.startsWith("/admin/") ? percorsoAttuale.slice(1) : percorsoAttuale === "/preventivo-guidato" ? "preventivi" : "";
   const coloreSezione = COLORI_ICONE[chiaveSezione];
   const vedeRichieste = puo("richieste", "vedere");
+  // Conti Clienti: quanti clienti hanno superato la soglia di avviso (numero rosso nel menu)
+  const [contiOltre, setContiOltre] = useState(0);
+  const vedeConti = puo("conti_clienti", "vedere");
+  useEffect(() => {
+    if (!vedeConti) return;
+    let attivo = true;
+    const conta = () => supabase.rpc("conti_clienti").then(({ data, error }) => {
+      if (attivo && !error) setContiOltre(((data ?? []) as { oltre: boolean }[]).filter((c) => c.oltre).length);
+    });
+    conta();
+    const ogni = setInterval(conta, 10 * 60 * 1000);
+    window.addEventListener("conti-aggiornati", conta);
+    return () => { attivo = false; clearInterval(ogni); window.removeEventListener("conti-aggiornati", conta); };
+  }, [vedeConti]);
   useEffect(() => {
     if (!vedeRichieste) return;
     let attivo = true;
@@ -223,14 +237,14 @@ export default function Layout({ children }: { children: ReactNode }) {
               {(!chiusi[g.nome] || stretto) &&
                 g.voci.map((s) => {
                   const Icona = ICONE[s.chiave] ?? iconaAdmin[s.chiave] ?? FileText;
-                  const contatore = s.chiave === "richieste" ? richiesteAperte : 0;
+                  const contatore = s.chiave === "richieste" ? richiesteAperte : s.chiave === "conti_clienti" ? contiOltre : 0;
                   return (
                     <NavLink key={s.chiave} to={percorso(s.chiave)} end className="voce" title={s.etichetta}>
                       <span className="icona-voce" style={{ "--colore-icona": COLORI_ICONE[s.chiave] ?? "#cfd8dc" } as React.CSSProperties}>
                         <Icona size={16} strokeWidth={2} />
                       </span>
                       <span className="testo-voce">{s.etichetta}</span>
-                      {contatore > 0 && <span className="contatore" title={`${contatore} richieste aperte`}>{contatore > 99 ? "99+" : contatore}</span>}
+                      {contatore > 0 && <span className="contatore" title={s.chiave === "conti_clienti" ? `${contatore} clienti oltre la soglia del conto` : `${contatore} richieste aperte`}>{contatore > 99 ? "99+" : contatore}</span>}
                     </NavLink>
                   );
                 })}

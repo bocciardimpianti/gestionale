@@ -1873,3 +1873,64 @@ span.filtro-marca { cursor: default; }
   .pagina-archivio .testata .ricerca { order: 3; flex: 1 0 100%; max-width: none; margin-left: 0; height: 36px; }
   .pagina-archivio .testata .pulsanti { margin-left: auto; }
 }
+/* Conti Clienti */
+.riepilogo-conti { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.carta-conto { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; background: var(--carta); border: 1px solid var(--bordo); text-align: left; font: inherit; color: var(--testo); }
+button.carta-conto { cursor: pointer; }
+.carta-conto > span:first-child { font-size: 12.5px; color: var(--tenue); display: flex; align-items: center; gap: 5px; }
+.carta-conto b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.carta-conto small { color: var(--tenue); }
+.carta-conto.allarme { border-color: #e5484d; background: #fdecea; }
+.carta-conto.allarme > span:first-child, .carta-conto.allarme b { color: #b42318; }
+.carta-conto.attiva { box-shadow: 0 0 0 3px rgba(229, 72, 77, .3); }
+.campo-soglia { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.campo-soglia input { width: 90px; height: 30px; text-align: right; border: 1px solid var(--bordo); border-radius: 6px; padding: 0 6px; font-size: 14px; }
+.carta-conto .campo-soglia input { width: 110px; font-size: 18px; font-weight: 700; height: 34px; }
+.tabella-conti { width: 100%; border-collapse: collapse; background: var(--carta); }
+.tabella-conti > tbody > tr:not(.dettaglio-conto) { cursor: pointer; }
+.tabella-conti > tbody > tr:not(.dettaglio-conto):hover td { background: var(--ottanio-tenue); }
+.tabella-conti td, .tabella-conti th { padding: 7px 8px; border-bottom: 1px solid var(--bordo); vertical-align: middle; }
+.tabella-conti tr.oltre > td { background: #fff4f3; }
+.tabella-conti tr.oltre b { color: #b42318; }
+.tabella-conti td.freccia { width: 24px; color: var(--tenue); }
+.bollino-oltre { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; font-size: 11.5px; font-weight: 700; color: #fff; background: #e5484d; border-radius: 999px; padding: 1px 8px; vertical-align: middle; }
+.importo-conto { min-width: 150px; }
+.importo-conto b { font-size: 15.5px; font-variant-numeric: tabular-nums; }
+.barra-soglia { display: block; height: 5px; border-radius: 3px; background: var(--sfondo); margin-top: 4px; overflow: hidden; }
+.barra-soglia span { display: block; height: 100%; background: var(--ottanio); border-radius: 3px; }
+tr.oltre .barra-soglia span { background: #e5484d; }
+.dettaglio-conto > td { background: #fafcfc; padding: 10px 12px 14px 32px !important; }
+.rapporti-conto { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rapporti-conto th, .rapporti-conto td { padding: 5px 6px; border-bottom: 1px solid #edf0f1; }
+.attivita-conto { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.azioni-conto { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .tabella-conti thead { display: none; }
+  .tabella-conti > tbody > tr:not(.dettaglio-conto) { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "f c i" "f d s"; padding: 8px 4px; border-bottom: 1px solid var(--bordo); }
+  .tabella-conti > tbody > tr:not(.dettaglio-conto) > td { border: none; padding: 2px 4px; }
+  .tabella-conti > tbody > tr > td.freccia { grid-area: f; }
+  .tabella-conti > tbody > tr > td:nth-child(2) { grid-area: c; }
+  .tabella-conti > tbody > tr > td:nth-child(3) { display: none; }
+  .tabella-conti > tbody > tr > td:nth-child(4) { grid-area: d; font-size: 12px; color: var(--tenue); }
+  .tabella-conti > tbody > tr > td:nth-child(4)::before { content: "dal "; }
+  .tabella-conti > tbody > tr > td.importo-conto { grid-area: i; min-width: 0; }
+  .tabella-conti > tbody > tr > td:nth-child(6) { grid-area: s; justify-self: end; }
+  .dettaglio-conto, .dettaglio-conto > td { display: block; padding: 8px !important; }
+  .rapporti-conto thead { display: none; }
+  .rapporti-conto tr { display: grid; grid-template-columns: 26px auto 1fr auto 30px; grid-template-areas: "s n d i l" "s t t t t" "s a a a a"; gap: 2px 8px; padding: 7px 0; border-bottom: 1px solid #edf0f1; align-items: center; }
+  .rapporti-conto td { border: none; padding: 0; }
+  .rapporti-conto td.sel { grid-area: s; align-self: start; }
+  .rapporti-conto td.num { grid-area: n; font-weight: 600; }
+  .rapporti-conto td.data { grid-area: d; color: var(--tenue); font-size: 12.5px; }
+  .rapporti-conto td.imp { grid-area: i; font-weight: 700; }
+  .rapporti-conto td.apri { grid-area: l; }
+  .rapporti-conto td.tec { grid-area: t; font-size: 13px; color: #1f5fbf; }
+  .dettaglio-conto > td { display: block !important; }
+  .rapporti-conto td.fatto { display: none; }
+  .attivita-conto { grid-area: a; max-width: none; white-space: normal; font-size: 12.5px; color: var(--tenue); }
+  .riepilogo-conti { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .riepilogo-conti .carta-conto:last-child { grid-column: 1 / -1; }
+  .carta-conto { padding: 9px 11px; }
+  .carta-conto b { font-size: 20px; }
+  .pagina-conti .testata .pulsanti { display: none; }
+}

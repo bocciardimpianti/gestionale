@@ -19,7 +19,7 @@ import { categoriaDa } from "../categorie";
 import { stampaEtichette } from "../etichette";
 import { prendiInCarico } from "../archivi";
 import BannerNotifiche from "../components/BannerNotifiche";
-import { avvisaRichiesta } from "../notifiche";
+import { avvisaRichiesta, controllaConti } from "../notifiche";
 import FiltriCategoria from "../components/FiltriCategoria";
 import { linkWhatsapp } from "../whatsapp";
 import { Miniatura } from "../components/CampoImmagine";
@@ -647,6 +647,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           onSalvato={(id) => {
             // Richiesta salvata: avviso sul telefono al tecnico scelto, o a tutti i tecnici se non è assegnata
             if (cfg.sezione === "richieste") avvisaRichiesta(id).then((m) => { if (m) setMessaggio(m); });
+            // Rapportino salvato: controllo dei conti clienti oltre la soglia (avviso agli amministratori)
+            if (cfg.sezione === "rapporti") controllaConti();
             // Rapportino creato da una richiesta di intervento: la richiesta diventa "Completata"
             if (scheda?._richiesta_id && scheda.id === undefined) {
               supabase.rpc("completa_richiesta", { p_richiesta: scheda._richiesta_id, p_rapporto: id })

@@ -96,3 +96,13 @@ export async function avvisaRichiesta(id: number): Promise<string> {
   if (!nomi.length) return "Nessun tecnico da avvisare: collega gli utenti ai tecnici e attiva le notifiche sui loro telefoni";
   return data.inviate ? `Avviso inviato a ${nomi.join(", ")}` : `${nomi.join(", ")}: notifiche non ancora attivate sul telefono`;
 }
+
+// Conti clienti: dopo un rapportino salvato (o aprendo Conti Clienti) si controlla se qualche cliente è appena andato
+// oltre la soglia; la funzione "notifiche" avvisa gli amministratori una volta sola per cliente. Silenzioso se non va.
+let ultimoControlloConti = 0;
+export function controllaConti() {
+  window.dispatchEvent(new Event("conti-aggiornati"));
+  if (Date.now() - ultimoControlloConti < 30_000) return;
+  ultimoControlloConti = Date.now();
+  supabase.functions.invoke("notifiche", { body: { azione: "conti" } }).catch(() => {});
+}

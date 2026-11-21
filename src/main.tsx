@@ -16,6 +16,7 @@ import Layout from "./Layout";
 import PaginaArchivio from "./pages/PaginaArchivio";
 import { ARCHIVI } from "./archivi";
 import Agenda from "./pages/Agenda";
+import ContiClienti from "./pages/ContiClienti";
 import { seguiTastiera } from "./telefono";
 import "./styles.css";
 import CercaOvunque from "./pages/CercaOvunque";
@@ -98,6 +99,7 @@ function PaginaSezione() {
   if (!sezione || !puo(chiave, "vedere")) return <p className="errore">Non hai accesso a questa sezione.</p>;
   if (ARCHIVI[chiave]) return <PaginaArchivio key={chiave} cfg={ARCHIVI[chiave]} />;
   if (chiave === "agenda") return <Agenda />;
+  if (chiave === "conti_clienti") return <ContiClienti />;
   return (
     <>
       <h2>{sezione.etichetta}</h2>

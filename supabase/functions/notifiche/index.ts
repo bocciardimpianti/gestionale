@@ -1,7 +1,8 @@
-// Funzione server: notifiche sul telefono (Web Push) per le richieste di intervento.
+// Funzione server: notifiche sul telefono (Web Push) per le richieste di intervento e i conti dei clienti.
 // - "chiave": chiave pubblica per iscrivere il dispositivo (la coppia di chiavi viene creata la prima volta e resta sul server)
 // - "richiesta": avvisa il tecnico assegnato, oppure tutti i tecnici se la richiesta non è assegnata
 // - "prova": manda una notifica di prova ai dispositivi di chi la chiede
+// - "conti": clienti appena andati oltre la soglia del conto (Conti Clienti) → avviso agli amministratori, una volta per cliente
 //
 // Pubblicare con "Verify JWT" disattivato (la verifica dell'utente è fatta qui). Nessun segreto da impostare.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -93,6 +94,26 @@ Deno.serve(async (req) => {
         await servizio.from("richieste").update({ notificata_il: new Date().toISOString(), notificato_tecnico_id: r.tecnico_id }).eq("id", r.id);
         await servizio.from("registro").insert({ utente_id: io.id, azione: "richieste_notificata", dettagli: { id: r.id, tecnico_id: r.tecnico_id, dispositivi: inviate } });
         return risposta({ inviate, destinatari: (elenco ?? []).filter((t) => destinatari.includes(t.utente_id as string)).map((t) => t.nome) });
+      }
+
+      case "conti": {
+        const { data: daAvvisare, error } = await servizio.rpc("conti_da_avvisare");
+        if (error) return risposta({ inviate: 0, motivo: `Esegui lo script 0040_conti_clienti.sql (${error.message})` });
+        const clienti = (daAvvisare ?? []) as { cliente_id: number; cliente: string; totale: number; soglia: number }[];
+        if (!clienti.length) return risposta({ inviate: 0 });
+        const { data: amministratori } = await servizio.from("profili").select("id").eq("ruolo", "admin").eq("attivo", true);
+        const euro = (v: number) => Number(v).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+        let inviate = 0;
+        for (const c of clienti) {
+          inviate += await invia((amministratori ?? []).map((p) => p.id as string), {
+            titolo: "Conto cliente oltre la soglia",
+            testo: `${c.cliente}: ${euro(c.totale)} da riscuotere (soglia ${euro(c.soglia)})`,
+            url: `${SITO}#/s/conti_clienti`,
+            tag: `conto-${c.cliente_id}`,
+          });
+        }
+        await servizio.from("registro").insert({ utente_id: io.id, azione: "conti_oltre_soglia", dettagli: { clienti: clienti.map((c) => c.cliente), dispositivi: inviate } });
+        return risposta({ inviate, clienti: clienti.map((c) => c.cliente) });
       }
     }
     return risposta({ errore: "Azione sconosciuta" }, 400);
