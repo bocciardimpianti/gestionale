@@ -33,6 +33,12 @@ function elenco(righe: Riga[], si: RegExp, no?: RegExp) {
 // ---- Caldaie ----
 const CALDAIA = /\bcaldai[ae]\b|termocamino a gas|generatore a condensazione/i;
 const NON_CALDAIA = /salva ?caldaia|adattator|tronchett|dosator|box incasso|incasso per|copricaldaia|coibentaz|defang|partenza|sdoppiat|staffa|raccord|sotto ?caldaia|pompa|neutraliz|curva|prolunga|copertura|dima|ricambi|kit (scarico|fumi|attacchi|allacc)|scheda|sonda|termostato|cronot|filtro|valvola|rubinett|vaso|tubo|\bper caldai|\bx caldai/i;
+// Caldaie scritte solo col modello, senza la parola "caldaia" (es. "IMMERGAS VICTRIX TERA 24", "BAXI LUNA DUO-TEC"):
+// serve la marca di caldaie E un modello conosciuto; gli accessori e i ricambi restano esclusi
+const MARCA_CALDAIE = /\b(immergas|img|baxi|bax|vaillant|vai|ariston|ari|beretta|ber|ferroli|riello|sime|junkers|bosch|chaffoteaux|cosmogas|unical|fondital|viessmann|vie|biasi|hermann|saunier ?duval|radiant|lamborghini|ecoflam|savio|nova florida|immergas)\b/i;
+const MODELLO_CALDAIA = /\b(victrix|eolo|mythos|nike|zeus|hercules|magis|luna ?(3|duo|platinum|air|classic|max|blue|alu)?|duo-?tec|nuvola|ecotec|ecocompact|atmotec|turbotec|ecofit|clas|genus|alteas|cares|matis|mynute|ciao|exclusive|bluehelix|divacondens|divatech|econcept|domiproject|optimax|cerapur|ceraclass|condens \d{4}|murelle|brava|talia|pigma|serelia|alkon|thema ?(condens|plus)?|isofast|semiatek|micra|eura|vitodens|vitopend|r2k|rmas|rkr|combi ?tech|inovia|rinnova|itaca|minorca|formentera|antea|family ?condens|residence ?(condens|kis)?|start ?condens|tau|nias|azenta)\b/i;
+const NON_CALDAIA_MODELLO = /\bkit\b|pannell|remoto|comando|cronot|termostat|dima|scambiator|ventilator|elettrod|guarniz|pompa|circolator|bruciator|flussostat|pressostat|motore|display|valvol|scheda|sonda|ricamb|filtro|sifone|rubinett|staff|copertur|raccord|curva|prolunga|terminal|tubo|camino|fumi|sdoppiat|adattator|bollitor|accumulo|solare|pannello|collettor/i;
+const eCaldaia = (t: string) => (CALDAIA.test(t) && !NON_CALDAIA.test(t)) || (MARCA_CALDAIE.test(t) && MODELLO_CALDAIA.test(t) && !NON_CALDAIA_MODELLO.test(t) && !NON_CALDAIA.test(t));
 const DEFANGATORE = /defangat|filtro magnetic|separatore (di )?fanghi/i;
 const SDOPPIATORE = /sdoppiat/i;
 const DOSATORE = /polifosf|dosator/i;
@@ -134,7 +140,7 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
   }
 
   // Caldaie
-  const caldaia = righe.find((r) => CALDAIA.test(d(r)) && !NON_CALDAIA.test(d(r)));
+  const caldaia = righe.find((r) => eCaldaia(d(r)));
   if (caldaia) {
     const canna = cannaFumaria(righe);
     out.push({ categoria: "Caldaie", dati: {
@@ -146,7 +152,7 @@ export function impiantiDaRapportino(righe: Riga[], rapporto: Record<string, unk
       canna_fumaria_m: canna?.metri ?? null,
       canna_fumaria_sezione: canna?.sezione ?? null,
       impianto_termico: impiantoTermico(righe),
-      materiali: materiali(righe, (t) => (CALDAIA.test(t) && !NON_CALDAIA.test(t)) || DEFANGATORE.test(t) || SDOPPIATORE.test(t)
+      materiali: materiali(righe, (t) => eCaldaia(t) || DEFANGATORE.test(t) || SDOPPIATORE.test(t)
         || (DOSATORE.test(t) && !NON_DOSATORE.test(t)) || (POMPE_VALVOLE.test(t) && !NON_POMPE.test(t)) || (FUMI.test(t) && !NON_FUMI.test(t))),
     } });
   }
