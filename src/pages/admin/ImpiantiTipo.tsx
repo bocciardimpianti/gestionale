@@ -61,7 +61,7 @@ export default function ImpiantiTipo() {
       <section className="riquadro-chiamata">
         <h2>Voci</h2>
         <table className="griglia tabella-voci">
-          <thead><tr><th>Voce</th><th>Unità</th>{tipo === "elettrico" && <th title="Quanti posti occupa nella scatola (presa Schuko 2, interruttore 1, punto luce 0)">Moduli</th>}<th title="Prezzo del montaggio a punto: il frutto della serie si aggiunge da solo">{tipo === "elettrico" ? "Montaggio a punto" : "Prezzo a punto"}</th>{tipo === "elettrico" && <th title="Parole per trovare il frutto nel catalogo, separate da | (es. presa.*tv|coassial). Vuoto = la voce non ha frutto">Frutto (cerca)</th>}<th>Kit di materiali</th><th>Attiva</th><th /></tr></thead>
+          <thead><tr><th>Voce</th><th>Unità</th>{tipo === "elettrico" && <th title="Quanti posti occupa nella scatola (presa Schuko 2, interruttore 1, punto luce 0)">Moduli</th>}<th title="Prezzo del montaggio a punto: il frutto della serie si aggiunge da solo">{tipo === "elettrico" ? "Montaggio a punto" : "Prezzo a punto"}</th>{tipo === "elettrico" && <th title="Parole per trovare il frutto nel catalogo, separate da | (es. presa.*tv|coassial). Vuoto = la voce non ha frutto">Frutto (cerca)</th>}<th>Kit di materiali</th>{tipo === "elettrico" && <th title="Voce del quadro elettrico (magnetotermici, differenziali…): compare nella stanza del quadro e i suoi moduli scelgono il centralino">Quadro</th>}<th>Attiva</th><th /></tr></thead>
           <tbody>
             {voci.map((v) => (
               <tr key={v.id} className={v.attiva ? "" : "spenta"}>
@@ -88,6 +88,7 @@ export default function ImpiantiTipo() {
                   </td>
                 )}
                 <td><button className="btn grigio piccolo-btn" onClick={() => setKitDi(v)}><Package size={14} /> {v.kit.length ? `${v.kit.length} materiali · ${euro(v.kit.reduce((t, k) => t + k.prezzo * k.quantita, 0))}` : "Aggiungi kit"}</button></td>
+                {tipo === "elettrico" && <td><input type="checkbox" checked={!!v.quadro} onChange={(e) => esegui(supabase.from("voci_impianto").update({ quadro: e.target.checked }).eq("id", v.id))} /></td>}
                 <td><input type="checkbox" checked={v.attiva} onChange={(e) => esegui(supabase.from("voci_impianto").update({ attiva: e.target.checked }).eq("id", v.id))} /></td>
                 <td><button className="link rosso" title="Elimina la voce" onClick={() => confirm(`Eliminare la voce "${v.nome}"? Sparisce anche dagli ambienti tipo (non dai preventivi già fatti).`) && esegui(supabase.from("voci_impianto").delete().eq("id", v.id))}><Trash2 size={15} /></button></td>
               </tr>
@@ -194,6 +195,8 @@ export default function ImpiantiTipo() {
         </section>
       )}
 
+      {tipo === "elettrico" && <Centralini />}
+
       <Lavori tipo={tipo} lavori={lavori} errore={erroreLavori} esegui={esegui} />
 
       {fruttiDi && (
@@ -244,6 +247,72 @@ export default function ImpiantiTipo() {
         </div>
       )}
     </div>
+  );
+}
+
+// Centralini del quadro elettrico (da incasso / esterni) per numero di moduli: il preventivo guidato sceglie il più
+// piccolo che lascia almeno il 40% libero. Prezzo dal materiale collegato del catalogo, altrimenti quello scritto a mano.
+type Centralino = { id: number; tipo: "incasso" | "esterno"; moduli: number; nome: string; prezzo: number | null; attivo: boolean; materiale: { id: number; descrizione: string; prezzo_ricaricato: number } | null };
+function Centralini() {
+  const [elenco, setElenco] = useState<Centralino[] | null>(null);
+  const [errore, setErrore] = useState("");
+  const [collega, setCollega] = useState<Centralino | null>(null);
+  const carica = useCallback(async () => {
+    const { data, error } = await supabase.from("quadri_contenitori").select("id, tipo, moduli, nome, prezzo, attivo, materiale:materiali(id, descrizione, prezzo_ricaricato)").order("tipo").order("moduli");
+    if (error) { setElenco([]); return setErrore(/quadri_contenitori|schema cache/i.test(error.message) ? "Esegui su Supabase lo script 0053_quadro_come_stanza.sql" : error.message); }
+    setErrore(""); setElenco((data ?? []) as unknown as Centralino[]);
+  }, []);
+  useEffect(() => { carica(); }, [carica]);
+  const salva = async (id: number, campi: Record<string, unknown>) => {
+    const { error } = await supabase.from("quadri_contenitori").update(campi).eq("id", id);
+    if (error) alert(error.message);
+    carica();
+  };
+  return (
+    <section className="riquadro-chiamata">
+      <h2>Quadro elettrico – centralini</h2>
+      <p className="piccolo">Nella stanza "Quadro elettrico" del preventivo guidato si sommano i moduli delle voci del quadro (Hager C16 = 1, differenziale = 2…) e si sceglie da solo il centralino più piccolo che lascia almeno il <b>40% di spazio libero</b> (es. 13 moduli occupati → almeno 22 → centralino da 24). Collega ogni misura al materiale del catalogo per usarne il prezzo di vendita.</p>
+      {errore && <p className="errore">{errore}</p>}
+      {elenco && elenco.length > 0 && (
+        <table className="griglia tabella-voci">
+          <thead><tr><th>Tipo</th><th>Moduli</th><th>Nome nel preventivo</th><th>Materiale del catalogo</th><th className="destra">Prezzo</th><th>Attivo</th><th /></tr></thead>
+          <tbody>
+            {elenco.map((c) => (
+              <tr key={c.id} className={c.attivo ? "" : "spenta"}>
+                <td>{c.tipo === "incasso" ? "Da incasso" : "Esterno"}</td>
+                <td className="destra">{c.moduli}</td>
+                <td><input defaultValue={c.nome} onBlur={(e) => e.target.value.trim() && e.target.value !== c.nome && salva(c.id, { nome: e.target.value.trim() })} /></td>
+                <td>{c.materiale ? <span className="materiale-serie" title={c.materiale.descrizione}><span className="descr">{c.materiale.descrizione}</span>
+                  <span className="azioni-serie"><button className="link" onClick={() => setCollega(c)}>cambia</button><button className="link rosso" onClick={() => salva(c.id, { materiale_id: null })}>scollega</button></span></span>
+                  : <button className="link" onClick={() => setCollega(c)}>🔗 dal catalogo</button>}</td>
+                <td className="destra">{c.materiale ? euro(Number(c.materiale.prezzo_ricaricato)) : <><input className="corto destra" inputMode="decimal" defaultValue={c.prezzo === null ? "" : String(c.prezzo).replace(".", ",")} placeholder="0,00"
+                  onBlur={(e) => { const t = e.target.value.trim(); const p = t === "" ? null : numero(t); if (p !== null && Number.isNaN(p)) return; if (p !== c.prezzo) salva(c.id, { prezzo: p }); }} /> €</>}</td>
+                <td><input type="checkbox" checked={c.attivo} onChange={(e) => salva(c.id, { attivo: e.target.checked })} /></td>
+                <td><button className="link rosso" title="Elimina questa misura" onClick={async () => { if (confirm(`Eliminare "${c.nome}"?`)) { await supabase.from("quadri_contenitori").delete().eq("id", c.id); carica(); } }}><Trash2 size={15} /></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {elenco && !errore && (
+        <button className="btn blu" onClick={async () => {
+          const t = prompt("Tipo: scrivi I per da incasso, E per esterno")?.trim().toUpperCase();
+          if (!t || !["I", "E"].includes(t[0])) return;
+          const m = parseInt(prompt("Quanti moduli?") ?? "", 10);
+          if (!(m > 0)) return;
+          const tipoC = t[0] === "I" ? "incasso" : "esterno";
+          const { error } = await supabase.from("quadri_contenitori").insert({ tipo: tipoC, moduli: m, nome: `Centralino ${tipoC === "incasso" ? "da incasso" : "da parete"} ${m} moduli` });
+          if (error) alert(/duplicate/.test(error.message) ? "Questa misura c'è già" : error.message);
+          carica();
+        }}><Plus size={15} /> Nuova misura</button>
+      )}
+      {collega && (
+        <div className="sopra-materiali" onMouseDown={(e) => e.stopPropagation()}>
+          <CercaMateriale titolo={`${collega.nome}`} testoIniziale={`centralino ${collega.moduli} ${collega.tipo === "incasso" ? "incasso" : "parete"}`}
+            onChiudi={() => setCollega(null)} onScegli={(m) => { salva(collega.id, { materiale_id: m.id }); setCollega(null); }} />
+        </div>
+      )}
+    </section>
   );
 }
 

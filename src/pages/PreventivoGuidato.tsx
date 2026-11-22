@@ -7,7 +7,7 @@ import Autocompleta from "../components/Autocompleta";
 import ConfiguratoreLavoro, { useCatalogo } from "../components/ConfiguratoreLavoro";
 import { stampaPreventivo } from "../stampe";
 import {
-  accessoriAmbiente, fruttiSerie, manodopera, leggiCatalogo, leggiTariffe, tariffaDi, type TariffaFoglio, type TariffaPreventivo, leggiLavori, leggiSerie, marcaMateriale, type LavoroPreventivo, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
+  accessoriAmbiente, centralinoQuadro, type Contenitore, fruttiSerie, leggiContenitori, manodopera, moduliNecessari, moduliQuadro, SPAZIO_LIBERO, leggiCatalogo, leggiTariffe, tariffaDi, type TariffaFoglio, type TariffaPreventivo, leggiLavori, leggiSerie, marcaMateriale, type LavoroPreventivo, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
   type AmbienteFoglio, type AmbienteTipo, type Foglio, type SerieCivile, type TipoImpianto, type VoceImpianto,
 } from "../impianti";
 
@@ -46,6 +46,7 @@ export default function PreventivoGuidato() {
   const [lavori, setLavori] = useState<LavoroPreventivo[] | null>(null);
   const [erroreLavori, setErroreLavori] = useState("");
   const [lavoroAperto, setLavoroAperto] = useState<number | null>(null);
+  const [contenitori, setContenitori] = useState<Contenitore[]>([]);
 
   useEffect(() => { leggiTutto("clienti", "id, nome", true).then((c) => setClienti(c as unknown as { id: number; nome: string }[])).catch(() => {}); }, []);
 
@@ -74,6 +75,7 @@ export default function PreventivoGuidato() {
     }).catch((e) => setErrore((e as Error).message));
     leggiLavori(foglio.tipo).then(setLavori).catch((e) => { setLavori([]); setErroreLavori((e as Error).message); });
     if (foglio.tipo === "elettrico") leggiSerie().then(setSerieCivili).catch((e) => { setSerieCivili([]); setErroreSerie((e as Error).message); });
+    if (foglio.tipo === "elettrico") leggiContenitori().then(setContenitori);
   }, [foglio?.tipo]);
 
   // Catalogo dei materiali: serve per trovare i frutti della serie (presa TV Matix, interruttore Matix…)
@@ -97,7 +99,15 @@ export default function PreventivoGuidato() {
 
   // ---- Lavori ("Cosa facciamo?"): ogni lavoro scelto è una sezione del foglio con i suoi materiali ----
   const lavoroDi = (lavoroId: number) => foglio?.lavori?.find((l) => l.lavoro_id === lavoroId && foglio.ambienti.some((a) => a.chiave === l.chiave));
+  // Lavoro con una stanza "quadro" dello stesso nome (Quadro elettrico): si aggiunge la stanza (o si va a quella che c'è)
+  const stanzaQuadro = (l: LavoroPreventivo) => catalogo?.ambienti.find((a) => a.quadro && a.nome.trim().toLowerCase() === l.nome.trim().toLowerCase());
   const premiLavoro = (l: LavoroPreventivo) => {
+    const tq = stanzaQuadro(l);
+    if (tq) {
+      const c = foglio?.ambienti.find((a) => a.quadro);
+      if (c) return document.getElementById(c.chiave)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return aggiungiAmbiente(tq);
+    }
     if (lavoroDi(l.id)) return setLavoroAperto(lavoroAperto === l.id ? null : l.id);
     const chiave = nuovaChiave();
     cambia((x) => ({ ...x, ambienti: [...x.ambienti, { chiave, nome: l.nome, voci: [] }], lavori: [...(x.lavori ?? []), { lavoro_id: l.id, chiave, marca: null }] }));
@@ -131,25 +141,24 @@ export default function PreventivoGuidato() {
   const aggiungiAmbiente = (t: AmbienteTipo | null) => {
     if (!foglio || !catalogo) return;
     const base = t?.nome ?? "Nuovo ambiente";
-    // Ambiente con un lavoro dello stesso nome (es. "Quadro elettrico"): si apre la scelta dei materiali dal catalogo
-    // (magnetotermici, differenziali, relè…); se c'è già, si riapre quella
-    const lavoro = t && lavori?.find((l) => l.attivo && l.nome.trim().toLowerCase() === base.trim().toLowerCase());
-    if (lavoro && lavoroDi(lavoro.id)) { setLavoroAperto(lavoro.id); setTimeout(() => document.querySelector(".configuratore")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); return; }
+
     const stessi = foglio.ambienti.filter((a) => a.nome === base || a.nome.startsWith(`${base} `)).length;
     const voci = (t?.voci ?? []).map((x) => catalogo.voci.find((v) => v.id === x.voce_id) && { v: catalogo.voci.find((v) => v.id === x.voce_id)!, q: x.quantita })
       .filter((x): x is { v: VoceImpianto; q: number } => !!x)
+      // Nel quadro le voci in ordine di catalogo (C6, C10, C16… poi differenziali e relè)
+      .sort((x, y) => (t?.quadro ? x.v.ordine - y.v.ordine : 0))
       .map(({ v, q }) => ({ voce_id: v.id, nome: v.nome, unita: v.unita, prezzo: prezzoVoce(v), quantita: q, moduli: v.moduli }));
     const chiave = nuovaChiave();
     // Scatole: quelle dell'ambiente tipo, altrimenti una stima dai moduli
     const nuovo: AmbienteFoglio = { chiave, nome: stessi ? `${base} ${stessi + 1}` : base, voci };
-    if (foglio.tipo === "elettrico") {
+    if (t?.quadro) nuovo.quadro = { tipo: "incasso", contenitori };
+    else if (foglio.tipo === "elettrico") {
       const conTipo = (t?.scatole_3 ?? 0) + (t?.scatole_4 ?? 0) > 0;
       nuovo.scatole_3 = conTipo ? t!.scatole_3 : stimaScatole(moduliOccupati(nuovo));
       nuovo.scatole_4 = conTipo ? t!.scatole_4 : 0;
     }
-    cambia((x) => ({ ...x, ambienti: [...x.ambienti, nuovo], lavori: lavoro ? [...(x.lavori ?? []), { lavoro_id: lavoro.id, chiave, marca: null }] : x.lavori }));
-    if (lavoro) { setLavoroAperto(lavoro.id); setTimeout(() => document.querySelector(".configuratore")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }
-    else setTimeout(() => document.getElementById(chiave)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+    cambia((x) => ({ ...x, ambienti: [...x.ambienti, nuovo] }));
+    setTimeout(() => document.getElementById(chiave)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
   };
 
   // Tariffa oraria della manodopera: quella del foglio, altrimenti la "Standard" delle tariffe
@@ -333,10 +342,10 @@ export default function PreventivoGuidato() {
           <span className="titolo-pillole">Cosa facciamo?</span>
           {erroreLavori && <span className="errore">{erroreLavori}</span>}
           {lavori?.filter((l) => l.attivo).map((l) => {
-            const lf = lavoroDi(l.id);
+            const lf = lavoroDi(l.id) || (stanzaQuadro(l) && foglio.ambienti.some((a) => a.quadro));
             return (
               <button key={l.id} className={`pillola-lavoro${lf ? " scelta" : ""}${lavoroAperto === l.id ? " aperta" : ""}`} onClick={() => premiLavoro(l)}>
-                {l.icona} {l.nome}{lf?.marca ? <small> · {lf.marca}</small> : null}
+                {l.icona} {l.nome}{typeof lf === "object" && lf?.marca ? <small> · {lf.marca}</small> : null}
               </button>
             );
           })}
@@ -380,7 +389,7 @@ export default function PreventivoGuidato() {
                 {a.voci.length > 0 && (
                   <div className="voce-foglio intestazione-voci" aria-hidden>
                     <span className="nome-voce">Voce</span><span className="contatore-voce">Q.tà</span>
-                    <span className="prezzo-voce" title={foglio.lavori?.some((l) => l.chiave === a.chiave) ? "Prezzo di vendita" : "Prezzo di montaggio a punto (il frutto della serie si aggiunge sotto)"}>{foglio.lavori?.some((l) => l.chiave === a.chiave) ? "Prezzo" : "Montaggio"}</span><span className="totale-voce">Totale</span><span />
+                    <span className="prezzo-voce" title={a.quadro || foglio.lavori?.some((l) => l.chiave === a.chiave) ? "Prezzo di vendita" : "Prezzo di montaggio a punto (il frutto della serie si aggiunge sotto)"}>{a.quadro || foglio.lavori?.some((l) => l.chiave === a.chiave) ? "Prezzo" : "Montaggio"}</span><span className="totale-voce">Totale</span><span />
                   </div>
                 )}
                 {a.voci.map((v, k) => (
@@ -404,7 +413,7 @@ export default function PreventivoGuidato() {
                   if (v) cambiaAmbiente(a.chiave, (x) => ({ ...x, voci: [...x.voci, { voce_id: v.id, nome: v.nome, unita: v.unita, prezzo: prezzoVoce(v), quantita: 1, moduli: v.moduli }] }));
                 }}>
                   <option value="">+ aggiungi voce…</option>
-                  {catalogo?.voci.filter((v) => v.attiva && !a.voci.some((x) => x.voce_id === v.id)).map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
+                  {catalogo?.voci.filter((v) => v.attiva && !!v.quadro === !!a.quadro && !a.voci.some((x) => x.voce_id === v.id)).map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
                 </select>
                 <div className="ore-ambiente">
                   <span>⏱ Ore di lavoro</span>
@@ -420,7 +429,8 @@ export default function PreventivoGuidato() {
                     {tariffeTipo.filter((t) => t.nome !== pred.nome).map((t) => <option key={t.id} value={t.nome}>{t.nome} · {euro(t.prezzo_ora)}/h</option>)}
                   </select>
                 </div>
-                {foglio.tipo === "elettrico" && !(foglio.lavori?.some((l) => l.chiave === a.chiave) && !(a.scatole_3 || a.scatole_4) && !accessoriAmbiente(a, foglio.serie).length) && <Scatole a={a} serie={foglio.serie} onCambia={(s3, s4) => cambiaAmbiente(a.chiave, (x) => ({ ...x, scatole_3: s3, scatole_4: s4 }))} />}
+                {a.quadro && <QuadroBox a={a} contenitoriAttuali={contenitori} onCambia={(q) => cambiaAmbiente(a.chiave, (x) => ({ ...x, quadro: q }))} />}
+                {foglio.tipo === "elettrico" && !a.quadro && !(foglio.lavori?.some((l) => l.chiave === a.chiave) && !(a.scatole_3 || a.scatole_4) && !accessoriAmbiente(a, foglio.serie).length) && <Scatole a={a} serie={foglio.serie} onCambia={(s3, s4) => cambiaAmbiente(a.chiave, (x) => ({ ...x, scatole_3: s3, scatole_4: s4 }))} />}
                 <div className="totale-ambiente"><span>Totale {a.nome}</span><b>{euro(totaleAmbiente(a, foglio.serie, pred))}</b></div>
               </div>
             ))}
@@ -512,6 +522,45 @@ function Scatole({ a, serie, onCambia }: { a: AmbienteFoglio; serie: Foglio["ser
         </div>
       ))}
       {!serie && <div className="piccolo">Scegli la serie civile in alto per calcolare placche e supporti.</div>}
+    </div>
+  );
+}
+
+// Stanza del quadro: incasso o esterno, moduli occupati e centralino scelto (sempre almeno il 40% libero)
+function QuadroBox({ a, contenitoriAttuali, onCambia }: { a: AmbienteFoglio; contenitoriAttuali: Contenitore[]; onCambia: (q: NonNullable<AmbienteFoglio["quadro"]>) => void }) {
+  const q = a.quadro!;
+  const occupati = moduliQuadro(a), serve = moduliNecessari(a);
+  const c = centralinoQuadro(a);
+  const delTipo = q.contenitori.filter((x) => x.tipo === q.tipo);
+  const massimo = Math.max(0, ...delTipo.map((x) => x.moduli));
+  const libero = c ? Math.round((1 - occupati / c.moduli) * 100) : 0;
+  return (
+    <div className="scatole-ambiente quadro-ambiente">
+      <div className="riga-scatole">
+        <span>Centralino</span>
+        <span className="scelta-quadro" role="group" aria-label="Tipo di quadro">
+          {(["incasso", "esterno"] as const).map((t) => (
+            <button key={t} type="button" className={q.tipo === t ? "attiva" : ""} onClick={() => onCambia({ ...q, tipo: t })}>{t === "incasso" ? "Da incasso" : "Esterno"}</button>
+          ))}
+        </span>
+      </div>
+      <div className={`moduli-scatole${!c && occupati ? " pochi" : ""}`}>
+        {occupati} moduli occupati · con il {Math.round(SPAZIO_LIBERO * 100)}% libero servono almeno {serve} moduli
+      </div>
+      {c ? (
+        <div className="voce-foglio auto" title={c.materiale ?? "Prezzo scritto in Impianti tipo"}>
+          <span className="nome-voce">{c.nome}{c.materiale ? "" : " (prezzo a mano)"} · {libero}% libero</span>
+          <span className="quantita-auto">1</span>
+          <span className="prezzo-auto">{String(c.prezzo).replace(".", ",")}</span>
+          <span className="totale-voce">{euro(c.prezzo)}</span>
+          <span />
+        </div>
+      ) : occupati > 0 && (
+        <div className="moduli-scatole pochi">{delTipo.length ? `⚠ Servono ${serve} moduli: il centralino più grande è da ${massimo}. Dividi in due quadri o aggiungi una misura più grande in Impianti tipo.` : "⚠ Nessun centralino di questo tipo: aggiungili in Impianti tipo (script 0053)."}</div>
+      )}
+      {!q.contenitori.length && contenitoriAttuali.length > 0 && (
+        <button className="link" onClick={() => onCambia({ ...q, contenitori: contenitoriAttuali })}>Carica i centralini</button>
+      )}
     </div>
   );
 }

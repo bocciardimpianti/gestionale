@@ -8,8 +8,10 @@ export const NOMI_TIPO: Record<TipoImpianto, string> = { elettrico: "Impianto el
 export type MaterialeKit = { id?: number; materiale_id: number; quantita: number; descrizione: string; unita_misura: string | null; prezzo: number };
 // prezzo = MONTAGGIO a punto; frutto_cerca = parole per trovare il frutto della serie nel catalogo (script 0051)
 export type VoceImpianto = { id: number; tipo: TipoImpianto; nome: string; unita: string; prezzo: number | null; ordine: number; attiva: boolean; moduli: number; kit: MaterialeKit[];
-  frutto_cerca?: string | null; frutti_per_punto?: number };
-export type AmbienteTipo = { id: number; tipo: TipoImpianto; nome: string; ordine: number; scatole_3: number; scatole_4: number; voci: { voce_id: number; quantita: number }[] };
+  frutto_cerca?: string | null; frutti_per_punto?: number;
+  // Voce del quadro elettrico (Hager C16, differenziale…): i suoi moduli contano per scegliere il centralino (script 0053)
+  quadro?: boolean };
+export type AmbienteTipo = { id: number; tipo: TipoImpianto; nome: string; ordine: number; scatole_3: number; scatole_4: number; voci: { voce_id: number; quantita: number }[]; quadro?: boolean };
 // Serie civile (placche e supporti): prezzi a pezzo per scatole da 3 e 4 moduli
 export const COMPONENTI = ["supporto_3", "placca_3", "supporto_4", "placca_4", "copriforo"] as const;
 export type Componente = (typeof COMPONENTI)[number];
@@ -25,7 +27,10 @@ export type FruttoFoglio = { descrizione: string; prezzo: number; materiale_id: 
 
 // Foglio del preventivo (salvato nel preventivo per poterlo riaprire)
 export type VoceFoglio = { voce_id: number | null; nome: string; unita: string; prezzo: number; quantita: number; moduli?: number; materiale_id?: number };
-export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[]; scatole_3?: number; scatole_4?: number; ore?: number; tariffa?: TariffaFoglio | null };
+export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[]; scatole_3?: number; scatole_4?: number; ore?: number; tariffa?: TariffaFoglio | null;
+  // Stanza del quadro elettrico: incasso o esterno, con i centralini disponibili (copiati: riaprendo i conti non cambiano)
+  quadro?: { tipo: "incasso" | "esterno"; contenitori: Contenitore[] } };
+export type Contenitore = { tipo: "incasso" | "esterno"; moduli: number; nome: string; prezzo: number; materiale: string | null; materiale_id: number | null };
 export type TariffaFoglio = { nome: string; prezzo: number };
 // La serie è copiata nel foglio (nome e prezzi) così riaprendo il preventivo i conti non cambiano
 export type LavoroFoglio = { lavoro_id: number; chiave: string; marca?: string | null };
@@ -56,6 +61,10 @@ export function fruttiAmbiente(a: AmbienteFoglio, serie: Foglio["serie"]): Acces
 
 /** Frutti, supporti, placche e copriforo di un ambiente: supporto e placca uno per scatola, copriforo = posti liberi (circa) */
 export function accessoriAmbiente(a: AmbienteFoglio, serie: Foglio["serie"]): Accessorio[] {
+  if (a.quadro) {
+    const c = a.voci.some((v) => v.quantita > 0) ? centralinoQuadro(a) : null;
+    return c ? [{ nome: c.nome, breve: c.nome, quantita: 1, prezzo: c.prezzo, materiale: c.materiale ?? c.nome }] : [];
+  }
   if (!serie) return [];
   return [...fruttiAmbiente(a, serie), ...placcheAmbiente(a, serie)];
 }
@@ -133,17 +142,21 @@ async function leggiSerieBase() {
 }
 
 export async function leggiCatalogo(tipo?: TipoImpianto) {
-  let conFrutti = true;
+  let conFrutti = true, conQuadro = true;
   const leggi = (conSerie: boolean) => {
-    let qv = supabase.from("voci_impianto").select(`id, tipo, nome, unita, prezzo, ordine, attiva${conSerie ? ", moduli" : ""}${conSerie && conFrutti ? ", frutto_cerca, frutti_per_punto" : ""}`).order("ordine").order("id");
-    let qa = supabase.from("ambienti_tipo").select(`id, tipo, nome, ordine${conSerie ? ", scatole_3, scatole_4" : ""}`).order("ordine").order("id");
+    let qv = supabase.from("voci_impianto").select(`id, tipo, nome, unita, prezzo, ordine, attiva${conSerie ? ", moduli" : ""}${conSerie && conFrutti ? ", frutto_cerca, frutti_per_punto" : ""}${conSerie && conQuadro ? ", quadro" : ""}`).order("ordine").order("id");
+    let qa = supabase.from("ambienti_tipo").select(`id, tipo, nome, ordine${conSerie ? ", scatole_3, scatole_4" : ""}${conSerie && conQuadro ? ", quadro" : ""}`).order("ordine").order("id");
     if (tipo) { qv = qv.eq("tipo", tipo); qa = qa.eq("tipo", tipo); }
     return Promise.all([qv, qa]);
   };
   // Senza lo script 0032 le colonne moduli/scatole non ci sono ancora: si legge senza
   let [{ data: voci, error: e1 }, { data: amb, error: e2 }] = await leggi(true);
-  // Senza lo script 0051 non ci sono le colonne dei frutti
-  if (/frutt/.test(e1?.message ?? "")) { conFrutti = false; [{ data: voci, error: e1 }, { data: amb, error: e2 }] = await leggi(true); }
+  // Senza gli script 0051 / 0053 non ci sono le colonne dei frutti o del quadro: si rilegge senza
+  for (let i = 0; i < 2; i++) {
+    const msg = (e1 ?? e2)?.message ?? "";
+    if (/quadro/.test(msg)) conQuadro = false; else if (/frutt/.test(msg)) conFrutti = false; else break;
+    [{ data: voci, error: e1 }, { data: amb, error: e2 }] = await leggi(true);
+  }
   if (/moduli|scatole_/.test((e1 ?? e2)?.message ?? "")) [{ data: voci, error: e1 }, { data: amb, error: e2 }] = await leggi(false);
   if (e1 || e2) throw new Error(/voci_impianto|ambienti_tipo/.test((e1 ?? e2)!.message) ? "Esegui su Supabase lo script 0031_preventivo_guidato.sql" : (e1 ?? e2)!.message);
   const idVoci = ((voci ?? []) as unknown as { id: number }[]).map((v) => v.id);
@@ -266,4 +279,25 @@ export function fruttiSerie(serie: SerieCivile, voci: VoceImpianto[], materiali:
     out[String(v.id)] = { descrizione: m?.descrizione ?? `Frutto ${v.nome} ${serie.nome}`, prezzo: prezzo ?? 0, materiale_id: m?.id ?? null, per_punto: v.frutti_per_punto ?? 1 };
   }
   return out;
+}
+
+// ---- Quadro elettrico: moduli occupati e centralino (almeno il 40% di spazio libero) ----
+export const SPAZIO_LIBERO = 0.4;
+export const moduliQuadro = (a: AmbienteFoglio) => r2(a.voci.reduce((t, v) => t + (v.moduli ?? 0) * v.quantita, 0));
+/** Moduli minimi del centralino: quelli occupati + il 40% libero (es. 13 occupati → almeno 22) */
+export const moduliNecessari = (a: AmbienteFoglio) => Math.ceil(moduliQuadro(a) / (1 - SPAZIO_LIBERO));
+/** Il centralino più piccolo del tipo scelto che basta; null se nemmeno il più grande basta */
+export function centralinoQuadro(a: AmbienteFoglio): Contenitore | null {
+  if (!a.quadro) return null;
+  const serve = moduliNecessari(a);
+  return [...a.quadro.contenitori].filter((c) => c.tipo === a.quadro!.tipo).sort((x, y) => x.moduli - y.moduli).find((c) => c.moduli >= serve) ?? null;
+}
+
+export async function leggiContenitori(): Promise<Contenitore[]> {
+  const { data, error } = await supabase.from("quadri_contenitori").select("tipo, moduli, nome, prezzo, attivo, materiale:materiali(id, descrizione, prezzo_ricaricato)").order("moduli");
+  if (error) return [];
+  return ((data ?? []) as unknown as { tipo: "incasso" | "esterno"; moduli: number; nome: string; prezzo: number | null; attivo: boolean; materiale: { id: number; descrizione: string; prezzo_ricaricato: number } | null }[])
+    .filter((c) => c.attivo)
+    .map((c) => ({ tipo: c.tipo, moduli: Number(c.moduli), nome: c.nome, materiale: c.materiale?.descrizione ?? null, materiale_id: c.materiale?.id ?? null,
+      prezzo: c.materiale ? r2(Number(c.materiale.prezzo_ricaricato)) : Number(c.prezzo ?? 0) }));
 }

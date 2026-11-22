@@ -2141,3 +2141,9 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .riga-cerca-serie input { height: 34px; border: 1px solid #c3c2b7; border-radius: 6px; padding: 0 8px; font: inherit; }
 .comandi-frutto { white-space: nowrap; }
 .comandi-frutto .link + .link { margin-left: 8px; }
+/* Preventivo guidato: stanza del quadro elettrico */
+.quadro-ambiente { background: #eef5fb; }
+.scelta-quadro { display: inline-flex; border: 1px solid #c3c2b7; border-radius: 6px; overflow: hidden; }
+.scelta-quadro button { border: 0; background: #fff; padding: 0 12px; height: 30px; font: inherit; font-size: 13px; color: #52514e; cursor: pointer; }
+.scelta-quadro button + button { border-left: 1px solid #c3c2b7; }
+.scelta-quadro button.attiva { background: #123b45; color: #fff; }
