@@ -10,7 +10,7 @@ import { useAuth } from "../auth";
 import GestioneElenco from "./GestioneElenco";
 import { Sparkles, X } from "lucide-react";
 import { chiediAssistente, type Proposta } from "../assistente";
-import { chiaveOrdineMateriale } from "../ordineMateriali";
+import { cercaLaMarca, chiaveOrdineMateriale } from "../ordineMateriali";
 import { correggi, creaRicerca, livelloCorrispondenza, normalizza, radice, useSinonimi, vocabolario } from "../ricercaFurba";
 import MicDettatura from "./MicDettatura";
 
@@ -187,7 +187,8 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
       const d = normalizza(String(m.descrizione ?? ""));
       const inizio = d.startsWith(r) || String(m.codice_interno ?? "").toLowerCase().startsWith(primo) ? 0
         : d.split(/[\s.,'()/-]+/).some((w) => w.startsWith(r)) ? 1 : 2;
-      return livelloCorrispondenza(testoDi(m), paroleNorm) * 3 + inizio;
+      // a parità di corrispondenza, prima la marca cercata ("fu tee" → prima FUSIO)
+      return livelloCorrispondenza(testoDi(m), paroleNorm) * 6 + (cercaLaMarca(m.descrizione, parole) ? 0 : 3) + inizio;
     };
     return { filtrati: trovati.sort((a, b) => punteggio(a) - punteggio(b) || alfabetico(a, b)), correzioni };
   }, [materiali, testo, filtri, soloConFoto, soloDisponibili, categoria, marca, usi, sinonimi, parolePresenti]);

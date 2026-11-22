@@ -8,6 +8,7 @@ import { pulisciRicerca } from "../testo";
 import { useAuth } from "../auth";
 import { senzaPrezzi } from "../prezzi";
 import { correggi, creaRicerca, livelloCorrispondenza, normalizza, useSinonimi, vocabolario } from "../ricercaFurba";
+import { cercaLaMarca } from "../ordineMateriali";
 
 // Colori degli stati dei documenti (Aperto arancione, Eseguito verde…)
 export const COLORI_STATO: Record<string, string> = {
@@ -159,7 +160,10 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
       const livello = new Map(trovate.map((r) => [r, livelloCorrispondenza(testiFurbi.get(r) ?? "", paroleNorm)]));
       const colOrd = colonne.find((c) => c.chiave === ordine.chiave);
       const chiaveOrd = colOrd?.ordina ? new Map(trovate.map((r) => [r, colOrd.ordina!(r)])) : null;
-      return trovate.sort((a, b) => livello.get(a)! - livello.get(b)!
+      // A parità di corrispondenza, prima gli articoli della marca cercata ("fu tee" → prima FUSIO)
+      const colMarca = colonne.find((c) => c.ordina);
+      const marca = colMarca ? new Map(trovate.map((r) => [r, cercaLaMarca(r[colMarca.chiave], parole) ? 0 : 1])) : null;
+      return trovate.sort((a, b) => livello.get(a)! - livello.get(b)! || (marca ? marca.get(a)! - marca.get(b)! : 0)
         || (chiaveOrd ? (chiaveOrd.get(a)! < chiaveOrd.get(b)! ? -1 : chiaveOrd.get(a)! > chiaveOrd.get(b)! ? 1 : 0)
           : testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true })) * (ordine.su ? 1 : -1));
     }

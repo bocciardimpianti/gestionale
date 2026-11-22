@@ -43,3 +43,14 @@ export const confrontaMateriali = (a: unknown, b: unknown) => {
   const x = chiaveOrdineMateriale(a), y = chiaveOrdineMateriale(b);
   return x < y ? -1 : x > y ? 1 : 0;
 };
+
+/** Sigla della marca all'inizio della descrizione ("FUSIO - TEE Ø20" → "fusio"), in minuscolo */
+export const marcaDescrizione = (descrizione: unknown) =>
+  (String(descrizione ?? "").match(/^([A-Za-z0-9 .&'-]{1,15}?)\s+[-–]\s/)?.[1] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Una delle parole cercate è la marca dell'articolo (o il suo inizio: "fu" → FUSIO, "hager" → HAG) */
+export function cercaLaMarca(descrizione: unknown, parole: string[]) {
+  const m = marcaDescrizione(descrizione);
+  if (!m) return false;
+  return parole.some((p) => { const q = p.toLowerCase().replace(/[^a-z0-9]/g, ""); return q.length >= 2 && (m.startsWith(q) || (m.length >= 3 && q.startsWith(m))); });
+}
