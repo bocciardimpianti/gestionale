@@ -2157,3 +2157,12 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .frecce-anno button:disabled { color: #c3c2b7; cursor: default; }
 .frecce-anno button:not(:disabled):hover { background: #f0efec; }
 .frecce-anno b { min-width: 48px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+/* Confronto con ReportOne */
+.cr-riquadri { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .cr-riquadri { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cr-riquadri > :first-child { grid-column: auto; } }
+.cr-conflitti { border-color: #f3b3b3; background: #fff6f6; }
+.cr-elenco { display: grid; gap: 8px; }
+.cr-voce { border: 1px solid #e1e0d9; border-radius: 8px; padding: 8px 10px; display: grid; gap: 4px; }
+.cr-numero { font-weight: 700; color: #c62828; }
+.cr-lato { font-size: 13px; }
+.cr-chi { display: inline-block; min-width: 84px; font-size: 11px; text-transform: uppercase; color: #898781; }
