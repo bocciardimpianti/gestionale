@@ -4,6 +4,7 @@ import { supabase } from "../supabase";
 import { TIPI_SPESA } from "../speseAziendali";
 import { useAuth } from "../auth";
 import { usePreferenza } from "../preferenze";
+import SceltaPeriodo, { annoDi, intervalloAnno, type PeriodoAnno } from "./SceltaPeriodo";
 
 // Home (amministratori): ricavi dei rapportini, divisi tra riscossi e da riscuotere, e spese, mese per mese.
 // Ricavo = importo del rapportino (imponibile, o totale del preventivo se scelto nel rapportino).
@@ -17,8 +18,8 @@ const SPESE: { k: ChiaveSpesa; nome: string; colore: string }[] = [
 ];
 const COLORE = { riscossi: "#2a78d6", daRiscuotere: "#eb6834" };
 const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
-type Periodo = "12m" | "anno" | "annoScorso" | "24m";
-const PERIODI: { k: Periodo; t: string }[] = [
+type Periodo = "12m" | "anno" | "annoScorso" | "24m" | PeriodoAnno;
+const PERIODI: { k: "12m" | "anno" | "annoScorso" | "24m"; t: string }[] = [
   { k: "12m", t: "Ultimi 12 mesi" }, { k: "anno", t: "Quest'anno" }, { k: "annoScorso", t: "Anno scorso" }, { k: "24m", t: "Ultimi 24 mesi" },
 ];
 type Mese = { k: string; t: string; lungo: string; riscossi: number; daRiscuotere: number; rapportini: number } & Record<ChiaveSpesa, number>;
@@ -30,6 +31,8 @@ const speseDi = (m: Pick<Mese, ChiaveSpesa>) => m.materiali + m.salari + m.fisse
 
 function intervallo(p: Periodo) {
   const oggi = new Date();
+  const anno = annoDi(p);
+  if (anno) return intervalloAnno(anno);
   if (p === "anno") return [new Date(oggi.getFullYear(), 0, 1), oggi];
   if (p === "annoScorso") return [new Date(oggi.getFullYear() - 1, 0, 1), new Date(oggi.getFullYear() - 1, 11, 31)];
   return [new Date(oggi.getFullYear(), oggi.getMonth() - (p === "24m" ? 23 : 11), 1), oggi];
@@ -159,9 +162,7 @@ export default function SpeseRicavi() {
         <div className="gt-filtri">
           <button type="button" className="btn blu sr-aggiungi" onClick={() => navigate("/s/spese_aziendali?nuovo=1")}>+ Aggiungi spesa</button>
           <button type="button" className="sr-vedi" onClick={() => navigate("/s/spese_aziendali")}>Elenco spese</button>
-          <select value={periodo} onChange={(e) => setPeriodo(e.target.value as Periodo)} aria-label="Periodo">
-            {PERIODI.map((p) => <option key={p.k} value={p.k}>{p.t}</option>)}
-          </select>
+          <SceltaPeriodo valore={periodo} periodi={PERIODI} onCambia={setPeriodo} />
         </div>
       </div>
       {errore && <p className="errore">{errore}</p>}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { usePreferenza } from "../preferenze";
+import SceltaPeriodo, { annoDi, intervalloAnno, type PeriodoAnno } from "./SceltaPeriodo";
 
 // Home: clienti divisi tra le squadre di Michael e di Luciano, dai tecnici che ci hanno lavorato.
 // - Michael (anche con Stefano o Claudio) → cliente di Michael
@@ -16,8 +17,8 @@ const NOMI: Record<Persona, string[]> = {
 };
 type Squadra = "Michael" | "Luciano" | "Da assegnare";
 const SQUADRA_DI: Partial<Record<Persona, Squadra>> = { michael: "Michael", luciano: "Luciano", paolo: "Luciano" };
-type Periodo = "tutto" | "anno" | "12m";
-const PERIODI: { k: Periodo; t: string }[] = [{ k: "tutto", t: "Da sempre" }, { k: "12m", t: "Ultimi 12 mesi" }, { k: "anno", t: "Quest'anno" }];
+type Periodo = "tutto" | "anno" | "12m" | PeriodoAnno;
+const PERIODI: { k: "tutto" | "anno" | "12m"; t: string }[] = [{ k: "tutto", t: "Da sempre" }, { k: "12m", t: "Ultimi 12 mesi" }, { k: "anno", t: "Quest'anno" }];
 
 // Stessi colori del grafico dei tecnici (ordine dei tecnici in anagrafica)
 const COLORI = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
@@ -71,7 +72,7 @@ export default function ClientiSquadre() {
       };
 
       const oggi = new Date();
-      const dal = periodo === "anno" ? `${oggi.getFullYear()}-01-01`
+      const dal = annoDi(periodo) ? `${annoDi(periodo)}-01-01` : periodo === "anno" ? `${oggi.getFullYear()}-01-01`
         : periodo === "12m" ? new Date(oggi.getFullYear() - 1, oggi.getMonth(), oggi.getDate() + 1).toISOString().slice(0, 10) : null;
       const perCliente = new Map<number, Cliente & { peso: { Michael: number; Luciano: number }; nomiTecnici: Set<string> }>();
       for (let da = 0; ; da += 1000) {
@@ -79,6 +80,7 @@ export default function ClientiSquadre() {
           .select("id, data, cliente_id, imponibile, totale_preventivo, considera_totale_preventivo, tecnico_vecchio, tecnico:tecnici(nome), cliente:clienti(nome)")
           .is("eliminato_il", null).not("cliente_id", "is", null);
         if (dal) q = q.gte("data", dal);
+        if (annoDi(periodo)) { const fine = intervalloAnno(annoDi(periodo)!)[1]; q = q.lte("data", `${fine.getFullYear()}-${String(fine.getMonth() + 1).padStart(2, "0")}-${String(fine.getDate()).padStart(2, "0")}`); }
         const { data, error } = await q.order("id").range(da, da + 999);
         if (annullato) return;
         if (error) { setErrore(/failed to fetch/i.test(error.message) ? "Connessione assente: riprova tra poco." : error.message); return; }
@@ -152,9 +154,7 @@ export default function ClientiSquadre() {
       <div className="gt-testa">
         <h3>Clienti di Michael e di Luciano</h3>
         <div className="gt-filtri">
-          <select value={periodo} onChange={(e) => setPeriodo(e.target.value as Periodo)} aria-label="Periodo">
-            {PERIODI.map((p) => <option key={p.k} value={p.k}>{p.t}</option>)}
-          </select>
+          <SceltaPeriodo valore={periodo} periodi={PERIODI} onCambia={setPeriodo} />
         </div>
       </div>
       <p className="cs-regola">Michael (anche con Stefano o Claudio) → Michael · Luciano o Paolo (anche con Stefano o Claudio) → Luciano · lavorati da entrambi: a chi ci ha fatto più lavoro (segnati «misto»)</p>

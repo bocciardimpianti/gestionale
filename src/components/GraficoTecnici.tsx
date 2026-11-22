@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { usePreferenza } from "../preferenze";
+import SceltaPeriodo, { annoDi, intervalloAnno, type PeriodoAnno } from "./SceltaPeriodo";
 
 // Home: andamento dei tecnici nel tempo (valore dei rapportini o ore lavorate, per giorno o per mese),
 // con i tecnici da scegliere per confrontarli. Sotto, la tabella con i totali del periodo.
@@ -13,8 +14,8 @@ export const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "se
 
 type Misura = "valore" | "ore";
 export type Passo = "giorno" | "mese";
-export type Periodo = "30" | "90" | "anno" | "12m";
-export const PERIODI: { k: Periodo; t: string }[] = [
+export type Periodo = "30" | "90" | "anno" | "12m" | PeriodoAnno;
+export const PERIODI: { k: "30" | "90" | "anno" | "12m"; t: string }[] = [
   { k: "30", t: "Ultimi 30 giorni" }, { k: "90", t: "Ultimi 90 giorni" }, { k: "anno", t: "Quest'anno" }, { k: "12m", t: "Ultimi 12 mesi" },
 ];
 type Rap = { data: string; tecnico: string; ore: number; valore: number };
@@ -22,10 +23,14 @@ type Rap = { data: string; tecnico: string; ore: number; valore: number };
 export const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export function inizioPeriodo(p: Periodo) {
   const oggi = new Date();
+  const anno = annoDi(p);
+  if (anno) return intervalloAnno(anno)[0];
   if (p === "anno") return new Date(oggi.getFullYear(), 0, 1);
   if (p === "12m") return new Date(oggi.getFullYear(), oggi.getMonth() - 11, 1);
   const d = new Date(oggi); d.setDate(d.getDate() - (Number(p) - 1)); return d;
 }
+/** Ultimo giorno del periodo: oggi, oppure il 31 dicembre dell'anno scelto */
+export const finePeriodo = (p: Periodo) => { const anno = annoDi(p); return anno ? intervalloAnno(anno)[1] : new Date(); };
 export const euro = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: v >= 1000 ? 0 : 2 });
 const ore = (v: number) => `${v.toLocaleString("it-IT", { maximumFractionDigits: 1 })} h`;
 const compatto = (v: number, m: Misura) => m === "ore" ? `${v.toLocaleString("it-IT", { maximumFractionDigits: 1 })} h`
@@ -75,7 +80,7 @@ export default function GraficoTecnici() {
       for (let da = 0; ; da += 1000) {
         const { data, error } = await supabase.from("rapporti")
           .select("data, totale_ore, imponibile, totale_preventivo, considera_totale_preventivo, tecnico_vecchio, tecnico:tecnici(nome)")
-          .is("eliminato_il", null).gte("data", dal).lte("data", iso(new Date())).order("id").range(da, da + 999);
+          .is("eliminato_il", null).gte("data", dal).lte("data", iso(finePeriodo(periodo))).order("id").range(da, da + 999);
         if (annullato) return;
         if (error) { setErrore(/failed to fetch/i.test(error.message) ? "Connessione assente: riprova tra poco." : error.message); setCarica(false); return; }
         for (const r of (data ?? []) as Record<string, unknown>[]) {
@@ -138,9 +143,7 @@ export default function GraficoTecnici() {
       <div className="gt-testa">
         <h3>Andamento tecnici</h3>
         <div className="gt-filtri">
-          <select value={periodo} onChange={(e) => { const x = e.target.value as Periodo; setPref((p) => ({ ...p, periodo: x, passo: x === "30" || x === "90" ? "giorno" : p.passo })); }} aria-label="Periodo">
-            {PERIODI.map((p) => <option key={p.k} value={p.k}>{p.t}</option>)}
-          </select>
+          <SceltaPeriodo valore={periodo} periodi={PERIODI} onCambia={(x) => setPref((p) => ({ ...p, periodo: x, passo: x === "30" || x === "90" ? "giorno" : annoDi(x) && !annoDi(p.periodo) ? "mese" : p.passo }))} />
           <div className="gt-scelta" role="group" aria-label="Misura">
             {vedePrezzi && <button type="button" className={misura === "valore" ? "attiva" : ""} onClick={() => setMisura("valore")}>Valore €</button>}
             <button type="button" className={misura === "ore" ? "attiva" : ""} onClick={() => setMisura("ore")}>Ore</button>
@@ -275,7 +278,7 @@ export function Linee({ fasce, serie, formato, asse, etichetta, vuoto }: {
 /** Giorni o mesi di un periodo (asse orizzontale dei grafici) */
 export function fasceDi(periodo: Periodo, passo: Passo) {
   const out: { k: string; t: string; lungo: string }[] = [];
-  const inizio = inizioPeriodo(periodo); const oggi = new Date();
+  const inizio = inizioPeriodo(periodo); const oggi = finePeriodo(periodo);
   if (passo === "giorno") {
     for (const d = new Date(inizio); d <= oggi; d.setDate(d.getDate() + 1)) {
       out.push({ k: iso(d), t: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,

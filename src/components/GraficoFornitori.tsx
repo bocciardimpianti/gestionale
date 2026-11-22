@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { usePreferenza } from "../preferenze";
-import { COLORI, euro, fasceDi, iso, inizioPeriodo, Linee, PERIODI, type Passo, type Periodo } from "./GraficoTecnici";
+import { COLORI, euro, fasceDi, finePeriodo, iso, inizioPeriodo, Linee, PERIODI, type Passo, type Periodo } from "./GraficoTecnici";
+import SceltaPeriodo, { annoDi } from "./SceltaPeriodo";
 
 // Home (amministratori): andamento degli acquisti per fornitore, dai DDT di acquisto (imponibile o numero di DDT),
 // per giorno o per mese, con i fornitori da scegliere per confrontarli (fino a 8). Le scelte restano salvate.
@@ -35,7 +36,7 @@ export default function GraficoFornitori() {
       for (let da = 0; ; da += 1000) {
         const { data, error } = await supabase.from("ddt_acquisto")
           .select("data, imponibile, fornitore:fornitori(nome)")
-          .is("eliminato_il", null).gte("data", iso(inizioPeriodo(periodo))).lte("data", iso(new Date())).order("id").range(da, da + 999);
+          .is("eliminato_il", null).gte("data", iso(inizioPeriodo(periodo))).lte("data", iso(finePeriodo(periodo))).order("id").range(da, da + 999);
         if (annullato) return;
         if (error) { setErrore(/failed to fetch/i.test(error.message) ? "Connessione assente: riprova tra poco." : error.message); setCarica(false); return; }
         for (const r of (data ?? []) as Record<string, unknown>[]) {
@@ -92,9 +93,7 @@ export default function GraficoFornitori() {
       <div className="gt-testa">
         <h3>Andamento fornitori</h3>
         <div className="gt-filtri">
-          <select value={periodo} onChange={(e) => { const x = e.target.value as Periodo; setPref((p) => ({ ...p, periodo: x, passo: x === "30" || x === "90" ? "giorno" : p.passo })); }} aria-label="Periodo">
-            {PERIODI.map((p) => <option key={p.k} value={p.k}>{p.t}</option>)}
-          </select>
+          <SceltaPeriodo valore={periodo} periodi={PERIODI} onCambia={(x) => setPref((p) => ({ ...p, periodo: x, passo: x === "30" || x === "90" ? "giorno" : annoDi(x) && !annoDi(p.periodo) ? "mese" : p.passo }))} />
           <div className="gt-scelta" role="group" aria-label="Misura">
             <button type="button" className={misura === "spesa" ? "attiva" : ""} onClick={() => setPref((p) => ({ ...p, misura: "spesa" }))}>Spesa €</button>
             <button type="button" className={misura === "ddt" ? "attiva" : ""} onClick={() => setPref((p) => ({ ...p, misura: "ddt" }))}>N. DDT</button>
