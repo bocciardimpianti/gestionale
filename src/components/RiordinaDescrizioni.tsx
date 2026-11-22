@@ -88,7 +88,7 @@ export default function RiordinaDescrizioni({ onChiudi, onFinito }: { onChiudi: 
       <div className="finestra finestra-storico-impianti" onMouseDown={(e) => e.stopPropagation()}>
         <div className="finestra-titolo">Riordina le descrizioni dei materiali<button type="button" className="chiudi" disabled={inCorso} onClick={onChiudi}>×</button></div>
         <div className="finestra-corpo">
-          <p className="piccolo">Regole: <b>MARCA - ARTICOLO … MISURA</b>, testo maiuscolo con le unità scritte bene (mm, kW, Vca…), pollici con <b>"</b>, maschio/femmina attaccati alla misura (<b>1/2"M X 1/2"F</b>), Ø e mm uniformi, metri <b>1MT</b>, abbreviazioni per esteso, un solo trattino dopo la marca. Codici, prezzi e collegamenti <b>non cambiano</b>; la descrizione di prima resta salvata.</p>
+          <p className="piccolo">Regole: <b>MARCA - ARTICOLO … MISURA</b>, testo maiuscolo con le unità scritte bene (mm, kW, Vca…), pollici con <b>"</b>, maschio/femmina attaccati alla misura (<b>1/2"FF</b> se la misura è la stessa, <b>3/4"M X 1/2"F</b> se è diversa), Ø e mm uniformi, metri <b>1MT</b>, abbreviazioni per esteso, un solo trattino dopo la marca. Codici, prezzi e collegamenti <b>non cambiano</b>; la descrizione di prima resta salvata.</p>
           <p className={stato.startsWith("Errore") ? "errore" : "piccolo"}>{stato}</p>
           {proposte && (
             <>

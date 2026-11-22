@@ -2,7 +2,7 @@
 //  1. una sola forma per marca (sigla) all'inizio: "BTI - …"; un solo " - ", quello dopo la marca
 //  2. testo in MAIUSCOLO, unità scritte normali (mm, mm², kW, Vca, lm, Hz…)
 //  3. pollici sempre con ": 1/2", 1 1/4" (niente Ø davanti ai pollici)
-//  4. maschio/femmina con la lettera attaccata alla misura: 1/2"M X 1/2"F
+//  4. maschio/femmina attaccati alla misura: stessa misura una volta sola (1/2"FF), misure diverse 3/4"M X 1/2"F
 //  5. diametri Ø14 attaccati, lunghezze 200mm, misure 16X2, pollici 3/4" X 1/2", metri 1MT, gradi 90°
 //  6. abbreviazioni per esteso (c/ → CON, RUB → RUBINETTO…), niente spazi doppi né punto finale
 // Le frazioni che non sono pollici (0,6/1kV, 5/10, 130/220) non si toccano.
@@ -59,7 +59,8 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
     .replace(new RegExp(String.raw`Ø\s*(?=${POLL})`, "g"), "") },          // Ø1/2" → 1/2"
   { r: "maschio_femmina", f: (d) => {
     const lettere = (s: string) => SIGLE_MF[s] ?? null;
-    const coppia = (m1: string, m2: string | undefined, l: [string, string]) => `${m1}${l[0]} X ${m2 ?? m1}${l[1]}`;
+    // stessa misura ai due lati: una volta sola con le lettere attaccate (1/2"FF); misure diverse: 3/4"M X 1/2"F
+    const coppia = (m1: string, m2: string | undefined, l: [string, string]) => (!m2 || m2 === m1 ? `${m1}${l[0]}${l[1]}` : `${m1}${l[0]} X ${m2}${l[1]}`);
     // lettera davanti alla misura: M1/2"-F1/2" → 1/2"M X 1/2"F
     d = d.replace(new RegExp(String.raw`\b([MF]) ?(${POLL})\s*[-X]\s*([MF]) ?(${POLL})`, "g"), "$2$1 X $4$3");
     // misure con la lettera già vicina: 3/4" M → 3/4"M ;  M 3/8" X F 3/8" → 3/8"M X 3/8"F
@@ -83,6 +84,8 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
         if (!l || !m1 || (s === "MM" && !`${m1}${m2 ?? ""}`.includes('"'))) return t;
         return `${mezzo.trim() ? mezzo.trim() + " " : ""}${coppia(m1, m2, l)}`;
       });
+    // già scritte con la stessa misura due volte: 1/2"F X 1/2"F → 1/2"FF
+    d = d.replace(new RegExp(String.raw`(${MIS})([MF]) X \1([MF])(?![A-Z0-9])`, "g"), "$1$2$3");
     // sigle rimaste senza misura: una sola forma
     return d.replace(new RegExp(String.raw`(?<![A-Z0-9\/.])(M\/F|M-F|M\.F\.)(?![A-Z0-9\/])`, "g"), "MF").replace(/(?<![A-Z0-9\/.])(F\/F|F-F|F\.F\.)(?![A-Z0-9\/])/g, "FF")
       .replace(/(?<![A-Z0-9\/.])(F\/M|F-M)(?![A-Z0-9\/])/g, "FM").replace(/(?<![A-Z0-9\/.])(M\/M|M-M|M\.M\.)(?![A-Z0-9\/])/g, "MM");
