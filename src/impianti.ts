@@ -204,6 +204,8 @@ const FAMIGLIE_MARCHE: string[][] = [
   ["BIASI"], ["HERMANN"], ["SAUNIER DUVAL"], ["LAMINOX"], ["MITSUBISHI", "MITSU"], ["DAIKIN"], ["FUJITSU"], ["CLIVET"], ["LG"],
   ["SAMSUNG"], ["TOSHIBA"], ["HAIER"], ["HISENSE"], ["AERMEC"], ["OLIMPIA SPLENDID", "OLIMPIA"], ["DE LONGHI", "DELONGHI"],
   ["IRSAP", "IRP"], ["RAIN BIRD", "RB"], ["IRRITEC"], ["HUNTER"], ["NEWCO"], ["EUROACQUE"], ["CLIVET"],
+  // Materiale elettrico (quadri: magnetotermici, differenziali, relè)
+  ["HAGER", "HAG"], ["BTICINO", "BT"], ["VIMAR", "VIM"], ["GEWISS", "GW"], ["ABB"], ["SCHNEIDER", "SCH"], ["FINDER", "FIN"], ["LEGRAND"], ["SIEMENS"],
 ];
 const parola = (testo: string, p: string) => new RegExp(`(^|[^A-Z0-9])${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^A-Z0-9]|$)`).test(testo);
 

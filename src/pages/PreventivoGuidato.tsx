@@ -131,6 +131,10 @@ export default function PreventivoGuidato() {
   const aggiungiAmbiente = (t: AmbienteTipo | null) => {
     if (!foglio || !catalogo) return;
     const base = t?.nome ?? "Nuovo ambiente";
+    // Ambiente con un lavoro dello stesso nome (es. "Quadro elettrico"): si apre la scelta dei materiali dal catalogo
+    // (magnetotermici, differenziali, relè…); se c'è già, si riapre quella
+    const lavoro = t && lavori?.find((l) => l.attivo && l.nome.trim().toLowerCase() === base.trim().toLowerCase());
+    if (lavoro && lavoroDi(lavoro.id)) { setLavoroAperto(lavoro.id); setTimeout(() => document.querySelector(".configuratore")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); return; }
     const stessi = foglio.ambienti.filter((a) => a.nome === base || a.nome.startsWith(`${base} `)).length;
     const voci = (t?.voci ?? []).map((x) => catalogo.voci.find((v) => v.id === x.voce_id) && { v: catalogo.voci.find((v) => v.id === x.voce_id)!, q: x.quantita })
       .filter((x): x is { v: VoceImpianto; q: number } => !!x)
@@ -143,8 +147,9 @@ export default function PreventivoGuidato() {
       nuovo.scatole_3 = conTipo ? t!.scatole_3 : stimaScatole(moduliOccupati(nuovo));
       nuovo.scatole_4 = conTipo ? t!.scatole_4 : 0;
     }
-    cambia((x) => ({ ...x, ambienti: [...x.ambienti, nuovo] }));
-    setTimeout(() => document.getElementById(chiave)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+    cambia((x) => ({ ...x, ambienti: [...x.ambienti, nuovo], lavori: lavoro ? [...(x.lavori ?? []), { lavoro_id: lavoro.id, chiave, marca: null }] : x.lavori }));
+    if (lavoro) { setLavoroAperto(lavoro.id); setTimeout(() => document.querySelector(".configuratore")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }
+    else setTimeout(() => document.getElementById(chiave)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
   };
 
   // Tariffa oraria della manodopera: quella del foglio, altrimenti la "Standard" delle tariffe
@@ -375,7 +380,7 @@ export default function PreventivoGuidato() {
                 {a.voci.length > 0 && (
                   <div className="voce-foglio intestazione-voci" aria-hidden>
                     <span className="nome-voce">Voce</span><span className="contatore-voce">Q.tà</span>
-                    <span className="prezzo-voce" title="Prezzo di montaggio a punto (il frutto della serie si aggiunge sotto)">Montaggio</span><span className="totale-voce">Totale</span><span />
+                    <span className="prezzo-voce" title={foglio.lavori?.some((l) => l.chiave === a.chiave) ? "Prezzo di vendita" : "Prezzo di montaggio a punto (il frutto della serie si aggiunge sotto)"}>{foglio.lavori?.some((l) => l.chiave === a.chiave) ? "Prezzo" : "Montaggio"}</span><span className="totale-voce">Totale</span><span />
                   </div>
                 )}
                 {a.voci.map((v, k) => (
@@ -415,7 +420,7 @@ export default function PreventivoGuidato() {
                     {tariffeTipo.filter((t) => t.nome !== pred.nome).map((t) => <option key={t.id} value={t.nome}>{t.nome} · {euro(t.prezzo_ora)}/h</option>)}
                   </select>
                 </div>
-                {foglio.tipo === "elettrico" && <Scatole a={a} serie={foglio.serie} onCambia={(s3, s4) => cambiaAmbiente(a.chiave, (x) => ({ ...x, scatole_3: s3, scatole_4: s4 }))} />}
+                {foglio.tipo === "elettrico" && !(foglio.lavori?.some((l) => l.chiave === a.chiave) && !(a.scatole_3 || a.scatole_4) && !accessoriAmbiente(a, foglio.serie).length) && <Scatole a={a} serie={foglio.serie} onCambia={(s3, s4) => cambiaAmbiente(a.chiave, (x) => ({ ...x, scatole_3: s3, scatole_4: s4 }))} />}
                 <div className="totale-ambiente"><span>Totale {a.nome}</span><b>{euro(totaleAmbiente(a, foglio.serie, pred))}</b></div>
               </div>
             ))}

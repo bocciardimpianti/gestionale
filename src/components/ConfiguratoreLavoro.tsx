@@ -107,7 +107,8 @@ function Categoria({ c, materiali, marca, scelti, onAggiungi, onQuantita }: {
           return (
             <div key={m.id} className={`articolo-lavoro${q ? " scelto" : ""}${compatibili.has(m.id) ? " stessa-marca" : ""}${i === primoAltro && i > 0 ? " altre-marche" : ""}`} onClick={() => !q && onAggiungi(m)} title={pulisci(m.descrizione)}>
               <span className="foto-articolo">{typeof m.foto === "string" && m.foto ? <Miniatura percorso={m.foto} archivio="materiali" /> : null}</span>
-              <span className="descr-articolo">{pulisci(m.descrizione)}</span>
+              {/* Senza la sigla della marca davanti ("HAGER - …"): resta visibile la parte che conta (es. C16) */}
+              <span className="descr-articolo">{pulisci(m.descrizione).replace(/^[A-Z][A-Z0-9 .&']{0,14}?\s*[-–]\s+/, "")}</span>
               <span className="prezzo-articolo">{euro(Number(m.prezzo_ricaricato ?? 0))}</span>
               {q ? (
                 <span className="contatore-voce" onClick={(e) => e.stopPropagation()}>
