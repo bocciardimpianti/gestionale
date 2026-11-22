@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Package, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "../../supabase";
-import { COMPONENTI, leggiCatalogo, leggiLavori, leggiSerie, leggiTariffe, type CategoriaLavoro, type TariffaPreventivo, type LavoroPreventivo, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
+import { COMPONENTI, paroleSerie, trovaFrutto, leggiCatalogo, leggiLavori, leggiSerie, leggiTariffe, type CategoriaLavoro, type TariffaPreventivo, type LavoroPreventivo, NOMI_TIPO, type Componente, prezzoVoce, type AmbienteTipo, type SerieCivile, type TipoImpianto, type VoceImpianto } from "../../impianti";
 import CercaMateriale from "../../components/CercaMateriale";
 import { materialiCategoria, useCatalogo } from "../../components/ConfiguratoreLavoro";
 
@@ -23,6 +23,7 @@ export default function ImpiantiTipo() {
   const [lavori, setLavori] = useState<LavoroPreventivo[]>([]);
   const [erroreLavori, setErroreLavori] = useState("");
   const [collegaA, setCollegaA] = useState<{ serie: SerieCivile; c: Componente } | null>(null);
+  const [fruttiDi, setFruttiDi] = useState<SerieCivile | null>(null);
 
   const carica = useCallback(async () => {
     try {
@@ -60,7 +61,7 @@ export default function ImpiantiTipo() {
       <section className="riquadro-chiamata">
         <h2>Voci</h2>
         <table className="griglia tabella-voci">
-          <thead><tr><th>Voce</th><th>Unità</th>{tipo === "elettrico" && <th title="Quanti posti occupa nella scatola (presa Schuko 2, interruttore 1, punto luce 0)">Moduli</th>}<th>Prezzo a punto</th><th>Kit di materiali</th><th>Attiva</th><th /></tr></thead>
+          <thead><tr><th>Voce</th><th>Unità</th>{tipo === "elettrico" && <th title="Quanti posti occupa nella scatola (presa Schuko 2, interruttore 1, punto luce 0)">Moduli</th>}<th title="Prezzo del montaggio a punto: il frutto della serie si aggiunge da solo">{tipo === "elettrico" ? "Montaggio a punto" : "Prezzo a punto"}</th>{tipo === "elettrico" && <th title="Parole per trovare il frutto nel catalogo, separate da | (es. presa.*tv|coassial). Vuoto = la voce non ha frutto">Frutto (cerca)</th>}<th>Kit di materiali</th><th>Attiva</th><th /></tr></thead>
           <tbody>
             {voci.map((v) => (
               <tr key={v.id} className={v.attiva ? "" : "spenta"}>
@@ -78,6 +79,14 @@ export default function ImpiantiTipo() {
                     }} /> €
                   {v.prezzo === null && <span className="piccolo"> = {euro(prezzoVoce(v))}</span>}
                 </td>
+                {tipo === "elettrico" && (
+                  <td className="cella-frutto">
+                    <input placeholder="nessun frutto" defaultValue={v.frutto_cerca ?? ""} aria-label={`Frutto di ${v.nome}`}
+                      onBlur={(e) => { const t = e.target.value.trim() || null; if (t !== (v.frutto_cerca ?? null)) esegui(supabase.from("voci_impianto").update({ frutto_cerca: t }).eq("id", v.id)); }} />
+                    {!!v.frutto_cerca && <span className="piccolo"> × <input className="mini destra" inputMode="decimal" title="Frutti per ogni punto" defaultValue={String(v.frutti_per_punto ?? 1).replace(".", ",")}
+                      onBlur={(e) => { const n = numero(e.target.value || "1"); if (!Number.isNaN(n) && n >= 0 && n !== v.frutti_per_punto) esegui(supabase.from("voci_impianto").update({ frutti_per_punto: n }).eq("id", v.id)); }} /></span>}
+                  </td>
+                )}
                 <td><button className="btn grigio piccolo-btn" onClick={() => setKitDi(v)}><Package size={14} /> {v.kit.length ? `${v.kit.length} materiali · ${euro(v.kit.reduce((t, k) => t + k.prezzo * k.quantita, 0))}` : "Aggiungi kit"}</button></td>
                 <td><input type="checkbox" checked={v.attiva} onChange={(e) => esegui(supabase.from("voci_impianto").update({ attiva: e.target.checked }).eq("id", v.id))} /></td>
                 <td><button className="link rosso" title="Elimina la voce" onClick={() => confirm(`Eliminare la voce "${v.nome}"? Sparisce anche dagli ambienti tipo (non dai preventivi già fatti).`) && esegui(supabase.from("voci_impianto").delete().eq("id", v.id))}><Trash2 size={15} /></button></td>
@@ -144,7 +153,7 @@ export default function ImpiantiTipo() {
           <p className="piccolo">Ogni pezzo è collegato a un materiale del catalogo e ne usa il <b>prezzo di vendita</b> (se cambi il prezzo nel catalogo cambia anche qui); se non è collegato vale il prezzo scritto a mano. Prezzi a pezzo usati dal preventivo guidato per calcolare supporti e placche (uno per scatola) e copriforo (posti liberi nelle scatole).</p>
           {erroreSerie && <p className="errore">{erroreSerie}</p>}
           <table className="griglia tabella-voci">
-            <thead><tr><th>Serie</th>{COMPONENTI.map((c) => <th key={c}>{NOMI_COMPONENTE[c]}</th>)}<th>Attiva</th><th /></tr></thead>
+            <thead><tr><th>Serie</th>{COMPONENTI.map((c) => <th key={c}>{NOMI_COMPONENTE[c]}</th>)}<th>Frutti</th><th>Attiva</th><th /></tr></thead>
             <tbody>
               {serie.map((x) => (
                 <tr key={x.id} className={x.attiva ? "" : "spenta"}>
@@ -171,6 +180,7 @@ export default function ImpiantiTipo() {
                       </td>
                     );
                   })}
+                  <td><button className="btn grigio piccolo-btn" onClick={() => setFruttiDi(x)} title="Frutti della serie per ogni voce (presa TV, interruttore…)">🔌 Frutti{x.frutti_scelti ? ` (${Object.keys(x.frutti_scelti).length} a mano)` : ""}</button></td>
                   <td><input type="checkbox" checked={x.attiva} onChange={(e) => esegui(supabase.from("serie_civili").update({ attiva: e.target.checked }).eq("id", x.id))} /></td>
                   <td><button className="link rosso" title="Elimina la serie" onClick={() => confirm(`Eliminare la serie "${x.nome}"?`) && esegui(supabase.from("serie_civili").delete().eq("id", x.id))}><Trash2 size={15} /></button></td>
                 </tr>
@@ -186,6 +196,9 @@ export default function ImpiantiTipo() {
 
       <Lavori tipo={tipo} lavori={lavori} errore={erroreLavori} esegui={esegui} />
 
+      {fruttiDi && (
+        <FruttiSerie serie={serie.find((x) => x.id === fruttiDi.id) ?? fruttiDi} voci={voci} esegui={esegui} onChiudi={() => setFruttiDi(null)} />
+      )}
       {collegaA && (
         <div className="sopra-materiali" onMouseDown={(e) => e.stopPropagation()}>
           <CercaMateriale titolo={`${NOMI_COMPONENTE[collegaA.c]} – ${collegaA.serie.nome}`} testoIniziale={`${NOMI_COMPONENTE[collegaA.c].split(" ")[0].toLowerCase()} ${collegaA.serie.nome.replace(/^(BTicino|Vimar|Gewiss) /, "")}`}
@@ -228,6 +241,59 @@ export default function ImpiantiTipo() {
         <div className="sopra-materiali" onMouseDown={(e) => e.stopPropagation()}>
           <CercaMateriale chiediQuantita titolo={`Materiali per "${kitDi.nome}"`} onChiudi={() => setCercaKit(false)}
             onScegli={(m, q) => esegui(supabase.from("voci_impianto_kit").insert({ voce_id: kitDi.id, materiale_id: m.id, quantita: q ?? 1 }))} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Frutti di una serie: per ogni voce il frutto trovato da solo nel catalogo, oppure quello scelto a mano
+function FruttiSerie({ serie, voci, esegui, onChiudi }: { serie: SerieCivile; voci: VoceImpianto[]; esegui: (p: PromiseLike<{ error: { message: string } | null }>) => Promise<void>; onChiudi: () => void }) {
+  const { materiali } = useCatalogo();
+  const [scegliPer, setScegliPer] = useState<VoceImpianto | null>(null);
+  const conFrutto = voci.filter((v) => v.attiva && (v.frutto_cerca || serie.frutti_scelti?.[v.id]));
+  return (
+    <div className="velo" onMouseDown={onChiudi}>
+      <div className="finestra finestra-frutti" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="finestra-titolo">Frutti {serie.nome}<button className="chiudi" onClick={onChiudi}>×</button></div>
+        <div className="finestra-corpo">
+          <p className="piccolo">Nel preventivo guidato il prezzo di ogni voce è il <b>montaggio</b>; il frutto della serie si aggiunge da solo con il suo <b>prezzo di vendita</b> del catalogo. Il frutto si trova cercando le parole della serie insieme a quelle della voce (colonna "Frutto (cerca)"); se ce ne sono più di uno si prende quello del colore della serie (o bianco) meno caro. Con <b>Scegli</b> lo fissi tu.</p>
+          <label className="riga-cerca-serie">Come compare la serie nel catalogo
+            <input defaultValue={serie.cerca_frutti ?? ""} placeholder={paroleSerie({ nome: serie.nome, cerca_frutti: null }).join(" ")}
+              onBlur={(e) => { const t = e.target.value.trim() || null; if (t !== (serie.cerca_frutti ?? null)) esegui(supabase.from("serie_civili").update({ cerca_frutti: t }).eq("id", serie.id)); }} />
+          </label>
+          {!materiali && <p className="piccolo">Caricamento del catalogo…</p>}
+          <table className="griglia tabella-voci">
+            <thead><tr><th>Voce</th><th>Frutto</th><th className="destra">Prezzo</th><th /></tr></thead>
+            <tbody>
+              {conFrutto.map((v) => {
+                const scelto = serie.frutti_scelti?.[v.id];
+                const auto = materiali ? trovaFrutto(materiali, v, serie) : null;
+                const m = scelto?.materiale ?? auto;
+                return (
+                  <tr key={v.id}>
+                    <td>{v.nome}{(v.frutti_per_punto ?? 1) !== 1 && <span className="piccolo"> × {v.frutti_per_punto}</span>}</td>
+                    <td>{m ? <span title={m.descrizione}>{m.descrizione}</span> : <span className="piccolo rosso">{materiali ? "nessun frutto trovato: scegline uno" : "…"}</span>}
+                      <div className="piccolo">{scelto ? "scelto a mano" : m ? "trovato da solo" : ""}</div></td>
+                    <td className="destra">{m ? euro(scelto?.prezzo ?? m.prezzo) : "—"}</td>
+                    <td className="comandi-frutto">
+                      <button className="link" onClick={() => setScegliPer(v)}>Scegli</button>
+                      {scelto && <button className="link rosso" onClick={() => esegui(supabase.from("serie_frutti").delete().eq("serie_id", serie.id).eq("voce_id", v.id))}>automatico</button>}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!conFrutto.length && <tr><td colSpan={4} className="piccolo">Nessuna voce ha le parole del frutto: compilale nella colonna "Frutto (cerca)" delle voci.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="finestra-piede"><span style={{ flex: 1 }} /><button className="btn grigio" onClick={onChiudi}>Fatto</button></div>
+      </div>
+      {scegliPer && (
+        <div className="sopra-materiali" onMouseDown={(e) => e.stopPropagation()}>
+          <CercaMateriale titolo={`Frutto "${scegliPer.nome}" – ${serie.nome}`} testoIniziale={`${scegliPer.nome.split(/[ /(]/)[0].toLowerCase()} ${paroleSerie(serie).join(" ").toLowerCase()}`}
+            onChiudi={() => setScegliPer(null)}
+            onScegli={(m) => { esegui(supabase.from("serie_frutti").upsert({ serie_id: serie.id, voce_id: scegliPer.id, materiale_id: m.id, prezzo: null })); setScegliPer(null); }} />
         </div>
       )}
     </div>

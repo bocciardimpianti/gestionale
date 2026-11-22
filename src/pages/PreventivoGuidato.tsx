@@ -4,10 +4,10 @@ import { Copy, Minus, Package, Plus, Printer, Save, Trash2 } from "lucide-react"
 import { dataIso, leggiTutto, registra, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import Autocompleta from "../components/Autocompleta";
-import ConfiguratoreLavoro from "../components/ConfiguratoreLavoro";
+import ConfiguratoreLavoro, { useCatalogo } from "../components/ConfiguratoreLavoro";
 import { stampaPreventivo } from "../stampe";
 import {
-  accessoriAmbiente, manodopera, leggiCatalogo, leggiTariffe, tariffaDi, type TariffaFoglio, type TariffaPreventivo, leggiLavori, leggiSerie, marcaMateriale, type LavoroPreventivo, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
+  accessoriAmbiente, fruttiSerie, manodopera, leggiCatalogo, leggiTariffe, tariffaDi, type TariffaFoglio, type TariffaPreventivo, leggiLavori, leggiSerie, marcaMateriale, type LavoroPreventivo, moduliOccupati, NOMI_TIPO, postiScatole, prezzoVoce, stimaScatole, totaleAmbiente,
   type AmbienteFoglio, type AmbienteTipo, type Foglio, type SerieCivile, type TipoImpianto, type VoceImpianto,
 } from "../impianti";
 
@@ -76,8 +76,23 @@ export default function PreventivoGuidato() {
     if (foglio.tipo === "elettrico") leggiSerie().then(setSerieCivili).catch((e) => { setSerieCivili([]); setErroreSerie((e as Error).message); });
   }, [foglio?.tipo]);
 
+  // Catalogo dei materiali: serve per trovare i frutti della serie (presa TV Matix, interruttore Matix…)
+  const { materiali } = useCatalogo();
+  const fruttiDi = (s: SerieCivile) => (catalogo && materiali ? fruttiSerie(s, catalogo.voci, materiali) : undefined);
   const sceltaSerie = (s: SerieCivile | null) => {
-    cambia((x) => ({ ...x, serie: s && { id: s.id, nome: s.nome, prezzo_supporto_3: s.prezzo_supporto_3, prezzo_supporto_4: s.prezzo_supporto_4, prezzo_placca_3: s.prezzo_placca_3, prezzo_placca_4: s.prezzo_placca_4, prezzo_copriforo: s.prezzo_copriforo, collegati: s.collegati } }));
+    cambia((x) => ({ ...x, serie: s && { id: s.id, nome: s.nome, prezzo_supporto_3: s.prezzo_supporto_3, prezzo_supporto_4: s.prezzo_supporto_4, prezzo_placca_3: s.prezzo_placca_3, prezzo_placca_4: s.prezzo_placca_4, prezzo_copriforo: s.prezzo_copriforo, collegati: s.collegati, cerca_frutti: s.cerca_frutti, frutti: fruttiDi(s) } }));
+  };
+  // Serie scelta prima che il catalogo fosse pronto (foglio nuovo): i frutti si calcolano appena arriva
+  useEffect(() => {
+    if (idPreventivo || !foglio?.serie || foglio.serie.frutti !== undefined || !catalogo || !materiali || !serieCivili) return;
+    const s = serieCivili.find((x) => x.id === foglio.serie!.id);
+    if (s) setFoglio((x) => (x?.serie ? { ...x, serie: { ...x.serie, frutti: fruttiSerie(s, catalogo.voci, materiali) } } : x));
+  }, [idPreventivo, foglio?.serie, catalogo, materiali, serieCivili]);
+  // Frutti con i prezzi di oggi (anche per un preventivo riaperto)
+  const aggiornaFrutti = () => {
+    const s = serieCivili?.find((x) => x.id === foglio?.serie?.id);
+    if (!s || !catalogo || !materiali) return alert("Attendi il caricamento del catalogo e riprova");
+    cambia((x) => (x.serie ? { ...x, serie: { ...x.serie, cerca_frutti: s.cerca_frutti, frutti: fruttiSerie(s, catalogo.voci, materiali) } } : x));
   };
 
   // ---- Lavori ("Cosa facciamo?"): ogni lavoro scelto è una sezione del foglio con i suoi materiali ----
@@ -357,6 +372,12 @@ export default function PreventivoGuidato() {
                   })}><Copy size={15} /></button>
                   <button title="Togli l'ambiente" className="rosso" onClick={() => confirm(`Togliere "${a.nome}" dal preventivo?`) && cambia((x) => ({ ...x, ambienti: x.ambienti.filter((y) => y.chiave !== a.chiave), lavori: x.lavori?.filter((y) => y.chiave !== a.chiave) }))}><Trash2 size={15} /></button>
                 </div>
+                {a.voci.length > 0 && (
+                  <div className="voce-foglio intestazione-voci" aria-hidden>
+                    <span className="nome-voce">Voce</span><span className="contatore-voce">Q.tà</span>
+                    <span className="prezzo-voce" title="Prezzo di montaggio a punto (il frutto della serie si aggiunge sotto)">Montaggio</span><span className="totale-voce">Totale</span><span />
+                  </div>
+                )}
                 {a.voci.map((v, k) => (
                   <div key={k} className={`voce-foglio${v.quantita ? "" : " zero"}`}>
                     <span className="nome-voce" title={v.nome}>{v.nome}</span>
@@ -366,7 +387,7 @@ export default function PreventivoGuidato() {
                       <button aria-label="Più" onClick={() => cambiaAmbiente(a.chiave, (x) => ({ ...x, voci: x.voci.map((y, j) => (j === k ? { ...y, quantita: y.quantita + 1 } : y)) }))}><Plus size={14} /></button>
                     </span>
                     <span className="prezzo-voce">
-                      <input inputMode="decimal" defaultValue={String(v.prezzo).replace(".", ",")} aria-label="Prezzo a punto"
+                      <input inputMode="decimal" defaultValue={String(v.prezzo).replace(".", ",")} aria-label="Montaggio a punto" title="Montaggio a punto (il frutto della serie si aggiunge sotto, in automatico)"
                         onBlur={(e) => { const p = numero(e.target.value); if (!Number.isNaN(p) && p !== v.prezzo) cambiaAmbiente(a.chiave, (x) => ({ ...x, voci: x.voci.map((y, j) => (j === k ? { ...y, prezzo: p } : y)) })); }} />
                     </span>
                     <span className="totale-voce">{euro(v.prezzo * v.quantita)}</span>
@@ -415,6 +436,12 @@ export default function PreventivoGuidato() {
             {perTariffa.map((t) => <div key={`${t.nome}${t.prezzo}`} className="riga-riepilogo piccola"><span>{t.nome}: {String(t.ore).replace(".", ",")} h × {euro(t.prezzo)}</span><span>{euro(t.ore * t.prezzo)}</span></div>)}
             <div className="riga-riepilogo"><span>Manodopera</span><b>{euro(perTariffa.reduce((s, t) => s + t.ore * t.prezzo, 0))}</b></div>
           </div>
+          {foglio.tipo === "elettrico" && foglio.serie && (
+            <div className="frutti-riepilogo">
+              <span>🔌 Frutti {foglio.serie.nome}: {foglio.serie.frutti === undefined ? (idPreventivo ? "non calcolati" : "calcolo…") : `${Object.keys(foglio.serie.frutti).length} trovati`}</span>
+              <button className="link" onClick={aggiornaFrutti} title="Ricerca di nuovo i frutti nel catalogo con i prezzi di oggi">{foglio.serie.frutti === undefined ? "Calcola" : "Aggiorna prezzi"}</button>
+            </div>
+          )}
           <div className="riga-riepilogo forte"><span>Imponibile</span><span>{euro(totali.imponibile)}</span></div>
           <label className="riga-riepilogo"><span>Sconto %</span><input inputMode="decimal" value={sconto} onChange={(e) => { setSconto(e.target.value); setModificato(true); }} /></label>
           {totali.sconto_totale > 0 && <div className="riga-riepilogo"><span>Sconto</span><span>− {euro(totali.sconto_totale)}</span></div>}
@@ -463,7 +490,7 @@ function Scatole({ a, serie, onCambia }: { a: AmbienteFoglio; serie: Foglio["ser
   return (
     <div className="scatole-ambiente">
       <div className="riga-scatole">
-        <span>Scatole{serie ? <small> · {serie.nome}</small> : null}</span>
+        <span>Frutti e scatole{serie ? <small> · {serie.nome}</small> : null}</span>
         <span className="tipo-scatola">3M {contatore(s3, (n) => onCambia(n, s4), "3 moduli")}</span>
         <span className="tipo-scatola">4M {contatore(s4, (n) => onCambia(s3, n), "4 moduli")}</span>
       </div>

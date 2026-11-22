@@ -6,7 +6,9 @@ export type TipoImpianto = "elettrico" | "idraulico";
 export const NOMI_TIPO: Record<TipoImpianto, string> = { elettrico: "Impianto elettrico", idraulico: "Impianto idraulico" };
 
 export type MaterialeKit = { id?: number; materiale_id: number; quantita: number; descrizione: string; unita_misura: string | null; prezzo: number };
-export type VoceImpianto = { id: number; tipo: TipoImpianto; nome: string; unita: string; prezzo: number | null; ordine: number; attiva: boolean; moduli: number; kit: MaterialeKit[] };
+// prezzo = MONTAGGIO a punto; frutto_cerca = parole per trovare il frutto della serie nel catalogo (script 0051)
+export type VoceImpianto = { id: number; tipo: TipoImpianto; nome: string; unita: string; prezzo: number | null; ordine: number; attiva: boolean; moduli: number; kit: MaterialeKit[];
+  frutto_cerca?: string | null; frutti_per_punto?: number };
 export type AmbienteTipo = { id: number; tipo: TipoImpianto; nome: string; ordine: number; scatole_3: number; scatole_4: number; voci: { voce_id: number; quantita: number }[] };
 // Serie civile (placche e supporti): prezzi a pezzo per scatole da 3 e 4 moduli
 export const COMPONENTI = ["supporto_3", "placca_3", "supporto_4", "placca_4", "copriforo"] as const;
@@ -14,7 +16,12 @@ export type Componente = (typeof COMPONENTI)[number];
 export type MaterialeSerie = { id: number; descrizione: string; prezzo: number };
 // I prezzi sono quelli del materiale collegato del catalogo (prezzo di vendita), altrimenti quelli scritti a mano
 export type SerieCivile = { id: number; nome: string; prezzo_supporto_3: number; prezzo_supporto_4: number; prezzo_placca_3: number; prezzo_placca_4: number; prezzo_copriforo: number; ordine: number; attiva: boolean;
-  collegati?: Partial<Record<Componente, MaterialeSerie>> };
+  collegati?: Partial<Record<Componente, MaterialeSerie>>;
+  // Frutti (script 0051): parola della serie nel catalogo e frutti scelti a mano per voce
+  cerca_frutti?: string | null; frutti_scelti?: Record<number, { materiale: MaterialeSerie | null; prezzo: number | null }>;
+  // Copiati nel foglio: frutto di ogni voce (per id della voce) con il prezzo del momento
+  frutti?: Record<string, FruttoFoglio> };
+export type FruttoFoglio = { descrizione: string; prezzo: number; materiale_id: number | null; per_punto: number };
 
 // Foglio del preventivo (salvato nel preventivo per poterlo riaprire)
 export type VoceFoglio = { voce_id: number | null; nome: string; unita: string; prezzo: number; quantita: number; moduli?: number; materiale_id?: number };
@@ -22,7 +29,7 @@ export type AmbienteFoglio = { chiave: string; nome: string; voci: VoceFoglio[];
 export type TariffaFoglio = { nome: string; prezzo: number };
 // La serie è copiata nel foglio (nome e prezzi) così riaprendo il preventivo i conti non cambiano
 export type LavoroFoglio = { lavoro_id: number; chiave: string; marca?: string | null };
-export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva"> | null; lavori?: LavoroFoglio[]; tariffa_oraria?: number; tariffa_nome?: string };
+export type Foglio = { tipo: TipoImpianto; ambienti: AmbienteFoglio[]; serie?: Omit<SerieCivile, "ordine" | "attiva" | "frutti_scelti"> | null; lavori?: LavoroFoglio[]; tariffa_oraria?: number; tariffa_nome?: string };
 export type Accessorio = { nome: string; breve: string; quantita: number; prezzo: number; materiale?: string };
 
 const r2 = (x: number) => Math.round(x * 100) / 100;
@@ -32,9 +39,27 @@ export const prezzoVoce = (v: VoceImpianto) => (v.prezzo !== null && v.prezzo !=
 export const moduliOccupati = (a: AmbienteFoglio) => a.voci.reduce((t, v) => t + (v.moduli ?? 0) * v.quantita, 0);
 export const postiScatole = (a: AmbienteFoglio) => 3 * (a.scatole_3 ?? 0) + 4 * (a.scatole_4 ?? 0);
 
-/** Supporti, placche e copriforo di un ambiente: uno per scatola, copriforo = posti liberi (circa) */
+/** Frutti della serie per le voci di un ambiente (presa TV → frutto presa TV della serie), raggruppati */
+export function fruttiAmbiente(a: AmbienteFoglio, serie: Foglio["serie"]): Accessorio[] {
+  if (!serie?.frutti) return [];
+  const per = new Map<string, Accessorio>();
+  for (const v of a.voci) {
+    const f = v.voce_id != null ? serie.frutti[String(v.voce_id)] : undefined;
+    if (!f || !(v.quantita > 0)) continue;
+    const q = v.quantita * (f.per_punto || 1);
+    const x = per.get(f.descrizione) ?? { nome: f.descrizione, breve: `${v.nome} · frutto`, quantita: 0, prezzo: f.prezzo, materiale: f.descrizione };
+    x.quantita = r2(x.quantita + q);
+    per.set(f.descrizione, x);
+  }
+  return [...per.values()];
+}
+
+/** Frutti, supporti, placche e copriforo di un ambiente: supporto e placca uno per scatola, copriforo = posti liberi (circa) */
 export function accessoriAmbiente(a: AmbienteFoglio, serie: Foglio["serie"]): Accessorio[] {
   if (!serie) return [];
+  return [...fruttiAmbiente(a, serie), ...placcheAmbiente(a, serie)];
+}
+function placcheAmbiente(a: AmbienteFoglio, serie: NonNullable<Foglio["serie"]>): Accessorio[] {
   const s3 = a.scatole_3 ?? 0, s4 = a.scatole_4 ?? 0;
   const copriforo = Math.max(0, postiScatole(a) - moduliOccupati(a));
   return [
@@ -71,7 +96,24 @@ export async function leggiTariffe(): Promise<{ tariffe: TariffaPreventivo[]; ma
   return { tariffe: scelta ? [{ id: -1, nome: "Manodopera", prezzo_ora: Number(scelta.tariffa_oraria), tipo: null, predefinita: true, ordine: 0, attiva: true }] : [], manca: true };
 }
 
-export async function leggiSerie() {
+export async function leggiSerie(): Promise<SerieCivile[]> {
+  const elenco = await leggiSerieBase();
+  // Frutti scelti a mano per serie e voce (script 0051): senza la tabella si va avanti senza
+  const { data, error } = await supabase.from("serie_frutti").select("serie_id, voce_id, prezzo, materiale:materiali(id, descrizione, prezzo_ricaricato)");
+  if (error) return elenco;
+  for (const f of (data ?? []) as unknown as { serie_id: number; voce_id: number; prezzo: number | null; materiale: { id: number; descrizione: string; prezzo_ricaricato: number } | null }[]) {
+    const s = elenco.find((x) => x.id === f.serie_id);
+    if (!s) continue;
+    s.frutti_scelti ??= {};
+    s.frutti_scelti[f.voce_id] = {
+      materiale: f.materiale ? { id: f.materiale.id, descrizione: f.materiale.descrizione, prezzo: r2(Number(f.materiale.prezzo_ricaricato)) } : null,
+      prezzo: f.prezzo === null ? null : Number(f.prezzo),
+    };
+  }
+  return elenco;
+}
+
+async function leggiSerieBase() {
   const conMateriali = "*, " + COMPONENTI.map((c) => `m_${c}:mat_${c}(id, descrizione, prezzo_ricaricato)`).join(", ");
   const q = (sel: string) => supabase.from("serie_civili").select(sel).order("ordine").order("id");
   let { data, error } = await q(conMateriali);
@@ -91,14 +133,17 @@ export async function leggiSerie() {
 }
 
 export async function leggiCatalogo(tipo?: TipoImpianto) {
+  let conFrutti = true;
   const leggi = (conSerie: boolean) => {
-    let qv = supabase.from("voci_impianto").select(`id, tipo, nome, unita, prezzo, ordine, attiva${conSerie ? ", moduli" : ""}`).order("ordine").order("id");
+    let qv = supabase.from("voci_impianto").select(`id, tipo, nome, unita, prezzo, ordine, attiva${conSerie ? ", moduli" : ""}${conSerie && conFrutti ? ", frutto_cerca, frutti_per_punto" : ""}`).order("ordine").order("id");
     let qa = supabase.from("ambienti_tipo").select(`id, tipo, nome, ordine${conSerie ? ", scatole_3, scatole_4" : ""}`).order("ordine").order("id");
     if (tipo) { qv = qv.eq("tipo", tipo); qa = qa.eq("tipo", tipo); }
     return Promise.all([qv, qa]);
   };
   // Senza lo script 0032 le colonne moduli/scatole non ci sono ancora: si legge senza
   let [{ data: voci, error: e1 }, { data: amb, error: e2 }] = await leggi(true);
+  // Senza lo script 0051 non ci sono le colonne dei frutti
+  if (/frutt/.test(e1?.message ?? "")) { conFrutti = false; [{ data: voci, error: e1 }, { data: amb, error: e2 }] = await leggi(true); }
   if (/moduli|scatole_/.test((e1 ?? e2)?.message ?? "")) [{ data: voci, error: e1 }, { data: amb, error: e2 }] = await leggi(false);
   if (e1 || e2) throw new Error(/voci_impianto|ambienti_tipo/.test((e1 ?? e2)!.message) ? "Esegui su Supabase lo script 0031_preventivo_guidato.sql" : (e1 ?? e2)!.message);
   const idVoci = ((voci ?? []) as unknown as { id: number }[]).map((v) => v.id);
@@ -120,7 +165,8 @@ export async function leggiCatalogo(tipo?: TipoImpianto) {
     vociAmb.set(x.ambiente_id, l);
   }
   return {
-    voci: ((voci ?? []) as unknown as Record<string, unknown>[]).map((v) => ({ ...(v as Omit<VoceImpianto, "kit">), prezzo: v.prezzo === null ? null : Number(v.prezzo), moduli: Number(v.moduli ?? 0), kit: kitPer.get(v.id as number) ?? [] })) as VoceImpianto[],
+    voci: ((voci ?? []) as unknown as Record<string, unknown>[]).map((v) => ({ ...(v as Omit<VoceImpianto, "kit">), prezzo: v.prezzo === null ? null : Number(v.prezzo), moduli: Number(v.moduli ?? 0),
+      frutti_per_punto: v.frutti_per_punto === undefined || v.frutti_per_punto === null ? 1 : Number(v.frutti_per_punto), kit: kitPer.get(v.id as number) ?? [] })) as VoceImpianto[],
     ambienti: ((amb ?? []) as unknown as Record<string, unknown>[]).map((a) => ({ ...(a as Omit<AmbienteTipo, "voci">), scatole_3: Number(a.scatole_3 ?? 0), scatole_4: Number(a.scatole_4 ?? 0), voci: vociAmb.get(a.id as number) ?? [] })) as AmbienteTipo[],
   };
 }
@@ -175,4 +221,47 @@ export function stessaMarca(descrizione: unknown, marca: string) {
   const famiglia = FAMIGLIE_MARCHE.find((f) => f[0] === marca) ?? [marca];
   const sigla = d.match(/^([A-Z][A-Z0-9 .&']{0,14}?)\s*[-–]\s/)?.[1].trim() ?? "";
   return famiglia.includes(sigla) || famiglia.some((p) => p.length >= 4 && parola(d, p));
+}
+
+// ---- Frutti della serie: ricerca nel catalogo ----
+const MARCHE_SERIE = /\b(bticino|b ?ticino|vimar|gewiss|abb|schneider|legrand|ave|hager|siemens|urmet|feb)\b/gi;
+const COLORI = /\b(bianc[oaie]|ner[oaie]|antracit[ei]|grigi[oa]|sabbia|tech|alluminio|argento|oro)\b/gi;
+const normale = (t: string) => t.toUpperCase().replace(/\s+/g, " ");
+
+/** Parole con cui la serie compare nel catalogo: quelle scritte, altrimenti il nome senza marca e colore ("BTicino Matix" → MATIX) */
+export function paroleSerie(s: Pick<SerieCivile, "nome" | "cerca_frutti">) {
+  const testo = (s.cerca_frutti?.trim() || s.nome.replace(MARCHE_SERIE, " ").replace(COLORI, " ")).trim();
+  return testo.split(/\s+/).filter((p) => p.length >= 2).map((p) => p.toUpperCase());
+}
+
+type MaterialeCatalogo = Record<string, unknown> & { id: number };
+/** Frutto del catalogo per una voce e una serie: descrizione con le parole della serie e quelle della voce.
+ *  Tra più frutti: prima quelli del colore della serie (o bianchi), poi il meno caro. */
+export function trovaFrutto(materiali: MaterialeCatalogo[], voce: Pick<VoceImpianto, "frutto_cerca">, serie: Pick<SerieCivile, "nome" | "cerca_frutti">): MaterialeSerie | null {
+  const re = espressione(voce.frutto_cerca);
+  if (!re) return null;
+  const parole = paroleSerie(serie);
+  if (!parole.length) return null;
+  const candidati = materiali.filter((m) => {
+    const d = normale(String(m.descrizione ?? ""));
+    return parole.every((p) => d.includes(p)) && re.test(d) && !/PLACC|SUPPORT|COPRIFOR|CORNIC|SCATOL|TELAIO/.test(d) && Number(m.prezzo_ricaricato) > 0;
+  });
+  if (!candidati.length) return null;
+  const colore = (serie.nome.match(COLORI)?.[0] ?? "bianc").slice(0, 5).toUpperCase();
+  const delColore = candidati.filter((m) => normale(String(m.descrizione)).includes(colore));
+  const scelta = (delColore.length ? delColore : candidati).sort((a, b) => Number(a.prezzo_ricaricato) - Number(b.prezzo_ricaricato))[0];
+  return { id: scelta.id, descrizione: String(scelta.descrizione), prezzo: r2(Number(scelta.prezzo_ricaricato)) };
+}
+
+/** Frutti di tutte le voci per una serie (quelli scelti a mano hanno la precedenza), da copiare nel foglio */
+export function fruttiSerie(serie: SerieCivile, voci: VoceImpianto[], materiali: MaterialeCatalogo[]): Record<string, FruttoFoglio> {
+  const out: Record<string, FruttoFoglio> = {};
+  for (const v of voci) {
+    const scelto = serie.frutti_scelti?.[v.id];
+    const m = scelto?.materiale ?? (v.frutto_cerca ? trovaFrutto(materiali, v, serie) : null);
+    const prezzo = scelto?.prezzo ?? m?.prezzo ?? null;
+    if (!m && prezzo === null) continue;
+    out[String(v.id)] = { descrizione: m?.descrizione ?? `Frutto ${v.nome} ${serie.nome}`, prezzo: prezzo ?? 0, materiale_id: m?.id ?? null, per_punto: v.frutti_per_punto ?? 1 };
+  }
+  return out;
 }

@@ -2128,3 +2128,16 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .ds-stato { height: 30px; border-radius: 15px; border: 1px solid #eda100; background: #fff7e0; color: #7a5300; font: inherit; font-size: 12.5px; padding: 0 12px; cursor: pointer; white-space: nowrap; }
 .ds-stato.fatto { border-color: #0ca30c; background: #e9f7e9; color: #006300; }
 .ds-nota { margin-top: 10px; }
+/* Preventivo guidato: intestazione delle voci (il prezzo è il montaggio) e frutti della serie */
+.voce-foglio.intestazione-voci { font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; color: #8a929c; border-bottom: 1px solid #e3e7e9; padding-bottom: 3px; }
+.voce-foglio.intestazione-voci .contatore-voce { justify-self: center; background: none; border: 0; }
+.voce-foglio.intestazione-voci .prezzo-voce, .voce-foglio.intestazione-voci .totale-voce { text-align: right; }
+.frutti-riepilogo { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 12.5px; color: #52514e; background: #fbf7ec; border-radius: 6px; padding: 5px 8px; }
+.cella-frutto input:not(.mini) { width: 150px; }
+.cella-frutto input.mini { width: 40px; }
+.finestra-frutti { width: min(860px, 96vw); }
+.finestra-frutti .finestra-corpo { max-height: 72vh; overflow-y: auto; }
+.riga-cerca-serie { display: grid; gap: 3px; font-size: 12.5px; color: #52514e; margin: 8px 0 12px; max-width: 360px; }
+.riga-cerca-serie input { height: 34px; border: 1px solid #c3c2b7; border-radius: 6px; padding: 0 8px; font: inherit; }
+.comandi-frutto { white-space: nowrap; }
+.comandi-frutto .link + .link { margin-left: 8px; }
