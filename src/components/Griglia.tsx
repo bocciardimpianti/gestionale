@@ -32,6 +32,8 @@ export interface Colonna {
   classe?: string;
   // Colonna che non si vede nell'elenco (resta nella scheda, nell'importazione e nell'esportazione Excel)
   nascostaInElenco?: boolean;
+  // Chiave per ordinare la colonna in modo "naturale" (es. materiali: stesso articolo, misure in ordine, MF prima di FF)
+  ordina?: (r: Record<string, unknown>) => string;
 }
 
 type Riga = Record<string, unknown> & { id: number };
@@ -155,8 +157,11 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
       // Prima chi ha tutte le parole così come sono state scritte, poi singolare/plurale, poi sinonimi e correzioni
       const paroleNorm = parole.map((p) => normalizza(p));
       const livello = new Map(trovate.map((r) => [r, livelloCorrispondenza(testiFurbi.get(r) ?? "", paroleNorm)]));
+      const colOrd = colonne.find((c) => c.chiave === ordine.chiave);
+      const chiaveOrd = colOrd?.ordina ? new Map(trovate.map((r) => [r, colOrd.ordina!(r)])) : null;
       return trovate.sort((a, b) => livello.get(a)! - livello.get(b)!
-        || testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }) * (ordine.su ? 1 : -1));
+        || (chiaveOrd ? (chiaveOrd.get(a)! < chiaveOrd.get(b)! ? -1 : chiaveOrd.get(a)! > chiaveOrd.get(b)! ? 1 : 0)
+          : testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true })) * (ordine.su ? 1 : -1));
     }
     correzioni.current = [];
     // Su una colonna precisa si cercano le parole che INIZIANO col testo (es. "F" → Ferdinando, Rossi Franco)
@@ -181,6 +186,10 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
     const segno = ordine.su ? 1 : -1;
     const colonnaOrdine = colonne.find((c) => c.chiave === ordine.chiave);
     const tipo = colonnaOrdine?.tipo;
+    if (colonnaOrdine?.ordina) {
+      const k = new Map(filtrate.map((r) => [r, colonnaOrdine.ordina!(r)]));
+      return filtrate.sort((a, b) => { const x = k.get(a)!, y = k.get(b)!; return segno * (x < y ? -1 : x > y ? 1 : 0); });
+    }
     return filtrate.sort((a, b) =>
       tipo === "euro" || tipo === "booleano" || tipo === "numero" || tipo === "percentuale"
         ? segno * (Number(a[ordine.chiave] ?? 0) - Number(b[ordine.chiave] ?? 0))

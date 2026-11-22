@@ -2,6 +2,7 @@ import type { Colonna } from "./components/Griglia";
 import { maschioFemmina } from "./testoFoto";
 import { CATEGORIE_IMPIANTI, TIPI_IMPIANTO_TERMICO } from "./impiantiAuto";
 import { TIPI_SPESA } from "./speseAziendali";
+import { chiaveOrdineMateriale } from "./ordineMateriali";
 import { dataIso, dataIt, prossimiCodiciInterni, supabase } from "./supabase";
 import { stampaPreventivo, stampaRapporto } from "./stampe";
 import { stampaEtichette } from "./etichette";
@@ -764,7 +765,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     linguette: ["Storico", "Log Cloud"],
     tabella: "materiali",
     chiaveImport: ["codice_interno", "descrizione"],
-    ordineIniziale: { chiave: "codice_interno", su: true },
+    ordineIniziale: { chiave: "descrizione", su: true },
     // Nuova descrizione senza categoria: viene proposta subito, si può sempre cambiare
     // Come in ReportOne il codice a barre (contenuto nel QR dell'etichetta) segue il codice interno,
     // finché non viene scritto a mano un codice a barre diverso
@@ -851,7 +852,8 @@ export const ARCHIVI: Record<string, Archivio> = {
     colonne: [
       { chiave: "foto", titolo: "Fotografia", excel: "Fotografia", larghezza: 40, tipo: "miniatura", archivio: "materiali" },
       { chiave: "codice_interno", titolo: "Codice Interno", excel: "Codice Interno", larghezza: 66 },
-      { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 550 },
+      // Ordine naturale: stesso articolo insieme, misure dalla più piccola alla più grande, MF prima di FF
+      { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 550, ordina: (r) => chiaveOrdineMateriale(r.descrizione) },
       { chiave: "categoria", titolo: "Categoria", excel: "Categoria", larghezza: 170, tipo: "categoria" },
       { chiave: "nome_articolo", titolo: "Nome Articolo", excel: "Nome Articolo", larghezza: 69 },
       { chiave: "fornitore1", titolo: "Fornitore 1", excel: "Fornitore 1", larghezza: 65 },

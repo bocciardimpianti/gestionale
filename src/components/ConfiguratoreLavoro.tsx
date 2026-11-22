@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Minus, Plus, X } from "lucide-react";
 import { materialiAggiornati, materialiSalvati } from "../cacheElenchi";
 import { Miniatura } from "./CampoImmagine";
+import { confrontaMateriali } from "../ordineMateriali";
 import { espressione, stessaMarca, type AmbienteFoglio, type CategoriaLavoro, type LavoroPreventivo } from "../impianti";
 
 // Configuratore di un lavoro del preventivo guidato (es. Caldaia): tutte le categorie affiancate
@@ -86,7 +87,7 @@ function Categoria({ c, materiali, marca, scelti, onAggiungi, onQuantita }: {
   const elenco = trovati
     .filter((m) => parole.every((p) => pulisci(m.descrizione).toLowerCase().includes(p)))
     .sort((a, b) => (scelti.has(b.id) ? 1 : 0) - (scelti.has(a.id) ? 1 : 0) || (compatibili.has(b.id) ? 1 : 0) - (compatibili.has(a.id) ? 1 : 0)
-      || Number(a.prezzo_ricaricato ?? 0) - Number(b.prezzo_ricaricato ?? 0));
+      || confrontaMateriali(a.descrizione, b.descrizione));
   const primoAltro = compatibili.size ? elenco.findIndex((m) => !compatibili.has(m.id) && !scelti.has(m.id)) : -1;
   const quanti = [...scelti.keys()].filter((id) => trovati.some((m) => m.id === id)).length;
   return (

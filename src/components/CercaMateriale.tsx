@@ -10,6 +10,7 @@ import { useAuth } from "../auth";
 import GestioneElenco from "./GestioneElenco";
 import { Sparkles, X } from "lucide-react";
 import { chiediAssistente, type Proposta } from "../assistente";
+import { chiaveOrdineMateriale } from "../ordineMateriali";
 import { correggi, creaRicerca, livelloCorrispondenza, normalizza, radice, useSinonimi, vocabolario } from "../ricercaFurba";
 import MicDettatura from "./MicDettatura";
 
@@ -141,8 +142,10 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
   const { filtrati, correzioni } = useMemo(() => {
     if (!materiali) return { filtrati: [] as Materiale[], correzioni: [] as string[] };
     const parole = pulisciRicerca(testo).split(/\s+/).filter(Boolean);
-    const alfabetico = (a: Materiale, b: Materiale) => (usi?.get(b.id) ?? 0) - (usi?.get(a.id) ?? 0)
-      || String(a.descrizione ?? "").localeCompare(String(b.descrizione ?? ""), "it", { sensitivity: "base" });
+    // Ordine naturale: stesso articolo insieme, misure dalla più piccola alla più grande, MF prima di FF
+    const chiavi = new Map<Materiale, string>();
+    const chiave = (m: Materiale) => { let k = chiavi.get(m); if (k === undefined) { k = chiaveOrdineMateriale(m.descrizione); chiavi.set(m, k); } return k; };
+    const alfabetico = (a: Materiale, b: Materiale) => { const x = chiave(a), y = chiave(b); return x < y ? -1 : x > y ? 1 : (usi?.get(b.id) ?? 0) - (usi?.get(a.id) ?? 0); };
     const paroleColonna = (Object.keys(campiFiltro) as (keyof typeof campiFiltro)[])
       .map((k) => [k, pulisciRicerca(filtri[k]).split(/\s+/).filter(Boolean)] as const)
       .filter(([, p]) => p.length);
