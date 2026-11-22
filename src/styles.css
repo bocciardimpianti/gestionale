@@ -2166,3 +2166,11 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .cr-numero { font-weight: 700; color: #c62828; }
 .cr-lato { font-size: 13px; }
 .cr-chi { display: inline-block; min-width: 84px; font-size: 11px; text-transform: uppercase; color: #898781; }
+.cr-scelte { border: 1px solid #c9dcf0; background: #f5f9fe; border-radius: 8px; padding: 10px 12px; margin: 10px 0; display: grid; gap: 6px; font-size: 13.5px; }
+.cr-scelte label { display: block; line-height: 1.5; }
+.cr-scelte label input { margin-right: 6px; vertical-align: -2px; }
+.cr-tutti { margin-left: 8px; font-size: 12.5px; }
+.cr-numero { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cr-scelta { margin-left: auto; }
+.cr-scartato { opacity: .45; text-decoration: line-through; text-decoration-color: rgba(198,40,40,.4); }
+.cr-voce.scelto-ro { border-color: #9ec5f4; }

@@ -549,7 +549,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(RefreshCw, "#b59b1b", "Aggiorna", () => carica(true))}
                 {cfg.sezione === "materiali" && voce(Filter, "#3a7dc0", "Assegna categorie automatiche", assegnaCategorie, profilo?.ruolo === "admin")}
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
-                {cfg.sezione === "rapporti" && voce(Database, "#3a7dc0", "Confronta con ReportOne (.csv, sola lettura)", () => setConfronta(true), !nelCestino && profilo?.ruolo === "admin")}
+                {cfg.sezione === "rapporti" && voce(Database, "#3a7dc0", "ReportOne: confronta e importa (.csv)", () => setConfronta(true), !nelCestino && profilo?.ruolo === "admin")}
                 {cfg.sezione === "impianti" && voce(Database, "#8e44ad", "Cataloga dai vecchi rapportini", () => setImpiantiStorico(true), !nelCestino && profilo?.ruolo === "admin")}
                 {voce(FileDown, "#3a8a3a", "Esporta", esporta, puo(cfg.sezione, "esportare"))}
                 {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}
@@ -709,7 +709,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
 
       {documentiSpese && <DocumentiSpese onChiudi={() => setDocumentiSpese(false)} />}
       {impiantiStorico && <ImpiantiDaStorico onChiudi={() => setImpiantiStorico(false)} onFinito={() => carica(true)} />}
-      {confronta && <ConfrontaReportOne onChiudi={() => setConfronta(false)} />}
+      {confronta && <ConfrontaReportOne onChiudi={() => setConfronta(false)} onFinito={() => carica(true)} />}
       {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={() => carica(true)} />}
       {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={() => carica()} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}
       {sceltaColonne && (
