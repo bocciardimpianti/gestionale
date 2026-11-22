@@ -114,12 +114,32 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         leggiTutto("clienti", "id, nome"),
         leggiTutto("tecnici", "id, nome"),
         leggiTutto("materiali", "id, codice_interno, descrizione, foto"),
-        leggiTutto("rapporti", "id, numero, firma, foto1, foto2, foto3, foto4, eliminato_il"),
+        leggiTutto("rapporti", "id, numero, data, pagata, firma, foto1, foto2, foto3, foto4, eliminato_il, cliente:clienti(nome)"),
       ]);
       const idCliente = new Map(clienti.map((c) => [norm(c.nome), c.id]));
       const idTecnico = new Map(tecnici.map((t) => [norm(t.nome), t.id]));
       const idMateriale = new Map(materiali.filter((m) => m.codice_interno).map((m) => [norm(m.codice_interno), m.id]));
-      const perNumero = new Map(esistenti.map((r) => [Number(r.numero), r]));
+      // Per numero, preferendo il rapportino attivo a quello nel Cestino (es. una prova sostituita)
+      const perNumero = new Map<number, (typeof esistenti)[number]>();
+      for (const r of esistenti) { const k = Number(r.numero); if (!perNumero.has(k) || perNumero.get(k)!.eliminato_il) perNumero.set(k, r); }
+      // Rapportini con materiali messi nel gestionale (non importati): quei materiali non si toccano
+      const conMaterialiNostri = new Set<number>();
+      for (let da = 0; ; da += 1000) {
+        const { data } = await supabase.from("righe_rapporto").select("rapporto_id").eq("importata", false).order("id").range(da, da + 999);
+        for (const x of data ?? []) conMaterialiNostri.add(Number(x.rapporto_id));
+        if (!data || data.length < 1000) break;
+      }
+      // Stesso numero ma lavoro diverso (data o cliente diversi): numerati per conto loro da gestionale e ReportOne → non si toccano
+      const pulito = (x: unknown) => String(x ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+      const conflitti = new Set<number>();
+      for (const r of p.rapporti) {
+        const es = perNumero.get(r.numero);
+        if (!es || es.eliminato_il) continue;
+        const dataRo = String(r.data ?? "").slice(0, 10), dataEs = String(es.data ?? "").slice(0, 10);
+        const cRo = pulito(r.cliente), cEs = pulito(es.cliente);
+        const clienteDiverso = !!cRo && !!cEs && cRo !== cEs && !cRo.includes(cEs) && !cEs.includes(cRo);
+        if ((dataRo && dataEs && dataRo !== dataEs) || clienteDiverso) conflitti.add(r.numero);
+      }
 
       // Clienti presenti nei rapporti ma non in anagrafica (es. eliminati in ReportOne): si creano
       const mancanti = [...new Set([...p.rapporti, ...preventivi].map((r) => r.cliente).filter((c): c is string => !!c && !idCliente.has(norm(c))))];
@@ -130,10 +150,11 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       }
 
       // 3. Rapporti: aggiornamento di quelli esistenti (per numero) e creazione dei mancanti
-      const nuovi = p.rapporti.filter((r) => !perNumero.has(r.numero)).length;
+      const nuovi = p.rapporti.filter((r) => !perNumero.has(r.numero) || perNumero.get(r.numero)!.eliminato_il).length;
       if (!confirm(
         "File ReportOne:\n" +
-        (p.rapporti.length ? `• ${p.rapporti.length} rapporti: ${p.rapporti.length - nuovi} da completare, ${nuovi} da aggiungere\n` : "") +
+        (p.rapporti.length ? `• ${p.rapporti.length} rapporti: ${p.rapporti.length - nuovi - conflitti.size} da completare, ${nuovi} da aggiungere` +
+          (conflitti.size ? `, ${conflitti.size} SALTATI perché nel gestionale lo stesso numero è un altro lavoro (risolvili prima con "ReportOne: confronta e importa (.csv)")` : "") + "\n" : "") +
         (preventivi.length ? `• ${preventivi.length} preventivi con le loro righe\n` : "") +
         (ddt.length ? `• ${ddt.length} DDT di acquisto con le loro righe (la giacenza dei materiali non cambia)\n` : "") +
         (scadenze.length ? `• ${scadenze.length} scadenze dello scadenziario (da importare dopo i DDT di acquisto)\n` : "") +
@@ -147,12 +168,15 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       }
 
       const idRapporto = new Map<number, number>();
-      await aGruppi(p.rapporti, 6, async (r) => {
+      await aGruppi(p.rapporti.filter((r) => !conflitti.has(r.numero)), 6, async (r) => {
         const record: Record<string, unknown> = {};
         for (const c of CAMPI) if (r[c] !== undefined) record[c] = r[c];
+        const esistente = perNumero.get(r.numero);
+        // "Pagata" messa nel gestionale non si toglie mai
+        if (esistente?.pagata && !esistente.eliminato_il && !r.pagata) { delete record.pagata; delete record.data_pagamento; }
         record.cliente_id = r.cliente ? idCliente.get(norm(r.cliente)) ?? null : null;
         record.tecnico_id = r.tecnico ? idTecnico.get(norm(r.tecnico)) ?? null : null;
-        const es = perNumero.get(r.numero);
+        const es = esistente && !esistente.eliminato_il ? esistente : undefined;
         if (r.eliminato && !es?.eliminato_il) record.eliminato_il = new Date().toISOString();
         const risposta = es
           ? await supabase.from("rapporti").update(record).eq("id", es.id).select("id").single()
@@ -165,7 +189,9 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       }, (n) => setStato(`Rapporti… ${n} / ${p.rapporti.length}`));
 
       // 4. Righe dei materiali (non scaricano di nuovo la giacenza: "importata")
-      const conRighe = p.rapporti.filter((r) => r.righe.length && idRapporto.has(r.numero));
+      // (i materiali messi a mano nel gestionale restano: si sostituiscono solo righe importate o mancanti)
+      const conRighe = p.rapporti.filter((r) => r.righe.length && idRapporto.has(r.numero) && !conMaterialiNostri.has(idRapporto.get(r.numero)!));
+      const materialiTenuti = p.rapporti.filter((r) => r.righe.length && idRapporto.has(r.numero) && conMaterialiNostri.has(idRapporto.get(r.numero)!)).length;
       await aGruppi(conRighe, 6, async (r) => {
         const id = idRapporto.get(r.numero)!;
         const del = await supabase.from("righe_rapporto").delete().eq("rapporto_id", id);
@@ -322,6 +348,8 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
       setStato(
         `Importazione completata: ${idRapporto.size} rapporti (${nuovi} nuovi), materiali in ${conRighe.length} rapporti, ` +
         `${conImmagini.length} rapporti con firme/foto, ${daCaricare.length} foto di materiali, ${p.tariffe.length} tariffe, ${preventiviFatti} preventivi, ${ddtFatti} DDT di acquisto, ${scadenzeFatte} scadenze, ${richiesteFatte} richieste.` +
+        (conflitti.size ? ` ${conflitti.size} rapporti saltati per numero già usato da un altro lavoro (n. ${[...conflitti].sort((a, b) => b - a).slice(0, 10).join(", ")}${conflitti.size > 10 ? "…" : ""}).` : "") +
+        (materialiTenuti ? ` In ${materialiTenuti} rapporti sono stati tenuti i materiali inseriti nel gestionale.` : "") +
         (err.length ? ` ${err.length} errori (vedi sotto).` : ""),
       );
       setErrori(err);
