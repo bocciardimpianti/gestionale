@@ -2174,3 +2174,16 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .cr-scelta { margin-left: auto; }
 .cr-scartato { opacity: .45; text-decoration: line-through; text-decoration-color: rgba(198,40,40,.4); }
 .cr-voce.scelto-ro { border-color: #9ec5f4; }
+/* Riordino descrizioni materiali */
+.rd-cerca { flex: 1 1 260px; height: 34px; border: 1px solid #c3c2b7; border-radius: 6px; padding: 0 10px; font: inherit; font-size: 13px; min-width: 0; }
+.rd-elenco { display: grid; gap: 4px; }
+.rd-voce { display: flex; gap: 10px; align-items: flex-start; border: 1px solid #e1e0d9; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+.rd-voce input { margin-top: 3px; }
+.rd-voce.spenta { opacity: .5; }
+.rd-testi { display: grid; gap: 2px; min-width: 0; font-size: 12.5px; }
+.rd-prima { color: #898781; text-decoration: line-through; text-decoration-color: rgba(137,135,129,.5); overflow-wrap: anywhere; }
+.rd-dopo { color: #0b0b0b; font-weight: 600; overflow-wrap: anywhere; }
+.rd-doppioni { margin-top: 10px; font-size: 12.5px; }
+.rd-doppioni ul { max-height: 200px; overflow-y: auto; margin: 6px 0; }
+.finestra .pillole-sezione button.attiva { background: #123b45; border-color: #123b45; color: #fff; }
+.barra-storico label.piccolo { display: inline-flex; align-items: center; gap: 4px; }
