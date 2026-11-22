@@ -65,7 +65,7 @@ export default function UnisciDoppioni({ onChiudi, onFinito }: { onChiudi: () =>
   const quantiTolti = daUnire.reduce((t, x) => t + x.art.length - 1, 0);
 
   const unisci = async () => {
-    if (!daUnire.length || !confirm(`Unire ${daUnire.length} gruppi? ${quantiTolti} articoli vanno nel Cestino e rapportini, DDT, preventivi e kit che li usavano passano all'articolo tenuto.\n\nGiacenze sommate, codici fornitore uniti. Si può annullare.`)) return;
+    if (!daUnire.length || !confirm(`Unire ${daUnire.length} gruppi? ${quantiTolti} articoli vanno nel Cestino e rapportini, DDT, preventivi e kit che li usavano passano all'articolo tenuto.\n\nGiacenze sommate, codici fornitore uniti, prezzo d'acquisto il più alto. Si può annullare.`)) return;
     setInCorso(true);
     let fatti = 0;
     try {
@@ -105,7 +105,7 @@ export default function UnisciDoppioni({ onChiudi, onFinito }: { onChiudi: () =>
       <div className="finestra finestra-storico-impianti" onMouseDown={(e) => e.stopPropagation()}>
         <div className="finestra-titolo">Unisci articoli doppi<button type="button" className="chiudi" disabled={inCorso} onClick={onChiudi}>×</button></div>
         <div className="finestra-corpo">
-          <p className="piccolo"><b>Raccordi</b>: stesso pezzo anche se di marche diverse (stesso tipo, materiale, misure e maschio/femmina); se il prezzo è più del doppio restano fuori. <b>Altri articoli</b>: solo descrizioni identiche. Con la ★ scegli l'articolo da tenere: gli altri vanno nel Cestino e tutto quello che li usava (rapportini, DDT, preventivi, kit) passa a lui. Giacenze sommate, codici fornitore uniti, si può annullare.</p>
+          <p className="piccolo"><b>Raccordi</b>: stesso pezzo anche se di marche diverse (stesso tipo, materiale, misure e maschio/femmina); se il prezzo è più del doppio restano fuori. <b>Altri articoli</b>: solo descrizioni identiche. Con la ★ scegli l'articolo da tenere: gli altri vanno nel Cestino e tutto quello che li usava (rapportini, DDT, preventivi, kit) passa a lui. Giacenze sommate, codici fornitore uniti, prezzo d'acquisto <b>il più alto</b> (poi lo aggiornano i nuovi DDT se sale), si può annullare.</p>
           <p className={stato.startsWith("Errore") ? "errore" : "piccolo"}>{stato}</p>
           {gruppi && gruppi.length > 0 && (
             <>

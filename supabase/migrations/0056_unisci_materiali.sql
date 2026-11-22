@@ -2,7 +2,8 @@
 -- Unione dei materiali doppi (Magazzino → Materiali → Azioni → Unisci articoli doppi).
 -- L'articolo tolto va nel Cestino con "unito_a" = articolo tenuto; tutto quello che lo usava
 -- (rapportini, DDT, preventivi, kit, impianti, abbinamenti fornitore…) passa all'articolo tenuto.
--- Giacenze sommate, codici fornitore uniti, prezzi dell'articolo tenuto invariati.
+-- Giacenze sommate, codici fornitore uniti, prezzo d'acquisto il più alto tra gli articoli uniti
+-- (poi lo aggiornano i nuovi DDT come sempre, solo se il costo sale).
 -- Ogni unione è registrata e si può annullare. Si può eseguire anche più volte.
 -- =====================================================================
 alter table public.materiali add column if not exists unito_a bigint references public.materiali(id) on delete set null;
@@ -28,7 +29,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   t record; r record;
   v_prima jsonb; v_spostati jsonb := '[]'; v_eliminati jsonb := '[]';
-  v_pk text[]; v_chiave text; v_tieni materiali; v_giacenza numeric; v_id bigint;
+  v_pk text[]; v_chiave text; v_tieni materiali; v_giacenza numeric; v_id bigint; v_prezzo numeric;
 begin
   if not public.is_admin() then raise exception 'Solo gli amministratori possono unire i materiali'; end if;
   p_togli := array(select distinct x from unnest(p_togli) x where x is not null and x <> p_tieni);
@@ -39,7 +40,8 @@ begin
     raise exception 'Uno degli articoli da unire non esiste più o è già nel cestino';
   end if;
   select jsonb_agg(to_jsonb(m)) into v_prima from materiali m where m.id = p_tieni or m.id = any(p_togli);
-  select v_tieni.giacenza + coalesce(sum(giacenza), 0) into v_giacenza from materiali where id = any(p_togli);
+  select v_tieni.giacenza + coalesce(sum(giacenza), 0), greatest(v_tieni.prezzo_base, coalesce(max(prezzo_base), 0))
+    into v_giacenza, v_prezzo from materiali where id = any(p_togli);
 
   -- tutte le colonne (di qualsiasi tabella) che puntano a materiali.id
   for t in
@@ -67,7 +69,8 @@ begin
     end loop;
   end loop;
 
-  -- articolo tenuto: codici uniti, foto/codice a barre se mancano, giacenza sommata, prezzi come prima
+  -- articolo tenuto: codici uniti, foto/codice a barre se mancano, giacenza sommata, prezzo il più alto
+  -- (il prezzo ricaricato si ricalcola col suo ricarico, come fanno i DDT)
   update materiali m set
     fornitore1        = case when p_campi ? 'fornitore1' then nullif(p_campi->>'fornitore1', '') else m.fornitore1 end,
     codice_fornitore1 = case when p_campi ? 'codice_fornitore1' then nullif(p_campi->>'codice_fornitore1', '') else m.codice_fornitore1 end,
@@ -76,8 +79,9 @@ begin
     foto         = coalesce(nullif(m.foto, ''), (select foto from materiali where id = any(p_togli) and coalesce(foto, '') <> '' order by id limit 1)),
     codice_barre = coalesce(nullif(m.codice_barre, ''), (select codice_barre from materiali where id = any(p_togli) and coalesce(codice_barre, '') <> '' order by id limit 1)),
     giacenza = v_giacenza,
-    prezzo_base = v_tieni.prezzo_base,
-    prezzo_ricaricato = v_tieni.prezzo_ricaricato
+    prezzo_base = v_prezzo,
+    prezzo_ricaricato = case when v_prezzo > v_tieni.prezzo_base
+      then round(v_prezzo * (1 + coalesce(m.ricarico, 0) / 100), 4) else v_tieni.prezzo_ricaricato end
   where m.id = p_tieni;
   update materiali set eliminato_il = now(), unito_a = p_tieni, giacenza = 0 where id = any(p_togli);
 
