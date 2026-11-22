@@ -45,8 +45,9 @@ function tacche(max: number) {
 export default function GraficoTecnici() {
   const { vedePrezzi } = useAuth();
   const [misura, setMisura] = useState<Misura>(vedePrezzi ? "valore" : "ore");
-  const [passo, setPasso] = useState<Passo>("giorno");
-  const [periodo, setPeriodo] = useState<Periodo>("30");
+  // Si parte dall'ultimo anno per mese: negli ultimi giorni possono esserci rapportini di pochi tecnici
+  const [passo, setPasso] = useState<Passo>("mese");
+  const [periodo, setPeriodo] = useState<Periodo>("12m");
   const [rapporti, setRapporti] = useState<Rap[] | null>(null);
   const [ordineTecnici, setOrdineTecnici] = useState<string[]>([]);
   const [scelti, setScelti] = useState<Set<string> | null>(null);
@@ -92,6 +93,9 @@ export default function GraficoTecnici() {
     const colore = new Map(tutti.map((t, i) => [t, COLORI[i] ?? GRIGIO]));
     return tutti.filter((t) => presenti.has(t)).map((t) => ({ nome: t, colore: colore.get(t)! }));
   }, [rapporti, ordineTecnici]);
+
+  // Tecnici dell'anagrafica senza rapportini nel periodo: si vedono lo stesso (in grigio), per sapere che ci sono
+  const senzaRapportini = useMemo(() => (rapporti ? ordineTecnici.filter((t) => !tecnici.some((x) => x.nome === t)) : []), [rapporti, ordineTecnici, tecnici]);
 
   // Al primo caricamento: scelti tutti (fino a 8)
   const attivi = useMemo(() => scelti ?? new Set(tecnici.slice(0, 8).map((t) => t.nome)), [scelti, tecnici]);
@@ -163,6 +167,9 @@ export default function GraficoTecnici() {
           <button type="button" key={t.nome} className={`gt-tecnico${attivi.has(t.nome) ? " attivo" : ""}`} aria-pressed={attivi.has(t.nome)} onClick={() => cambia(t.nome)}>
             <span className="gt-chiave" style={{ background: t.colore }} />{t.nome}
           </button>
+        ))}
+        {senzaRapportini.map((nome) => (
+          <span key={nome} className="gt-tecnico vuoto" title="Nessun rapportino in questo periodo: prova un periodo più lungo">{nome} · 0</span>
         ))}
         {tecnici.length > 1 && (
           <button type="button" className="gt-tutti" onClick={() => setScelti(attivi.size ? new Set() : new Set(tecnici.slice(0, 8).map((t) => t.nome)))}>
