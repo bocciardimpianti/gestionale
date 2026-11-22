@@ -2187,3 +2187,20 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .rd-doppioni ul { max-height: 200px; overflow-y: auto; margin: 6px 0; }
 .finestra .pillole-sezione button.attiva { background: #123b45; border-color: #123b45; color: #fff; }
 .barra-storico label.piccolo { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Unisci articoli doppi */
+.ud-elenco { display: grid; gap: 8px; }
+.ud-gruppo { border: 1px solid #e1e0d9; border-radius: 8px; padding: 6px 8px; display: grid; gap: 3px; }
+.ud-gruppo.ud-controllare { border-color: #eda100; }
+.ud-gruppo.spenta { opacity: .55; }
+.ud-testa, .finestra .ud-testa { display: flex; flex-direction: row; justify-content: flex-start; text-align: left; gap: 8px; align-items: center; cursor: pointer; flex-wrap: wrap; margin: 0; }
+.ud-testa input { width: auto; margin: 0; }
+.ud-livello { font-size: 11px; font-weight: 600; border-radius: 10px; padding: 1px 8px; }
+.ud-livello.ok { background: #dff3ea; color: #0d7a4f; }
+.ud-livello.attenzione { background: #fdf0d2; color: #8a5d00; }
+.ud-articolo { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; padding: 2px 0 2px 22px; }
+.ud-articolo.tenuto .ud-descr { font-weight: 600; }
+.ud-articolo.via { opacity: .5; text-decoration: line-through; text-decoration-color: rgba(137,135,129,.5); }
+.ud-descr { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ud-stella { border: 0; background: none; color: #eda100; font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.ud-togli { border: 1px solid #c3c2b7; background: #fff; border-radius: 6px; font-size: 11px; padding: 1px 6px; cursor: pointer; white-space: nowrap; }

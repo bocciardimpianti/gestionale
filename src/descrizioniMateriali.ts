@@ -18,16 +18,16 @@ export const NOMI_REGOLE: Record<Regola, string> = {
 const MARCHE: Record<string, string> = { GEBERIT: "GEB", SCH: "SCHN", FISCHER: "FISCH", GIACOMINI: "GIAC", CALEFFI: "CAL", IMMERGAS: "IMG" };
 
 const FRAZ = String.raw`(?:[1357]\/8|[13]\/4|1\/2)`;
-const POLL = String.raw`(?<![\d\/.,])(?:[1-9]\d? ${FRAZ}|${FRAZ}|[1-9]\d?)"`;                 // 1/2"  1 1/4"  2"
+const POLL = String.raw`(?<![\d\/.,])(?:(?:(?<!Ø)[1-9]\d?|[1-4]) ${FRAZ}|(?<!(?<![\d\/.,])\d{1,2} )${FRAZ}|[1-9]\d?)"`;                 // 1/2"  1 1/4"  2"
 const MIS = String.raw`(?:${POLL}|Ø\d+(?:[.,]\d+)?(?![\d.,]))`;                          // misura: pollici o Ø in mm
 const SIGLE_MF: Record<string, [string, string]> = {
   MF: ["M", "F"], "M/F": ["M", "F"], "M-F": ["M", "F"], "M.F.": ["M", "F"], FM: ["F", "M"], "F/M": ["F", "M"], "F-M": ["F", "M"],
-  FF: ["F", "F"], "F/F": ["F", "F"], "F-F": ["F", "F"], "F.F.": ["F", "F"], MM: ["M", "M"], "M/M": ["M", "M"], "M-M": ["M", "M"], "M.M.": ["M", "M"],
+  FFF: ["F", "F"], MMM: ["M", "M"], FF: ["F", "F"], "F/F": ["F", "F"], "F-F": ["F", "F"], "F.F.": ["F", "F"], MM: ["M", "M"], "M/M": ["M", "M"], "M-M": ["M", "M"], "M.M.": ["M", "M"],
 };
 // coppia di misure: almeno una in pollici o con Ø, l'altra può essere un numero (mm): 18X1/2", Ø16X14, 1 1/4"X32
 const NUM = String.raw`(?<![\d\/.,])\d+(?:[.,]\d+)?(?![\d.,\/])(?:MM)?`;
 const COPPIA = String.raw`(?:(${MIS})\s*X\s*(${MIS}|${NUM})|(${NUM})\s*X\s*(${MIS}))`;
-const SIGLA = String.raw`(M\/F|F\/M|M-F|F-M|F\/F|M\/M|F-F|M-M|M\.F\.|F\.F\.|M\.M\.|MF|FM|FF|MM)`;
+const SIGLA = String.raw`(FFF|MMM|M\/F|F\/M|M-F|F-M|F\/F|M\/M|F-F|M-M|M\.F\.|F\.F\.|M\.M\.|MF|FM|FF|MM)`;
 
 const passi: { r: Regola; f: (d: string) => string }[] = [
   { r: "spazi", f: (d) => d.replace(/\s+/g, " ").trim() },
@@ -58,6 +58,9 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
     .replace(new RegExp(String.raw`(?<![\d,.\/])(\d{1,2} ${FRAZ}|${FRAZ})(?![\d\/"])`, "g"), '$1"') // 1/2 → 1/2"
     .replace(new RegExp(String.raw`Ø\s*(?=${POLL})`, "g"), "") },          // Ø1/2" → 1/2"
   { r: "maschio_femmina", f: (d) => {
+    // tee con le tre uscite uguali: la misura una volta sola (TEE FF 1"X1"X1" → TEE 1"FFF)
+    const tee = /\bTEE\b/.test(d) && !/\bRIDOTT[OA]\b/.test(d);
+    if (tee) d = d.replace(new RegExp(String.raw`(${MIS})(?:\s*X\s*\1){1,2}(?![\dX"\/])`, "g"), "$1");
     const lettere = (s: string) => SIGLE_MF[s] ?? null;
     // stessa misura ai due lati: una volta sola con le lettere attaccate (1/2"FF); misure diverse: 3/4"M X 1/2"F
     const coppia = (m1: string, m2: string | undefined, l: [string, string]) => (!m2 || m2 === m1 ? `${m1}${l[0]}${l[1]}` : `${m1}${l[0]} X ${m2}${l[1]}`);
@@ -77,7 +80,7 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
       return coppia(m1, undefined, l);
     });
     // sigla prima della misura (anche con parole in mezzo, es. CURVA MF 45° Ø28): va sulla prima misura che segue
-    d = d.replace(new RegExp(String.raw`(?<![A-Z0-9\/.])${SIGLA}(?![A-Z0-9\/])((?:\s+(?!\d+(?:[.,]\d+)?MM\b)[^\s"Ø]+){0,4}?)\s*(?:${COPPIA}|(${MIS}))(?![MF]\b|"|\s*X\s*[\dØ])`, "g"),
+    d = d.replace(new RegExp(String.raw`(?<![A-Z0-9\/."])${SIGLA}(?![A-Z0-9\/])((?:\s+(?!\d+(?:[.,]\d+)?MM\b)[^\s"Ø]+){0,4}?)\s*(?:${COPPIA}|(${MIS}))(?![MF]\b|"|\s*X\s*[\dØ])`, "g"),
       (t, s: string, mezzo: string, a1, a2, b1, b2, sola) => {
         const l = lettere(s);
         const m1 = a1 ?? b1 ?? sola, m2 = a2 ?? b2;
@@ -85,7 +88,9 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
         return `${mezzo.trim() ? mezzo.trim() + " " : ""}${coppia(m1, m2, l)}`;
       });
     // già scritte con la stessa misura due volte: 1/2"F X 1/2"F → 1/2"FF
-    d = d.replace(new RegExp(String.raw`(${MIS})([MF]) X \1([MF])(?![A-Z0-9])`, "g"), "$1$2$3");
+    d = d.replace(new RegExp(String.raw`(?<!(?:"[MF]?|\d|\s)X\s*)(${MIS})([MF])\s*X\s*\1([MF])(?![A-Z0-9]|\s*X)`, "g"), "$1$2$3");
+    // tee: tre uscite, quindi FFF / MMM
+    if (tee) d = d.replace(new RegExp(String.raw`(${MIS})(FF|MM)(?![A-Z0-9])`, "g"), (t, m: string, l: string) => m + l + l[0]);
     // sigle rimaste senza misura: una sola forma
     return d.replace(new RegExp(String.raw`(?<![A-Z0-9\/.])(M\/F|M-F|M\.F\.)(?![A-Z0-9\/])`, "g"), "MF").replace(/(?<![A-Z0-9\/.])(F\/F|F-F|F\.F\.)(?![A-Z0-9\/])/g, "FF")
       .replace(/(?<![A-Z0-9\/.])(F\/M|F-M)(?![A-Z0-9\/])/g, "FM").replace(/(?<![A-Z0-9\/.])(M\/M|M-M|M\.M\.)(?![A-Z0-9\/])/g, "MM");

@@ -16,6 +16,7 @@ import Scheda from "../components/Scheda";
 import ImportaReportOne from "../components/ImportaReportOne";
 import ConfrontaReportOne from "../components/ConfrontaReportOne";
 import RiordinaDescrizioni from "../components/RiordinaDescrizioni";
+import UnisciDoppioni from "../components/UnisciDoppioni";
 import ImpiantiDaStorico from "../components/ImpiantiDaStorico";
 import DocumentiSpese from "../components/DocumentiSpese";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
@@ -97,6 +98,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
   const [importaReportOne, setImportaReportOne] = useState(false);
   const [confronta, setConfronta] = useState(false);
   const [riordina, setRiordina] = useState(false);
+  const [unisciDoppi, setUnisciDoppi] = useState(false);
   const [impiantiStorico, setImpiantiStorico] = useState(false);
   const [documentiSpese, setDocumentiSpese] = useState(false);
   const [importaPdf, setImportaPdf] = useState(false);
@@ -551,6 +553,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(RefreshCw, "#b59b1b", "Aggiorna", () => carica(true))}
                 {cfg.sezione === "materiali" && voce(Filter, "#3a7dc0", "Assegna categorie automatiche", assegnaCategorie, profilo?.ruolo === "admin")}
                 {cfg.sezione === "materiali" && voce(Database, "#8e44ad", "Riordina descrizioni", () => setRiordina(true), !nelCestino && profilo?.ruolo === "admin")}
+                {cfg.sezione === "materiali" && voce(Database, "#c0392b", "Unisci articoli doppi", () => setUnisciDoppi(true), !nelCestino && profilo?.ruolo === "admin")}
                 {voce(Sheet, "#4a8a3a", "Tabella", () => {}, true, true)}
                 {cfg.sezione === "rapporti" && voce(Database, "#3a7dc0", "ReportOne: confronta e importa (.csv)", () => setConfronta(true), !nelCestino && profilo?.ruolo === "admin")}
                 {cfg.sezione === "impianti" && voce(Database, "#8e44ad", "Cataloga dai vecchi rapportini", () => setImpiantiStorico(true), !nelCestino && profilo?.ruolo === "admin")}
@@ -713,6 +716,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       {documentiSpese && <DocumentiSpese onChiudi={() => setDocumentiSpese(false)} />}
       {impiantiStorico && <ImpiantiDaStorico onChiudi={() => setImpiantiStorico(false)} onFinito={() => carica(true)} />}
       {riordina && <RiordinaDescrizioni onChiudi={() => setRiordina(false)} onFinito={() => carica(true)} />}
+      {unisciDoppi && <UnisciDoppioni onChiudi={() => setUnisciDoppi(false)} onFinito={() => carica(true)} />}
       {confronta && <ConfrontaReportOne onChiudi={() => setConfronta(false)} onFinito={() => carica(true)} />}
       {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={() => carica(true)} />}
       {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={() => carica()} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}

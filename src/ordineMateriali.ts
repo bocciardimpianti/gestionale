@@ -8,12 +8,12 @@ const MISURA = new RegExp(String.raw`(?<![\d\/.,])(?:(\d{1,2})(?:[ .]|"\s?))?(${
 const RANGO_MF: [RegExp, number][] = [
   [/(?:^|[\s"\d])(?:M\/F|M-F|MF)(?![A-Z])|"M X [^ ]+"F/, 0],
   [/(?:^|[\s"\d])(?:F\/M|F-M|FM)(?![A-Z])|"F X [^ ]+"M/, 1],
-  [/(?:^|[\s"\d])(?:F\/F|F-F|FF)(?![A-Z])|"F X [^ ]+"F/, 2],
-  [/(?:^|[\s"\d])(?:M\/M|M-M|MM)(?![A-Z0-9.²])|"M X [^ ]+"M/, 3],
+  [/(?:^|[\s"\d])(?:F\/F|F-F|FFF|FF)(?![A-Z])|"F X [^ ]+"F/, 2],
+  [/(?:^|[\s"\d])(?:M\/M|M-M|MMM|MM)(?![A-Z0-9.²])|"M X [^ ]+"M/, 3],
 ];
 // I colori non dividono i gruppi: prima la misura, poi il colore (cavo 1,5mm² di tutti i colori, poi 2,5mm²…)
 const COLORE = /^(BIANC[OAIE]|NER[OAIE]|BLU|ROSS[OAIE]|GRIGI[OA]|GRIGIE|MARRONE|CELESTE|ARANCIONE|GIALL[OAIE]|VERD[EI]|GIALLO\/VERDE|ANTRACITE|SCURO|CHIARO|VIOLA|ROSA|BEIGE|AVORIO|SABBIA|TRASPARENTE)$/;
-const UNITA = new Set(["X", "MM", "MT", "CM", "ML", "M", "F", "MF", "FM", "FF", "M/F", "F/M", "F/F", "M/M", "M-F", "F-M", "F-F", "M-M", "LT", "KW", "W", "V", "A", "MA", "KA", "VCA", "VCC", "MQ", "PZ", "PZ.", "N", "NR"]);
+const UNITA = new Set(["X", "MM", "MT", "CM", "ML", "M", "F", "MF", "FM", "FF", "FFF", "MMM", "M/F", "F/M", "F/F", "M/M", "M-F", "F-M", "F-F", "M-M", "LT", "KW", "W", "V", "A", "MA", "KA", "VCA", "VCC", "MQ", "PZ", "PZ.", "N", "NR"]);
 
 /** Chiave per ordinare le descrizioni dei materiali in modo naturale */
 export function chiaveOrdineMateriale(descrizione: unknown): string {

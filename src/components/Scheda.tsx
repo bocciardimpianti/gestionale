@@ -268,6 +268,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const leggiCodice = async (c: string) => {
     let { data } = await supabase.from("materiali").select("*").eq("codice_barre", c).is("eliminato_il", null).limit(1);
     if (!data?.length) ({ data } = await supabase.from("materiali").select("*").eq("codice_interno", c).is("eliminato_il", null).limit(1));
+    if (!data?.length) {
+      // articolo unito a un altro (Unisci articoli doppi): si usa quello tenuto
+      const { data: unito } = await supabase.from("materiali").select("unito_a").or(`codice_barre.eq."${c.replace(/"/g, "")}",codice_interno.eq."${c.replace(/"/g, "")}"`).not("unito_a", "is", null).limit(1);
+      const id = unito?.[0]?.unito_a;
+      if (id) ({ data } = await supabase.from("materiali").select("*").eq("id", id).is("eliminato_il", null).limit(1));
+    }
     if (data?.length) {
       aggiungiRiga(rigaDaMateriale(data[0]));
       setStato(`Aggiunto: ${data[0].descrizione}`);
