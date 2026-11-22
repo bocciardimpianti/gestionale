@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
+import { usePreferenza } from "../preferenze";
 
 // Home: clienti divisi tra le squadre di Michael e di Luciano, dai tecnici che ci hanno lavorato.
 // - Michael (anche con Stefano o Claudio) → cliente di Michael
@@ -28,8 +29,10 @@ const euro = (v: number) => v.toLocaleString("it-IT", { style: "currency", curre
 const dataIt = (s: string) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "");
 
 export default function ClientiSquadre() {
-  const { vedePrezzi } = useAuth();
-  const [periodo, setPeriodo] = useState<Periodo>("tutto");
+  const { vedePrezzi, profilo } = useAuth();
+  const [pref, setPref] = usePreferenza<{ periodo: Periodo }>(`${profilo?.id ?? ""}:grafico-clienti-squadre`, { periodo: "tutto" });
+  const periodo = pref.periodo;
+  const setPeriodo = (x: Periodo) => setPref({ periodo: x });
   const [clienti, setClienti] = useState<Cliente[] | null>(null);
   const [colori, setColori] = useState<Record<Squadra, string>>({ Michael: COLORI[0], Luciano: COLORI[1], "Da assegnare": GRIGIO });
   const [errore, setErrore] = useState("");

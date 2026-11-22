@@ -2148,3 +2148,4 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .scelta-quadro button + button { border-left: 1px solid #c3c2b7; }
 .scelta-quadro button.attiva { background: #123b45; color: #fff; }
 .gt-tecnico.vuoto { cursor: default; border-style: dashed; color: #b3b1aa; background: transparent; }
+.gt-tecnico.assente { border-style: dashed; }

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import { TIPI_SPESA } from "../speseAziendali";
+import { useAuth } from "../auth";
+import { usePreferenza } from "../preferenze";
 
 // Home (amministratori): ricavi dei rapportini, divisi tra riscossi e da riscuotere, e spese, mese per mese.
 // Ricavo = importo del rapportino (imponibile, o totale del preventivo se scelto nel rapportino).
@@ -70,7 +72,10 @@ function Pila({ x, w, base, scala, pezzi }: { x: number; w: number; base: number
 
 export default function SpeseRicavi() {
   const navigate = useNavigate();
-  const [periodo, setPeriodo] = useState<Periodo>("12m");
+  const { profilo } = useAuth();
+  const [pref, setPref] = usePreferenza<{ periodo: Periodo }>(`${profilo?.id ?? ""}:grafico-spese-ricavi`, { periodo: "12m" });
+  const periodo = pref.periodo;
+  const setPeriodo = (x: Periodo) => setPref({ periodo: x });
   const [mesi, setMesi] = useState<Mese[] | null>(null);
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");

@@ -2,6 +2,7 @@ import { useAuth } from "../auth";
 import GraficoTecnici from "../components/GraficoTecnici";
 import ClientiSquadre from "../components/ClientiSquadre";
 import SpeseRicavi from "../components/SpeseRicavi";
+import GraficoFornitori from "../components/GraficoFornitori";
 
 // Formato compatto come nell'originale: 17920 -> 17.92K
 export function compatto(n: number | null) {
@@ -19,6 +20,7 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       {profilo?.ruolo === "admin" && <div className="cella cella-larga"><SpeseRicavi /></div>}
+      {profilo?.ruolo === "admin" && <div className="cella cella-larga"><GraficoFornitori /></div>}
       {soloMichael && <div className="cella cella-larga"><GraficoTecnici /></div>}
       {soloMichael && <div className="cella cella-larga"><ClientiSquadre /></div>}
     </div>

@@ -1,37 +1,38 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
+import { usePreferenza } from "../preferenze";
 
 // Home: andamento dei tecnici nel tempo (valore dei rapportini o ore lavorate, per giorno o per mese),
 // con i tecnici da scegliere per confrontarli. Sotto, la tabella con i totali del periodo.
 
 // Colori dei tecnici: ordine fisso (validato per i daltonici), il colore segue il tecnico e non cambia con i filtri
-const COLORI = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
-const GRIGIO = "#898781";
-const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+export const COLORI = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
+export const GRIGIO = "#898781";
+export const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
 
 type Misura = "valore" | "ore";
-type Passo = "giorno" | "mese";
-type Periodo = "30" | "90" | "anno" | "12m";
-const PERIODI: { k: Periodo; t: string }[] = [
+export type Passo = "giorno" | "mese";
+export type Periodo = "30" | "90" | "anno" | "12m";
+export const PERIODI: { k: Periodo; t: string }[] = [
   { k: "30", t: "Ultimi 30 giorni" }, { k: "90", t: "Ultimi 90 giorni" }, { k: "anno", t: "Quest'anno" }, { k: "12m", t: "Ultimi 12 mesi" },
 ];
 type Rap = { data: string; tecnico: string; ore: number; valore: number };
 
-const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-function inizioPeriodo(p: Periodo) {
+export const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export function inizioPeriodo(p: Periodo) {
   const oggi = new Date();
   if (p === "anno") return new Date(oggi.getFullYear(), 0, 1);
   if (p === "12m") return new Date(oggi.getFullYear(), oggi.getMonth() - 11, 1);
   const d = new Date(oggi); d.setDate(d.getDate() - (Number(p) - 1)); return d;
 }
-const euro = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: v >= 1000 ? 0 : 2 });
+export const euro = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: v >= 1000 ? 0 : 2 });
 const ore = (v: number) => `${v.toLocaleString("it-IT", { maximumFractionDigits: 1 })} h`;
 const compatto = (v: number, m: Misura) => m === "ore" ? `${v.toLocaleString("it-IT", { maximumFractionDigits: 1 })} h`
   : v >= 10000 ? `${(v / 1000).toLocaleString("it-IT", { maximumFractionDigits: 0 })}K €` : `${v.toLocaleString("it-IT", { maximumFractionDigits: 0 })} €`;
 
 /** Massimo "tondo" e tacche dell'asse */
-function tacche(max: number) {
+export function tacche(max: number) {
   if (max <= 0) return { top: 1, passi: [0, 1] };
   const grezzo = max / 4;
   const pot = 10 ** Math.floor(Math.log10(grezzo));
@@ -43,14 +44,19 @@ function tacche(max: number) {
 }
 
 export default function GraficoTecnici() {
-  const { vedePrezzi } = useAuth();
-  const [misura, setMisura] = useState<Misura>(vedePrezzi ? "valore" : "ore");
-  // Si parte dall'ultimo anno per mese: negli ultimi giorni possono esserci rapportini di pochi tecnici
-  const [passo, setPasso] = useState<Passo>("mese");
-  const [periodo, setPeriodo] = useState<Periodo>("12m");
+  const { vedePrezzi, profilo } = useAuth();
+  // Scelte salvate (anche tra dispositivi). Si parte dall'ultimo anno per mese: negli ultimi giorni possono esserci rapportini di pochi tecnici
+  const [pref, setPref] = usePreferenza<{ misura: Misura; passo: Passo; periodo: Periodo; scelti: string[] | null }>(
+    `${profilo?.id ?? ""}:grafico-tecnici`, { misura: "valore", passo: "mese", periodo: "12m", scelti: null });
+  const misura: Misura = vedePrezzi ? pref.misura : "ore";
+  const { passo, periodo } = pref;
+  const setMisura = (m: Misura) => setPref((p) => ({ ...p, misura: m }));
+  const setPasso = (x: Passo) => setPref((p) => ({ ...p, passo: x }));
+  const setPeriodo = (x: Periodo) => setPref((p) => ({ ...p, periodo: x }));
   const [rapporti, setRapporti] = useState<Rap[] | null>(null);
   const [ordineTecnici, setOrdineTecnici] = useState<string[]>([]);
-  const [scelti, setScelti] = useState<Set<string> | null>(null);
+  const scelti = useMemo(() => (pref.scelti ? new Set(pref.scelti) : null), [pref.scelti]);
+  const setScelti = (n: Set<string>) => setPref((p) => ({ ...p, scelti: [...n] }));
   const [errore, setErrore] = useState("");
   const [carica, setCarica] = useState(false);
 
@@ -106,22 +112,7 @@ export default function GraficoTecnici() {
   };
 
   // Giorni o mesi del periodo
-  const fasce = useMemo(() => {
-    const out: { k: string; t: string; lungo: string }[] = [];
-    const inizio = inizioPeriodo(periodo); const oggi = new Date();
-    if (passo === "giorno") {
-      for (const d = new Date(inizio); d <= oggi; d.setDate(d.getDate() + 1)) {
-        out.push({ k: iso(d), t: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
-          lungo: d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "long", year: "numeric" }) });
-      }
-    } else {
-      for (const d = new Date(inizio.getFullYear(), inizio.getMonth(), 1); d <= oggi; d.setMonth(d.getMonth() + 1)) {
-        out.push({ k: iso(d).slice(0, 7), t: `${MESI[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,
-          lungo: d.toLocaleDateString("it-IT", { month: "long", year: "numeric" }) });
-      }
-    }
-    return out;
-  }, [periodo, passo]);
+  const fasce = useMemo(() => fasceDi(periodo, passo), [periodo, passo]);
 
   const serie = useMemo(() => {
     const indice = new Map(fasce.map((f, i) => [f.k, i]));
@@ -147,7 +138,7 @@ export default function GraficoTecnici() {
       <div className="gt-testa">
         <h3>Andamento tecnici</h3>
         <div className="gt-filtri">
-          <select value={periodo} onChange={(e) => { const p = e.target.value as Periodo; setPeriodo(p); if (p === "30" || p === "90") setPasso("giorno"); }} aria-label="Periodo">
+          <select value={periodo} onChange={(e) => { const x = e.target.value as Periodo; setPref((p) => ({ ...p, periodo: x, passo: x === "30" || x === "90" ? "giorno" : p.passo })); }} aria-label="Periodo">
             {PERIODI.map((p) => <option key={p.k} value={p.k}>{p.t}</option>)}
           </select>
           <div className="gt-scelta" role="group" aria-label="Misura">
@@ -181,7 +172,8 @@ export default function GraficoTecnici() {
       {errore && <p className="errore">{errore}</p>}
       <div className={`gt-area${carica ? " in-carica" : ""}`}>
         {rapporti && !tecnici.length ? <p className="vuoto-linguetta">Nessun rapportino nel periodo.</p>
-          : rapporti && <Linee fasce={fasce} serie={serie} misura={misura} passo={passo} />}
+          : rapporti && <Linee fasce={fasce} serie={serie} formato={misura === "ore" ? ore : euro} asse={(v) => compatto(v, misura)}
+            etichetta={`${misura === "ore" ? "Ore" : "Valore dei rapportini"} ${passo === "giorno" ? "per giorno" : "per mese"} per tecnico`} vuoto="Scegli uno o più tecnici qui sopra." />}
         {!rapporti && !errore && <p className="vuoto-linguetta">Caricamento…</p>}
       </div>
 
@@ -204,8 +196,10 @@ export default function GraficoTecnici() {
   );
 }
 
-function Linee({ fasce, serie, misura, passo }: {
-  fasce: { k: string; t: string; lungo: string }[]; serie: { nome: string; colore: string; valori: number[] }[]; misura: Misura; passo: Passo;
+/** Grafico a linee con mirino e riquadro dei valori (tecnici, fornitori…) */
+export function Linee({ fasce, serie, formato, asse, etichetta, vuoto }: {
+  fasce: { k: string; t: string; lungo: string }[]; serie: { nome: string; colore: string; valori: number[] }[];
+  formato: (v: number) => string; asse: (v: number) => string; etichetta: string; vuoto: string;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [larghezza, setLarghezza] = useState(800);
@@ -235,17 +229,16 @@ function Linee({ fasce, serie, misura, passo }: {
     const i = Math.round(((e.clientX - r.left) / r.width) * (n - 1));
     setSopra(Math.max(0, Math.min(n - 1, i)));
   };
-  const valoreTesto = (v: number) => (misura === "ore" ? ore(v) : euro(v));
+  const valoreTesto = formato;
   const righeTooltip = sopra === null ? [] : [...serie].map((s) => ({ ...s, v: s.valori[sopra] })).sort((a, b) => b.v - a.v);
 
   return (
     <div className="gt-grafico" ref={box}>
-      <svg width={W} height={H} role="img"
-        aria-label={`${misura === "ore" ? "Ore" : "Valore dei rapportini"} ${passo === "giorno" ? "per giorno" : "per mese"} per tecnico`}>
+      <svg width={W} height={H} role="img" aria-label={etichetta}>
         {passi.map((v) => (
           <g key={v}>
             <line x1={M.s} x2={W - M.d} y1={y(v)} y2={y(v)} className={v === 0 ? "gt-base" : "gt-griglia"} />
-            <text x={M.s - 8} y={y(v)} className="gt-asse" textAnchor="end" dominantBaseline="middle">{compatto(v, misura)}</text>
+            <text x={M.s - 8} y={y(v)} className="gt-asse" textAnchor="end" dominantBaseline="middle">{asse(v)}</text>
           </g>
         ))}
         {fasce.map((f, i) => (i % ogni === 0 || i === n - 1) && (n - 1 - i >= ogni || i === n - 1) ? (
@@ -274,7 +267,25 @@ function Linee({ fasce, serie, misura, passo }: {
           ))}
         </div>
       )}
-      {!serie.length && <p className="gt-nessuno">Scegli uno o più tecnici qui sopra.</p>}
+      {!serie.length && <p className="gt-nessuno">{vuoto}</p>}
     </div>
   );
+}
+
+/** Giorni o mesi di un periodo (asse orizzontale dei grafici) */
+export function fasceDi(periodo: Periodo, passo: Passo) {
+  const out: { k: string; t: string; lungo: string }[] = [];
+  const inizio = inizioPeriodo(periodo); const oggi = new Date();
+  if (passo === "giorno") {
+    for (const d = new Date(inizio); d <= oggi; d.setDate(d.getDate() + 1)) {
+      out.push({ k: iso(d), t: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
+        lungo: d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "long", year: "numeric" }) });
+    }
+  } else {
+    for (const d = new Date(inizio.getFullYear(), inizio.getMonth(), 1); d <= oggi; d.setMonth(d.getMonth() + 1)) {
+      out.push({ k: iso(d).slice(0, 7), t: `${MESI[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,
+        lungo: d.toLocaleDateString("it-IT", { month: "long", year: "numeric" }) });
+    }
+  }
+  return out;
 }
