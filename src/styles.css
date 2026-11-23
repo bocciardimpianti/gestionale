@@ -2225,6 +2225,7 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .descr-materiale .dm-marca { font-weight: 700; }
 .descr-materiale .dm-pollici { font-weight: 700; color: #1565c0; }
 .descr-materiale .dm-mm { font-weight: 700; color: #c62828; }
+.descr-materiale .dm-corrente { font-weight: 700; color: #b8860b; }
 .descr-materiale .dm-misura { font-weight: 700; }
 .descr-materiale .dm-tipo { font-weight: 700; }
 b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }

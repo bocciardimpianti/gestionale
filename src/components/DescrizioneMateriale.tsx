@@ -1,6 +1,6 @@
 // Descrizione di un materiale "colorata" per leggerla al volo:
 //  - MARCA in grassetto, ognuna col suo colore (FUSIO verde, HAG celeste, STO/Storm blu scuro…; le altre un colore fisso preso dal nome)
-//  - sezioni in pollici (1/2"FF, 1 1/4") in blu, in millimetri (Ø20, 16X2, 20mm, 2,5mm²) in rosso, altri numeri (32A, 90°) in grassetto
+//  - sezioni in pollici (1/2"FF, 1 1/4") in blu, in millimetri (Ø20, 16X2, 20mm, 2,5mm²) in rosso, corrente (16A, 230V, 1000W, 50Hz) in giallo ocra, altri numeri (4P, 90°) in grassetto
 //  - tipo di pezzo (TEE, GOMITO, CURVA, VALVOLA…) in grassetto
 
 // Colori delle marche presi dai loro loghi (sigle come nel catalogo); i gialli e i celesti un po' più scuri per leggerli sul bianco
@@ -40,7 +40,7 @@ const TIPI = new Set(["TEE", "GOMITO", "CURVA", "MANICOTTO", "RIDUZIONE", "NIPLE
   "CALDAIA", "RADIATORE", "SIFONE", "PILETTA", "LAMPADA", "PLAFONIERA", "FARETTO", "STRISCIA", "ALIMENTATORE", "TELECAMERA", "CENTRALINO", "QUADRO",
   "RELE", "TERMOSTATO", "CRONOTERMOSTATO", "POMPA", "CIRCOLATORE", "FILTRO", "DEFANGATORE", "VASO", "CASSETTA", "TASSELLO", "COLLARE", "STAFFA"]);
 
-type Tipo = "" | "marca" | "pollici" | "mm" | "misura" | "tipo";
+type Tipo = "" | "marca" | "pollici" | "mm" | "corrente" | "misura" | "tipo";
 type Pezzo = { t: string; k: Tipo };
 
 // Una misura: comincia con una cifra o con Ø
@@ -50,6 +50,8 @@ const SIGLE_MF = /^(M\/F|F\/M|F\/F|M\/M|MF|FM|FF|MM|FFF|MMM)$/;
 function tipoMisura(t: string): Tipo {
   if (t.includes('"')) return "pollici";
   if (/Ø|mm|MM(?![A-Z])/.test(t) || /^\d+(?:[.,]\d+)?X\d/.test(t)) return "mm";
+  // corrente: ampere, volt, watt, hertz, amperora (16A, 4,5kA, 30mA, 230V, 12Vcc, 1000W, 3kW, 50Hz, 7Ah, 400VA)
+  if (/^\d+(?:[.,]\d+)?(?:[\/-]\d+(?:[.,]\d+)?)?(?:k|K|m)?(?:A|V|W|VA|Vca|Vcc|Vac|Vdc|VCA|VCC|Hz|HZ|Ah|AH|Wh|WH|kWh)\.?$/.test(t)) return "corrente";
   return "misura";
 }
 // Una parola con pollici e millimetri insieme (Ø20X1/2"FX20) si divide sulle X
@@ -71,7 +73,7 @@ export function pezziDescrizione(descrizione: unknown): Pezzo[] {
     out.push({ t: marca[1], k: "marca" }, { t: marca[2], k: "" });
     resto = d.slice(marca[0].length);
   }
-  const misura = (k: Tipo) => k === "pollici" || k === "mm" || k === "misura";
+  const misura = (k: Tipo) => k === "pollici" || k === "mm" || k === "corrente" || k === "misura";
   const aggiungi = (p: Pezzo) => {
     const ultimo = out[out.length - 1];
     if (ultimo && ultimo.k === p.k) ultimo.t += p.t; else out.push(p);
@@ -121,6 +123,7 @@ export default function DescrizioneMateriale({ testo }: { testo: unknown }) {
       {pezzi.map((p, i) => p.k === "marca" ? <b key={i} className="dm-marca" style={{ color: coloreMarca(p.t) }}>{p.t}</b>
         : p.k === "pollici" ? <b key={i} className="dm-pollici">{p.t}</b>
         : p.k === "mm" ? <b key={i} className="dm-mm">{p.t}</b>
+        : p.k === "corrente" ? <b key={i} className="dm-corrente">{p.t}</b>
         : p.k === "misura" ? <b key={i} className="dm-misura">{p.t}</b>
         : p.k === "tipo" ? <b key={i} className="dm-tipo">{p.t}</b>
         : p.t)}
