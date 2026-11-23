@@ -736,6 +736,10 @@ input, select, button { border-radius: 6px; }
 .tendina .voci, .tendina-piede .voci { border-color: var(--bordo); border-radius: 8px; box-shadow: 0 10px 28px rgba(18, 59, 69, .2); overflow: hidden; }
 .tendina .voci button:hover, .tendina-piede .voci button:hover, .tendina-piede .voci a:hover, .voci .scelta-attiva { background: var(--ottanio-tenue); }
 .voci.sottomenu { overflow: visible; }
+/* il sottomenu (es. Tabella) esce a sinistra del menu: il menu non deve tagliarlo */
+@media (min-width: 761px) and (min-height: 501px), (min-width: 761px) and (pointer: fine) {
+  .tendina .voci:has(> .sottomenu) { overflow: visible; }
+}
 .ricerca { border-color: var(--bordo-forte); border-radius: 6px; overflow: hidden; }
 .ricerca select { background: var(--sfondo); border-right-color: var(--bordo); }
 .ricerca:focus-within { border-color: var(--ottanio); }
