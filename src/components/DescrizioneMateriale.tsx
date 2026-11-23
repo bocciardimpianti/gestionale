@@ -3,12 +3,25 @@
 //  - misure (1/2"FF, Ø20, 16X2, 90°, 2,5mm², 32A…) in grassetto blu
 //  - tipo di pezzo (TEE, GOMITO, CURVA, VALVOLA…) in grassetto
 
-// Colori scelti per le marche (sigle come nel catalogo)
+// Colori delle marche presi dai loro loghi (sigle come nel catalogo); i gialli e i celesti un po' più scuri per leggerli sul bianco
 export const COLORI_MARCA: Record<string, string> = {
-  FUSIO: "#1a8a3a", HAG: "#1aa3d9", STO: "#1b2f80", BTI: "#0a7d8c", VIM: "#e0701a", VALS: "#c0392b", GEB: "#2f6fa8",
-  VIEGA: "#b88a00", PLAS: "#7a4fc4", GF: "#c2185b", GEW: "#00897b", BEG: "#6d4c41", SCHN: "#2e9e3e", TIRI: "#8e44ad",
-  GIAC: "#d35400", CAL: "#b71c1c", IRSAP: "#5d6d7e", FISCH: "#d4a017", NICE: "#0277bd", MITSU: "#c62828", ABB: "#e53935",
-  FAAC: "#f39c12", FRABO: "#a0522d", AVE: "#455a64", PHIL: "#1565c0",
+  FUSIO: "#2e9a3c",   // Aquatechnik fusio-technik: verde
+  HAG: "#00a7d1",     // Hager: turchese
+  STO: "#1b2f80",     // Storm: blu scuro
+  VALS: "#0096d6",    // Valsir: azzurro
+  GEW: "#e37a00",     // Gewiss: arancio
+  GIAC: "#d71920",    // Giacomini: rosso
+  CAL: "#e30613",     // Caleffi: rosso
+  GEB: "#0a5aa0",     // Geberit: blu
+  VIEGA: "#c9a000",   // Viega: giallo
+  SCHN: "#009530",    // Schneider Electric: verde
+  BTI: "#333333",     // BTicino: nero
+  VIM: "#3c4a56",     // Vimar: grigio scuro
+  GF: "#c8102e",      // General Fittings: rosso
+  MITSU: "#e60012",   // Mitsubishi Electric: rosso
+  ABB: "#e4002b",     // ABB: rosso
+  PHIL: "#0b5ed7",    // Philips: blu
+  FISCH: "#d50c2f",   // fischer: rosso
 };
 // Altre marche: un colore fisso ricavato dal nome
 const TAVOLOZZA = ["#2a78d6", "#d9622b", "#1b9e6e", "#b8860b", "#d6457e", "#2e7d32", "#6250d6", "#d63838", "#0f7f8a", "#8a5a00", "#7b1fa2", "#00838f"];
