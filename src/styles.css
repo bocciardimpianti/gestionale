@@ -2220,9 +2220,11 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .elenco-rap-sposta button.scelto { border-color: var(--ottanio, #0f6b73); background: var(--ottanio-tenue, #e6f2f3); box-shadow: inset 3px 0 0 var(--ottanio, #0f6b73); }
 .rs-attivita { color: var(--tenue, #666); font-size: 12.5px; overflow-wrap: anywhere; }
 
-/* Descrizioni dei materiali colorate: marca col suo colore, misure in blu, tipo di pezzo in grassetto */
+/* Descrizioni dei materiali colorate: marca col suo colore, pollici in blu, millimetri in rosso, tipo di pezzo in grassetto */
 .descr-materiale { font-weight: 400; }
 .descr-materiale .dm-marca { font-weight: 700; }
-.descr-materiale .dm-misura { font-weight: 700; color: #1565c0; }
+.descr-materiale .dm-pollici { font-weight: 700; color: #1565c0; }
+.descr-materiale .dm-mm { font-weight: 700; color: #c62828; }
+.descr-materiale .dm-misura { font-weight: 700; }
 .descr-materiale .dm-tipo { font-weight: 700; }
 b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
