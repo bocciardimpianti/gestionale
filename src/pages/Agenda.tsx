@@ -501,7 +501,11 @@ function VistaOre({ colonne, impegni, mostraTecnico, colore, nomeTecnico, onApri
   }
   const classeColonna = (c: ColonnaOre) => `${strette ? " stretta" : ""}${c.ultimaDelGruppo ? " fine-gruppo" : ""}`;
 
-  const iniziali = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).reverse().join("");
+  // Iniziali nome+cognome (Gronchi Michael → MG); un nome di una sola parola: le prime tre lettere (Tecnico → TEC), non una lettera sola
+  const iniziali = (nome: string) => {
+    const p = nome.split(/\s+/).filter(Boolean);
+    return p.length === 1 ? p[0].slice(0, 3).toUpperCase() : p.slice(0, 2).map((w) => w[0]!.toUpperCase()).reverse().join("");
+  };
   const intestazione = (c: ColonnaOre) => (
     <div key={c.chiave} className={`intestazione-colonna${classeColonna(c)}`} title={c.tecnico ? nomeTecnico(c.tecnico) : undefined}
       style={strette && c.tecnico ? { borderTop: `3px solid ${colore(c.tecnico)}` } : undefined}>
