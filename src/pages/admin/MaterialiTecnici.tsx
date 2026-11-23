@@ -18,7 +18,7 @@ type RigaTec = Riga & { tec: number };
 const MAGAZZINO = 0; // "tecnico" del Magazzino
 const TUTTI = -1; // scheda "Tutti i tecnici"
 const RAPPORTINO = -2; // destinazione "dentro un rapportino"
-type RapScelta = { id: number; numero: number | null; data: string; tecnico_id: number | null; imponibile: number | null; azzera_imponibile: boolean | null; cliente: { nome: string } | null };
+type RapScelta = { id: number; numero: number | null; data: string; tecnico_id: number | null; imponibile: number | null; azzera_imponibile: boolean | null; attivita: string | null; cliente: { nome: string } | null };
 type Ordine = "materiale" | "data" | "tecnico" | "fornitore";
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
@@ -75,13 +75,12 @@ export default function MaterialiTecnici() {
     setRapScelta(null);
     const da = new Date(); da.setDate(da.getDate() - 90);
     const inizio = dal < dataIso(da)! ? dal : dataIso(da)!;
-    let q = supabase.from("rapporti").select("id, numero, data, tecnico_id, imponibile, azzera_imponibile, cliente:clienti(nome)").is("eliminato_il", null).gte("data", inizio);
+    let q = supabase.from("rapporti").select("id, numero, data, tecnico_id, imponibile, azzera_imponibile, attivita, cliente:clienti(nome)").is("eliminato_il", null).gte("data", inizio);
     if (sposta.da !== MAGAZZINO) q = q.eq("tecnico_id", sposta.da);
     q.order("data", { ascending: false }).order("numero", { ascending: false }).limit(300).then(({ data, error }) => {
       if (error) return setErrore(error.message);
       const l = (data ?? []) as unknown as RapScelta[];
       setRapScelta(l);
-      setSposta((x) => (x && x.a === RAPPORTINO && !x.rapporto && l.length ? { ...x, rapporto: l[0].id } : x));
     });
   }, [sposta?.a, sposta?.da]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ordine, setOrdine] = useState<Ordine>(() => { try { return (localStorage.getItem("registro-ordine") as Ordine) || "materiale"; } catch { return "materiale"; } });
@@ -313,7 +312,7 @@ export default function MaterialiTecnici() {
                   <td className="destra">{r.installato ? fmt(r.installato) : ""}</td>
                   <td className="destra c-spostato">{r.spostato ? fmt(r.spostato) : ""}</td>
                   <td className="destra c-rimasto"><b>{fmt(rim)}</b></td>
-                  <td>{rim > 0 && <button className="btn grigio piccolo-btn" onClick={() => setSposta({ riga: r, da: r.tec, quantita: fmt(rim), a: r.tec === MAGAZZINO ? (tecnici[0]?.id ?? MAGAZZINO) : MAGAZZINO, note: "" })}><ArrowRightLeft size={14} /> Sposta</button>}</td>
+                  <td>{rim > 0 && <button className="btn grigio piccolo-btn" onClick={() => setSposta({ riga: r, da: r.tec, quantita: fmt(rim), a: r.tec === MAGAZZINO ? (tecnici[0]?.id ?? MAGAZZINO) : RAPPORTINO, note: "" })}><ArrowRightLeft size={14} /> Sposta</button>}</td>
                 </tr>,
                 aperta === id && (
                   <tr key={`${id}-d`} className="dettaglio-registro"><td /><td colSpan={colonne - 1}>
@@ -331,28 +330,36 @@ export default function MaterialiTecnici() {
 
       {sposta && (
         <div className="velo" onMouseDown={() => setSposta(null)}>
-          <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="finestra finestra-sposta" onMouseDown={(e) => e.stopPropagation()}>
             <div className="finestra-titolo">Sposta materiale</div>
             <div className="finestra-corpo campi-sposta">
               <p><b>{sposta.riga.descrizione}</b><br /><span className="piccolo">da {nomeDi(sposta.da)} · rimasti {fmt(rimasto(sposta.riga))} {sposta.riga.um}</span></p>
               <label>Quantità <input inputMode="decimal" value={sposta.quantita} onChange={(e) => setSposta({ ...sposta, quantita: e.target.value })} /></label>
-              <label>A
-                <select value={sposta.a} onChange={(e) => setSposta({ ...sposta, a: Number(e.target.value), rapporto: undefined })}>
-                  <option value={RAPPORTINO}>{sposta.da === MAGAZZINO ? "Dentro un rapportino…" : `Dentro un rapportino di ${nomeDi(sposta.da)}…`}</option>
-                  {[MAGAZZINO, ...tecnici.map((t) => t.id)].filter((t) => t !== sposta.da).map((t) => <option key={t} value={t}>{nomeDi(t)}</option>)}
-                </select>
-              </label>
-              {sposta.a === RAPPORTINO && (
-                <label>Rapportino
-                  {!rapScelta ? <span className="piccolo">Lettura dei rapportini…</span> : !rapScelta.length ? <span className="piccolo">Nessun rapportino negli ultimi 3 mesi.</span> : (
-                    <select value={sposta.rapporto ?? ""} onChange={(e) => setSposta({ ...sposta, rapporto: Number(e.target.value) })}>
-                      {rapScelta.map((x) => <option key={x.id} value={x.id}>
-                        N. {x.numero ?? "?"} del {dataIt(x.data)}{x.cliente?.nome ? ` · ${x.cliente.nome}` : ""}{sposta.da === MAGAZZINO && x.tecnico_id ? ` · ${nomeDi(x.tecnico_id)}` : ""}
-                      </option>)}
-                    </select>
-                  )}
-                  <span className="piccolo">Il materiale viene aggiunto ai materiali del rapportino, con il prezzo del magazzino.</span>
+              <div className="scelta-sposta">
+                <button type="button" className={sposta.a === RAPPORTINO ? "attiva" : ""} onClick={() => setSposta({ ...sposta, a: RAPPORTINO, rapporto: undefined })}>Metti in un rapportino</button>
+                <button type="button" className={sposta.a !== RAPPORTINO ? "attiva" : ""} onClick={() => setSposta({ ...sposta, a: sposta.da === MAGAZZINO ? (tecnici[0]?.id ?? MAGAZZINO) : MAGAZZINO, rapporto: undefined })}>Sposta a Magazzino / tecnico</button>
+              </div>
+              {sposta.a !== RAPPORTINO && (
+                <label>A
+                  <select value={sposta.a} onChange={(e) => setSposta({ ...sposta, a: Number(e.target.value) })}>
+                    {[MAGAZZINO, ...tecnici.map((t) => t.id)].filter((t) => t !== sposta.da).map((t) => <option key={t} value={t}>{nomeDi(t)}</option>)}
+                  </select>
                 </label>
+              )}
+              {sposta.a === RAPPORTINO && (
+                <div className="rapportini-sposta">
+                  <span className="piccolo">{sposta.da === MAGAZZINO ? "Rapportini degli ultimi 3 mesi" : `Rapportini di ${nomeDi(sposta.da)} degli ultimi 3 mesi`}: tocca quello giusto. Il materiale si aggiunge ai suoi materiali con il prezzo del magazzino.</span>
+                  {!rapScelta ? <p className="piccolo">Lettura dei rapportini…</p> : !rapScelta.length ? <p className="piccolo">Nessun rapportino negli ultimi 3 mesi.</p> : (
+                    <div className="elenco-rap-sposta">
+                      {rapScelta.map((x) => (
+                        <button type="button" key={x.id} className={sposta.rapporto === x.id ? "scelto" : ""} onClick={() => setSposta({ ...sposta, rapporto: x.id })}>
+                          <span className="rs-testa"><b>N. {x.numero ?? "?"}</b> · {dataIt(x.data)}{x.cliente?.nome ? <> · <b>{x.cliente.nome}</b></> : ""}{sposta.da === MAGAZZINO && x.tecnico_id ? ` · ${nomeDi(x.tecnico_id)}` : ""}</span>
+                          <span className="rs-attivita">{x.attivita?.trim() || "(nessuna descrizione)"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
               {sposta.a !== RAPPORTINO && <label>Note <input value={sposta.note} onChange={(e) => setSposta({ ...sposta, note: e.target.value })} placeholder="es. reso in sede, scorta furgone…" /></label>}
             </div>
