@@ -174,9 +174,12 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         const esistente = perNumero.get(r.numero);
         // "Pagata" messa nel gestionale non si toglie mai
         if (esistente?.pagata && !esistente.eliminato_il && !r.pagata) { delete record.pagata; delete record.data_pagamento; }
-        record.cliente_id = r.cliente ? idCliente.get(norm(r.cliente)) ?? null : null;
-        record.tecnico_id = r.tecnico ? idTecnico.get(norm(r.tecnico)) ?? null : null;
         const es = esistente && !esistente.eliminato_il ? esistente : undefined;
+        // Cliente e tecnico: su un rapportino già presente si cambiano solo se il nome si trova (mai svuotati)
+        const cid = r.cliente ? idCliente.get(norm(r.cliente)) : undefined;
+        const tid = r.tecnico ? idTecnico.get(norm(r.tecnico)) : undefined;
+        if (cid || !es) record.cliente_id = cid ?? null;
+        if (tid || !es) record.tecnico_id = tid ?? null;
         if (r.eliminato && !es?.eliminato_il) record.eliminato_il = new Date().toISOString();
         const risposta = es
           ? await supabase.from("rapporti").update(record).eq("id", es.id).select("id").single()
@@ -366,7 +369,7 @@ export default function ImportaReportOne({ onChiudi, onFinito }: { onChiudi: () 
         <div className="finestra-titolo">Importa dati da ReportOne</div>
         <div className="finestra-corpo">
           <p style={{ marginTop: 0 }}>
-            Scegli il file preparato dal database di ReportOne (es. <b>"ReportOne - completamento rapporti.json"</b> , <b>"ReportOne - preventivi.json"</b>, <b>"ReportOne - DDT di acquisto.json"</b> o <b>"ReportOne - scadenziario.json"</b>).
+            Scegli il file preparato dal database di ReportOne (es. <b>"ReportOne - materiali dei rapporti.json"</b>, <b>"ReportOne - completamento rapporti.json"</b>, <b>"ReportOne - preventivi.json"</b>, <b>"ReportOne - DDT di acquisto.json"</b> o <b>"ReportOne - scadenziario.json"</b>).
           </p>
           <p className="piccolo">
             Completa i rapporti con ora inizio e fine, tariffe, KM, impianto e righe dei materiali; aggiunge i rapporti mancanti,
