@@ -53,6 +53,7 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
     .replace(/(?<![A-WYZ\d])MM\.?\s*(\d+(?:[.,]\d+)?(?:\s*X\s*\d+(?:[.,]\d+)?)*)(?![\d\/"])/g, "$1MM")
     .replace(/(\d)\s*(?:LT\.?|LITRI)(?![A-Z])/g, "$1LT") },
   { r: "pollici", f: (d) => d
+    .replace(/(?<!°\s?\d{0,2}|(?:\.{2,}|…)\d{0,2})(\d)'(?![A-EG-LN-WYZ'])/g, '$1"')                              // apostrofo come pollici: 1'F X 1'1/2F → 1"F X 1"1/2F
     .replace(/(\d{1,2})\s*\.\s*(\d\/[248])(?!\d)/g, "$1 $2")              // 1.1/4 → 1 1/4
     .replace(/(\d{1,2})"\s*(\d\/[248])"?/g, "$1 $2\"")                    // 1"1/2 → 1 1/2"
     .replace(new RegExp(String.raw`(?<![\d,.\/])(\d{1,2} ${FRAZ}|${FRAZ})(?![\d\/"])`, "g"), '$1"') // 1/2 → 1/2"

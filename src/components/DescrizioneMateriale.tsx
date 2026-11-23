@@ -38,7 +38,7 @@ const TIPI = new Set(["TEE", "GOMITO", "CURVA", "MANICOTTO", "RIDUZIONE", "NIPLE
   "PROLUNGA", "ADATTATORE", "GIUNTO", "RACCORDO", "TRONCHETTO", "CANOTTO", "BRAGA", "TERMINALE", "VALVOLA", "RUBINETTO", "TUBO", "CAVO", "FLESSIBILE",
   "MISCELATORE", "COLLETTORE", "INTERRUTTORE", "MAGNETOTERMICO", "DIFFERENZIALE", "PRESA", "PLACCA", "SCATOLA", "CANALINA", "CORRUGATO", "GUAINA",
   "CALDAIA", "RADIATORE", "SIFONE", "PILETTA", "LAMPADA", "PLAFONIERA", "FARETTO", "STRISCIA", "ALIMENTATORE", "TELECAMERA", "CENTRALINO", "QUADRO",
-  "RELE", "TERMOSTATO", "CRONOTERMOSTATO", "POMPA", "CIRCOLATORE", "FILTRO", "DEFANGATORE", "VASO", "CASSETTA", "TASSELLO", "COLLARE", "STAFFA"]);
+  "BOCCHETTONI", "RACCORDI", "GOMITI", "MANICOTTI", "TAPPI", "CURVE", "VALVOLE", "RELE", "TERMOSTATO", "CRONOTERMOSTATO", "POMPA", "CIRCOLATORE", "FILTRO", "DEFANGATORE", "VASO", "CASSETTA", "TASSELLO", "COLLARE", "STAFFA"]);
 
 type Tipo = "" | "marca" | "pollici" | "mm" | "corrente" | "misura" | "tipo";
 type Pezzo = { t: string; k: Tipo };
@@ -48,7 +48,7 @@ const MISURA = /^(?:Ø|\d)/;
 const SIGLE_MF = /^(M\/F|F\/M|F\/F|M\/M|MF|FM|FF|MM|FFF|MMM)$/;
 // Sezione in pollici (1/2"FF, 1 1/4", 2"), in millimetri (Ø20, 16X2, 20mm, 2,5mm²) o altro numero (16A, 4P, 1MT, 230V)
 function tipoMisura(t: string): Tipo {
-  if (t.includes('"')) return "pollici";
+  if (t.includes('"') || /\d'/.test(t)) return "pollici";
   if (/Ø|mm|MM(?![A-Z])/.test(t) || /^\d+(?:[.,]\d+)?X\d/.test(t)) return "mm";
   // corrente: ampere, volt, watt, hertz, amperora (16A, 4,5kA, 30mA, 230V, 12Vcc, 1000W, 3kW, 50Hz, 7Ah, 400VA)
   if (/^\d+(?:[.,]\d+)?(?:[\/-]\d+(?:[.,]\d+)?)?(?:k|K|m)?(?:A|V|W|VA|Vca|Vcc|Vac|Vdc|VCA|VCC|Hz|HZ|Ah|AH|Wh|WH|kWh)\.?$/.test(t)) return "corrente";
