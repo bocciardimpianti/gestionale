@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import DescrizioneMateriale from "./DescrizioneMateriale";
 import { materialiAggiornati, materialiSalvati, usiMateriali } from "../cacheElenchi";
 import { euro } from "./Griglia";
 import { Miniatura } from "./CampoImmagine";
@@ -294,7 +295,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
                 <button type="button" key={p.materiale.id} onClick={() => scegli(p.materiale)}>
                   <span className="riga-telefono-foto">{typeof p.materiale.foto === "string" && p.materiale.foto ? <Miniatura percorso={p.materiale.foto} archivio="materiali" /> : null}</span>
                   <span className="testi-proposta">
-                    <b>{String(p.materiale.descrizione ?? "")}</b>
+                    <b><DescrizioneMateriale testo={p.materiale.descrizione} /></b>
                     <span>{p.motivo} · cod. {String(p.materiale.codice_interno ?? "")}</span>
                   </span>
                 </button>
@@ -321,7 +322,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
                   <button type="button" key={m.id} onClick={() => scegli(m)}>
                     <span className="riga-telefono-foto">{typeof m.foto === "string" && m.foto ? <Miniatura percorso={m.foto} archivio="materiali" /> : null}</span>
                     <span className="riga-telefono-testi">
-                      <b>{String(m.descrizione ?? "")}</b>
+                      <b><DescrizioneMateriale testo={m.descrizione} /></b>
                       <span className="riga-telefono-dettaglio">Cod. {String(m.codice_interno ?? "")}</span>
                       <span className="riga-telefono-dettaglio"><span className="pallino-categoria" style={{ background: coloreCategoria(categoriaDi(m)) }} />{categoriaDi(m)}</span>
                       <span className="riga-telefono-alta">
@@ -356,7 +357,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
                     title="Clicca per aggiungere">
                     <td className="cella-miniatura">{typeof m.foto === "string" && m.foto ? <Miniatura percorso={m.foto} archivio="materiali" /> : null}</td>
                     <td>{String(m.codice_interno ?? "")}</td>
-                    <td>{String(m.descrizione ?? "")}</td>
+                    <td><DescrizioneMateriale testo={m.descrizione} /></td>
                     <td>{[m.fornitore1, m.fornitore2].map((x) => String(x ?? "").trim()).filter((x) => x.replace(/[/\s]/g, "")).join(" / ")}</td>
                     <td>{String(m.unita_misura ?? "")}</td>
                     <td className="destra">{euro(m.prezzo_ricaricato)}</td>
@@ -386,7 +387,7 @@ export default function CercaMateriale({ onChiudi, onScegli, onRigaVuota, testoI
           <form className="finestra chiedi-quantita" onMouseDown={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); confermaQuantita(); }}>
             <div className="finestra-titolo">Quantità<button type="button" className="chiudi" onClick={() => setPerQuantita(null)}>×</button></div>
             <div className="finestra-corpo">
-              <b className="chiedi-quantita-nome">{String(perQuantita.descrizione ?? "")}</b>
+              <b className="chiedi-quantita-nome"><DescrizioneMateriale testo={perQuantita.descrizione} /></b>
               <div className="piccolo">Cod. {String(perQuantita.codice_interno ?? "")}{perQuantita.unita_misura ? ` · ${String(perQuantita.unita_misura)}` : ""}</div>
               <div className="chiedi-quantita-campo">
                 <button type="button" aria-label="Diminuisci" onClick={() => setQuantita((v) => String(Math.max(1, (Number(v.replace(",", ".")) || 1) - 1)))}>−</button>

@@ -853,7 +853,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "foto", titolo: "Fotografia", excel: "Fotografia", larghezza: 40, tipo: "miniatura", archivio: "materiali" },
       { chiave: "codice_interno", titolo: "Codice Interno", excel: "Codice Interno", larghezza: 66 },
       // Ordine naturale: stesso articolo insieme, misure dalla più piccola alla più grande, MF prima di FF
-      { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 550, ordina: (r) => chiaveOrdineMateriale(r.descrizione) },
+      { chiave: "descrizione", titolo: "Descrizione", excel: "Descrizione", larghezza: 550, tipo: "materiale", ordina: (r) => chiaveOrdineMateriale(r.descrizione) },
       { chiave: "categoria", titolo: "Categoria", excel: "Categoria", larghezza: 170, tipo: "categoria" },
       { chiave: "nome_articolo", titolo: "Nome Articolo", excel: "Nome Articolo", larghezza: 69 },
       { chiave: "fornitore1", titolo: "Fornitore 1", excel: "Fornitore 1", larghezza: 65 },

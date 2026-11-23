@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import DescrizioneMateriale from "./DescrizioneMateriale";
 import { Camera, Filter } from "lucide-react";
 import { dataIt } from "../supabase";
 import { Miniatura } from "./CampoImmagine";
@@ -20,7 +21,7 @@ export interface Colonna {
   chiave: string;
   titolo: string;
   larghezza: number;
-  tipo?: "data" | "booleano" | "euro" | "immagine" | "miniatura" | "numero" | "percentuale" | "stato" | "categoria";
+  tipo?: "data" | "booleano" | "euro" | "immagine" | "miniatura" | "numero" | "percentuale" | "stato" | "categoria" | "materiale";
   // Per le miniature: archivio file in cui si trova l'immagine
   archivio?: string;
   // Caselle che si possono spuntare direttamente nella griglia (es. Pagato)
@@ -288,7 +289,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
                   )}
                   <span className="riga-telefono-testi">
                     <span className="riga-telefono-alta">
-                      <b>{colTitolo ? mostra(colTitolo, r) || "(senza nome)" : ""}</b>
+                      <b>{colTitolo?.tipo === "materiale" && r[colTitolo.chiave] ? <DescrizioneMateriale testo={r[colTitolo.chiave]} /> : colTitolo ? mostra(colTitolo, r) || "(senza nome)" : ""}</b>
                       {colImporto && <b className="importo">{mostra(colImporto, r)}</b>}
                     </span>
                     {dettagli.map(({ c, v }) => (
@@ -430,6 +431,8 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
                     <td key={c.chiave} title={testo(r[c.chiave])}>
                       {r[c.chiave] ? <><span className="pallino-categoria" style={{ background: coloreCategoria(r[c.chiave]) }} />{testo(r[c.chiave])}</> : null}
                     </td>
+                  ) : c.tipo === "materiale" ? (
+                    <td key={c.chiave} title={testo(r[c.chiave])}><DescrizioneMateriale testo={r[c.chiave]} /></td>
                   ) : c.tipo === "stato" ? (
                     <td key={c.chiave} title={testo(r[c.chiave])}>
                       {r[c.chiave] ? <><span className="quadratino" style={{ background: COLORI_STATO[testo(r[c.chiave])] ?? "#999" }} />{testo(r[c.chiave])}</> : null}
