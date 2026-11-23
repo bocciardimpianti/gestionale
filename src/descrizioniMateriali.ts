@@ -143,6 +143,47 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
       if (dove === undefined) continue;
       w[dove] += w[k]; w.splice(k, 1); k--;
     }
+    // Raccordi: sigla di due o tre lettere rimasta staccata (CURVA FF 90° A SALDARE D 14, MANICOTTO FF A SALDARE 12,
+    // MP GOMITO 45° MF 100, TEE RIDOTTO FF 1" X 1/2" X 1", RIDUZIONE M/F/F Ø50X40X32): va sulla misura che segue,
+    // come in tutti gli altri (Ø14FF, Ø12FF, Ø100MF, 1"F X 1/2"F X 1"F, Ø50M X 40F X 32F)
+    const numeroOØ = (t: string) => /^Ø?\d{1,3}(?:[.,]\d+)?$/.test(t);
+    const corpo = w[0]?.endsWith("-") || w[1] === "-" ? w.slice(w.indexOf("-") + 1) : w;
+    const tipo = corpo.find((t) => /^[A-Z]{3,}$/.test(t)) ?? "";
+    if (RACCORDI.has(tipo) || tipo === "VALVOLA" || /^GOMITO|^CURVA|^TEE/.test(tipo)) {
+      for (let k = 0; k < w.length; k++) {
+        const sig = w[k].replace(/[\/-]/g, "");
+        if (!/^(MF|FM|FF|MM|FFF|MMM|MFF|FMF)$/.test(sig) || !/^(MF|FM|FF|MM|FFF|MMM|M\/F|F\/M|F\/F|M\/M|M\/F\/F|MFF|FMF)$/.test(w[k])) continue;
+        // prima misura entro qualche parola (saltando angoli e codici)
+        let q = k + 1;
+        while (q < w.length && q <= k + 6 && !(misura(w[q]) && !/^\d{4,}/.test(w[q])) && !(w[q] === "D" && /^\d/.test(w[q + 1] ?? ""))) q++;
+        // nessuna misura dopo: quella subito prima (CURVA 90° PPS 60 MF → Ø60MF)
+        if ((q >= w.length || q > k + 6) && numeroOØ(w[k - 1] ?? "")) q = k - 1;
+        else if (q >= w.length || q > k + 6) continue;
+        if (w[q] === "D") { w.splice(q, 1); if (q < k) k--; }                                    // "D 14" = Ø14
+        const lettere = sig.split("");
+        // gruppo: token unico (Ø16X14) o separato da X (1" X 1/2" X 1")
+        const g = [q];
+        for (let x = q; w[x + 1] === "X" && misura(w[x + 2] ?? ""); x += 2) g.push(x + 2);
+        if (g.some((x) => /[MF]$/.test(w[x].replace(/(\d)MM$/i, "$1")))) continue;                          // lettere già messe: non si tocca
+        const numeroNudo = (t: string) => /^\d{1,3}(?:[.,]\d+)?$/.test(t);
+        if (g.length === 1 && !w[q].includes('"') && w[q].includes("X")) {
+          // Ø16X14 / 16X12: lettere distribuite sulle misure
+          const parti = w[q].replace(/^Ø/, "").replace(/(\d)MM$/i, "$1").split("X");
+          if (parti.length !== lettere.length && !(lettere.length === 2 && parti.length === 2)) continue;
+          w[q] = "Ø" + parti.map((p, i) => p + (lettere[i] ?? lettere[lettere.length - 1])).join(" X ");
+        } else if (g.length === 1) {
+          if (lettere.length === 3 && !/TEE/.test(tipo)) continue;
+          w[q] = (numeroNudo(w[q]) ? "Ø" : "") + w[q] + lettere.join("");
+        } else {
+          if (g.length !== lettere.length && !(lettere.length === 2 && g.every((x) => w[x] === w[g[0]]))) {
+            if (lettere.length !== 2 || g.length !== 3) continue;
+            lettere.push(lettere[1]);                                             // TEE FF su tre uscite: F su tutte
+          }
+          g.forEach((x, i) => { w[x] = (numeroNudo(w[x]) ? "Ø" : "") + w[x] + (lettere[i] ?? lettere[lettere.length - 1]); });
+        }
+        w.splice(k, 1); k--;
+      }
+    }
     return w.join(" ");
   } },
   // Raccordi: il materiale (OTTONE GIALLO, BRONZO, RAME…) sempre subito dopo le misure, come nella maggior parte del catalogo
