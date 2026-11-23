@@ -7,11 +7,11 @@
 //  6. abbreviazioni per esteso (c/ → CON, RUB → RUBINETTO…), niente spazi doppi né punto finale
 // Le frazioni che non sono pollici (0,6/1kV, 5/10, 130/220) non si toccano.
 
-export type Regola = "spazi" | "maiuscolo" | "marca" | "abbreviazioni" | "gradi" | "diametri" | "pollici" | "maschio_femmina" | "misure" | "metri" | "trattini" | "materiale" | "unita" | "finale";
+export type Regola = "spazi" | "maiuscolo" | "marca" | "abbreviazioni" | "gradi" | "diametri" | "pollici" | "maschio_femmina" | "misure" | "metri" | "trattini" | "materiale" | "unita" | "cavi" | "finale";
 export const NOMI_REGOLE: Record<Regola, string> = {
   spazi: "Spazi doppi", maiuscolo: "Maiuscolo", marca: "Stessa sigla per la marca", abbreviazioni: "Abbreviazioni per esteso",
   gradi: "Gradi 90°", diametri: "Diametri Ø e mm", pollici: 'Pollici con "', maschio_femmina: "Maschio/femmina", misure: "Misure AxB",
-  metri: "Metri 1MT", trattini: "Trattini solo dopo la marca", materiale: "Materiale dopo le misure", unita: "Unità (mm, kW, Vca…)", finale: "Punto o trattino in fondo",
+  metri: "Metri 1MT", trattini: "Trattini solo dopo la marca", materiale: "Materiale dopo le misure", cavi: "Cavi: sezione poi tensione", unita: "Unità (mm, kW, Vca…)", finale: "Punto o trattino in fondo",
 };
 
 // Sigle della stessa marca scritte in modi diversi → la più usata nel catalogo
@@ -180,6 +180,39 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
     .replace(/(\d)\s?VCA\b/g, "$1Vca").replace(/(\d)\s?VCC\b/g, "$1Vcc").replace(/(\d)\s?VAC\b/g, "$1Vac").replace(/(\d)\s?VDC\b/g, "$1Vdc")
     .replace(/(\d)\s?KA\b/g, "$1kA").replace(/(\d)\s?MA\b/g, "$1mA").replace(/(\d)\s?LM\b/g, "$1lm").replace(/(\d)\s?MHZ\b/g, "$1MHz").replace(/(\d)\s?HZ\b/g, "$1Hz")
     .replace(/(\d)\s?ML\b/g, "$1ml").replace(/(\d)\s?AH\b/g, "$1Ah").replace(/(\d)\s?KG\b/g, "$1kg").replace(/M³\/H\b/g, "m³/h").replace(/(\d)W\/M\b/g, "$1W/m") },
+  // Cavi, sempre nello stesso ordine: CAVO SIGLA SEZIONE TENSIONE LUNGHEZZA COLORE
+  // (CAVO FG16OR16 3G2,5mm² 0,6/1kV 1MT, CAVO FS17 1X1,5mm² 450/750V 1MT BLU)
+  { r: "cavi", f: (d) => {
+    const m = d.match(/^([A-Z0-9 .&'-]{1,15}? - )?(CAVO .*)$/);
+    if (!m) return d;
+    let c = m[2]
+      .replace(/\bBOB\.?(?=\s|$)/g, "BOBINA")
+      .replace(/(\d+) CONDUTTORI\s?X\s?(?=\d)/g, "$1X")                              // 2 CONDUTTORIX0,50 → 2X0,50
+      .replace(/\b(\S+) \1\b/g, "$1")                                          // FG16R16 FG16R16
+      .replace(/\b(F[GS]\d{2}) (O[RM]\d{2})\b/g, "$1$2")                       // FG16 OR16 → FG16OR16
+      .replace(/(\d[XG]\d+(?:,\d+)?)mm(?!²)/g, "$1mm²")                         // 4X1mm → 4X1mm²
+      .replace(/(\d)\s?MMQ\.?(?=\s|$)/g, "$1mm²")                                 // 0,50MMQ → 0,50mm²
+      .replace(/(?<![\w,.\/+])(\d{1,2}[XG]\d+(?:,\d+)?)(?=\s|$|\+)/g, "$1mm²")  // 5X1,5 → 5X1,5mm²
+      .replace(/(\d),(\d)0(?=mm²)/g, "$1,$2").replace(/(\d),00?(?=mm²)/g, "$1")  // 1,50mm² → 1,5mm²; 1,00mm² → 1mm²
+      .replace(/(?<![\d,\/])(300\/500|450\/750)(?![\dV])/g, "$1V")              // 450/750 → 450/750V
+      .replace(/0,6\/1KV/g, "0,6/1kV").replace(/(?<![\d,])0,6\/1(?!kV|[\d,.])/g, "0,6/1kV")
+      .replace(/kV(?=\d)/g, "kV ");                                             // 0,6/1kV1MT → 0,6/1kV 1MT
+    // tensione dopo la sezione
+    const w = c.split(" ");
+    const tensione = (t: string) => /^\d+(?:,\d+)?\/\d+(?:,\d+)?k?V$/.test(t);
+    const sezione = (t: string) => /mm²$/.test(t);
+    const ultimaSez = w.map((t, k) => (sezione(t) ? k : -1)).filter((k) => k >= 0).pop();
+    if (ultimaSez !== undefined) {
+      const tens = w.filter((t, k) => tensione(t) && k < ultimaSez);
+      if (tens.length) {
+        const resto = w.filter((t, k) => !(tensione(t) && k < ultimaSez));
+        const dove = resto.lastIndexOf(w[ultimaSez]) + 1;
+        resto.splice(dove, 0, ...tens);
+        c = resto.join(" ");
+      }
+    }
+    return (m[1] ?? "") + c;
+  } },
   { r: "finale", f: (d) => d.replace(/[\s.;,-]+$/, "") },
   { r: "spazi", f: (d) => d.replace(/\s+/g, " ").trim() },
 ];
