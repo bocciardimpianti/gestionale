@@ -17,6 +17,8 @@ type Riga = Voce & {
 type RigaTec = Riga & { tec: number };
 const MAGAZZINO = 0; // "tecnico" del Magazzino
 const TUTTI = -1; // scheda "Tutti i tecnici"
+const RAPPORTINO = -2; // destinazione "dentro un rapportino"
+type RapScelta = { id: number; numero: number | null; data: string; tecnico_id: number | null; imponibile: number | null; azzera_imponibile: boolean | null; cliente: { nome: string } | null };
 type Ordine = "materiale" | "data" | "tecnico" | "fornitore";
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
@@ -65,7 +67,23 @@ export default function MaterialiTecnici() {
   const [scelto, setScelto] = useState<number>(MAGAZZINO);
   const [soloRimasti, setSoloRimasti] = useState(true);
   const [aperta, setAperta] = useState<string | null>(null);
-  const [sposta, setSposta] = useState<{ riga: Riga; da: number; quantita: string; a: number; note: string } | null>(null);
+  const [sposta, setSposta] = useState<{ riga: Riga; da: number; quantita: string; a: number; note: string; rapporto?: number } | null>(null);
+  // Rapportini in cui mettere il materiale (del tecnico da cui si sposta; dal Magazzino di tutti)
+  const [rapScelta, setRapScelta] = useState<RapScelta[] | null>(null);
+  useEffect(() => {
+    if (sposta?.a !== RAPPORTINO) return;
+    setRapScelta(null);
+    const da = new Date(); da.setDate(da.getDate() - 90);
+    const inizio = dal < dataIso(da)! ? dal : dataIso(da)!;
+    let q = supabase.from("rapporti").select("id, numero, data, tecnico_id, imponibile, azzera_imponibile, cliente:clienti(nome)").is("eliminato_il", null).gte("data", inizio);
+    if (sposta.da !== MAGAZZINO) q = q.eq("tecnico_id", sposta.da);
+    q.order("data", { ascending: false }).order("numero", { ascending: false }).limit(300).then(({ data, error }) => {
+      if (error) return setErrore(error.message);
+      const l = (data ?? []) as unknown as RapScelta[];
+      setRapScelta(l);
+      setSposta((x) => (x && x.a === RAPPORTINO && !x.rapporto && l.length ? { ...x, rapporto: l[0].id } : x));
+    });
+  }, [sposta?.a, sposta?.da]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ordine, setOrdine] = useState<Ordine>(() => { try { return (localStorage.getItem("registro-ordine") as Ordine) || "materiale"; } catch { return "materiale"; } });
   const cambiaOrdine = (o: Ordine) => { setOrdine(o); try { localStorage.setItem("registro-ordine", o); } catch { /* niente */ } };
   const [errore, setErrore] = useState("");
@@ -167,6 +185,7 @@ export default function MaterialiTecnici() {
     if (!sposta) return;
     const q = Number(sposta.quantita.replace(",", "."));
     if (!(q > 0)) return setErrore("Quantità non valida");
+    if (sposta.a === RAPPORTINO) return mettiNelRapportino(q);
     const { error } = await supabase.from("movimenti_materiali").insert({
       data: al < dataIso(new Date())! ? al : dataIso(new Date()),
       materiale_id: sposta.riga.materiale_id, descrizione: sposta.riga.descrizione, unita_misura: sposta.riga.um || null, quantita: q,
@@ -174,6 +193,37 @@ export default function MaterialiTecnici() {
     });
     if (error) return setErrore(/movimenti_materiali/.test(error.message) ? "Esegui su Supabase lo script 0030_movimenti_materiali.sql" : error.message);
     setMessaggio(`${fmt(q)} ${sposta.riga.um} di "${sposta.riga.descrizione}" spostati da ${nomeDi(sposta.da)} a ${nomeDi(sposta.a)}`);
+    setSposta(null);
+    setVersione((v) => v + 1);
+  };
+
+  // Il materiale rimasto va tra i materiali di un rapportino (come se il tecnico l'avesse messo lì):
+  // riga con prezzo e ricarico del magazzino, imponibile del rapportino aggiornato
+  const mettiNelRapportino = async (q: number) => {
+    if (!sposta) return;
+    const rap = rapScelta?.find((x) => x.id === sposta.rapporto);
+    if (!rap) return setErrore("Scegli il rapportino");
+    let m: Record<string, unknown> = {};
+    if (sposta.riga.materiale_id) {
+      const { data } = await supabase.from("materiali").select("id, codice_barre, codice_interno, descrizione, unita_misura, prezzo_base, ricarico, nome_articolo").eq("id", sposta.riga.materiale_id).maybeSingle();
+      m = data ?? {};
+    }
+    const { data: ultima } = await supabase.from("righe_rapporto").select("ordine").eq("rapporto_id", rap.id).order("ordine", { ascending: false }).limit(1);
+    const prezzo = n(m.prezzo_base), ricarico = n(m.ricarico);
+    const prezzoFinale = Math.round(prezzo * (1 + ricarico / 100) * 10000) / 10000;
+    const totale = Math.round(q * prezzoFinale * 100) / 100;
+    const { error } = await supabase.from("righe_rapporto").insert({
+      rapporto_id: rap.id, ordine: n(ultima?.[0]?.ordine) + 1, materiale_id: sposta.riga.materiale_id,
+      codice_barre: m.codice_barre ?? null, codice_articolo: m.codice_interno ?? null,
+      descrizione: (m.descrizione as string) ?? sposta.riga.descrizione, unita_misura: (m.unita_misura as string) ?? (sposta.riga.um || null),
+      quantita: q, prezzo, ricarico, prezzo_finale: prezzoFinale, totale, nome_articolo: m.nome_articolo ?? null,
+    });
+    if (error) return setErrore(error.message);
+    if (!rap.azzera_imponibile && totale) {
+      const { error: e2 } = await supabase.from("rapporti").update({ imponibile: Math.round((n(rap.imponibile) + totale) * 100) / 100 }).eq("id", rap.id);
+      if (e2) setErrore("Materiale aggiunto, ma l'imponibile non si è aggiornato: " + e2.message);
+    }
+    setMessaggio(`${fmt(q)} ${sposta.riga.um} di "${sposta.riga.descrizione}" messi nel rapportino ${rap.numero ?? ""} del ${dataIt(rap.data)}${rap.cliente?.nome ? ` (${rap.cliente.nome})` : ""}`);
     setSposta(null);
     setVersione((v) => v + 1);
   };
@@ -195,7 +245,7 @@ export default function MaterialiTecnici() {
   return (
     <div className="pagina-registro">
       <div className="testata"><h1><span className="icona-titolo"><PackageSearch size={20} strokeWidth={2} /></span>Materiali per tecnico</h1></div>
-      <p className="piccolo">Per il periodo scelto: materiali <b>ordinati</b> nei DDT di acquisto di ogni tecnico, <b>installati</b> nei suoi rapportini e <b>rimasti</b>. I DDT senza tecnico vanno al Magazzino. I rimasti si possono spostare in Magazzino.</p>
+      <p className="piccolo">Per il periodo scelto: materiali <b>ordinati</b> nei DDT di acquisto di ogni tecnico, <b>installati</b> nei suoi rapportini e <b>rimasti</b>. I DDT senza tecnico vanno al Magazzino. I rimasti si possono spostare in Magazzino, a un altro tecnico o dentro un suo rapportino.</p>
 
       <div className="periodo-registro">
         {[["settimana", "Questa settimana"], ["settimana-scorsa", "Settimana scorsa"], ["mese", "Questo mese"], ["mese-scorso", "Mese scorso"]].map(([k, t]) => (
@@ -287,16 +337,29 @@ export default function MaterialiTecnici() {
               <p><b>{sposta.riga.descrizione}</b><br /><span className="piccolo">da {nomeDi(sposta.da)} · rimasti {fmt(rimasto(sposta.riga))} {sposta.riga.um}</span></p>
               <label>Quantità <input inputMode="decimal" value={sposta.quantita} onChange={(e) => setSposta({ ...sposta, quantita: e.target.value })} /></label>
               <label>A
-                <select value={sposta.a} onChange={(e) => setSposta({ ...sposta, a: Number(e.target.value) })}>
+                <select value={sposta.a} onChange={(e) => setSposta({ ...sposta, a: Number(e.target.value), rapporto: undefined })}>
+                  <option value={RAPPORTINO}>{sposta.da === MAGAZZINO ? "Dentro un rapportino…" : `Dentro un rapportino di ${nomeDi(sposta.da)}…`}</option>
                   {[MAGAZZINO, ...tecnici.map((t) => t.id)].filter((t) => t !== sposta.da).map((t) => <option key={t} value={t}>{nomeDi(t)}</option>)}
                 </select>
               </label>
-              <label>Note <input value={sposta.note} onChange={(e) => setSposta({ ...sposta, note: e.target.value })} placeholder="es. reso in sede, scorta furgone…" /></label>
+              {sposta.a === RAPPORTINO && (
+                <label>Rapportino
+                  {!rapScelta ? <span className="piccolo">Lettura dei rapportini…</span> : !rapScelta.length ? <span className="piccolo">Nessun rapportino negli ultimi 3 mesi.</span> : (
+                    <select value={sposta.rapporto ?? ""} onChange={(e) => setSposta({ ...sposta, rapporto: Number(e.target.value) })}>
+                      {rapScelta.map((x) => <option key={x.id} value={x.id}>
+                        N. {x.numero ?? "?"} del {dataIt(x.data)}{x.cliente?.nome ? ` · ${x.cliente.nome}` : ""}{sposta.da === MAGAZZINO && x.tecnico_id ? ` · ${nomeDi(x.tecnico_id)}` : ""}
+                      </option>)}
+                    </select>
+                  )}
+                  <span className="piccolo">Il materiale viene aggiunto ai materiali del rapportino, con il prezzo del magazzino.</span>
+                </label>
+              )}
+              {sposta.a !== RAPPORTINO && <label>Note <input value={sposta.note} onChange={(e) => setSposta({ ...sposta, note: e.target.value })} placeholder="es. reso in sede, scorta furgone…" /></label>}
             </div>
             <div className="finestra-piede">
               <button className="btn grigio" onClick={() => setSposta(null)}>Annulla</button>
               <span style={{ flex: 1 }} />
-              <button className="btn blu" onClick={conferma}>Sposta</button>
+              <button className="btn blu" onClick={conferma} disabled={sposta.a === RAPPORTINO && !sposta.rapporto}>{sposta.a === RAPPORTINO ? "Metti nel rapportino" : "Sposta"}</button>
             </div>
           </div>
         </div>
