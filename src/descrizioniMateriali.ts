@@ -64,7 +64,10 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
     if (tee) d = d.replace(new RegExp(String.raw`(${MIS})(?:\s*X\s*\1){1,2}(?![\dX"\/])`, "g"), "$1");
     const lettere = (s: string) => SIGLE_MF[s] ?? null;
     // stessa misura ai due lati: una volta sola con le lettere attaccate (1/2"FF); misure diverse: 3/4"M X 1/2"F
-    const coppia = (m1: string, m2: string | undefined, l: [string, string]) => (!m2 || m2 === m1 ? `${m1}${l[0]}${l[1]}` : `${m1}${l[0]} X ${m2}${l[1]}`);
+    // prolunghe: pollici X numero in mm = attacco X lunghezza → le lettere restano sui pollici (3/4"MF X 20mm)
+    const prolunga = /\bPROLUNG/.test(d);
+    const coppia = (m1: string, m2: string | undefined, l: [string, string]) => (!m2 || m2 === m1 ? `${m1}${l[0]}${l[1]}`
+      : prolunga && m1.includes('"') && !m2.includes('"') && !m2.startsWith("Ø") ? `${m1}${l[0]}${l[1]} X ${m2}` : `${m1}${l[0]} X ${m2}${l[1]}`);
     // lettera davanti alla misura: M1/2"-F1/2" → 1/2"M X 1/2"F
     d = d.replace(new RegExp(String.raw`\b([MF]) ?(${POLL})\s*[-X]\s*([MF]) ?(${POLL})`, "g"), "$2$1 X $4$3");
     // misure con la lettera già vicina: 3/4" M → 3/4"M ;  M 3/8" X F 3/8" → 3/8"M X 3/8"F
