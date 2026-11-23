@@ -68,7 +68,8 @@ export function pezziDescrizione(descrizione: unknown): Pezzo[] {
   const d = String(descrizione ?? "");
   const out: Pezzo[] = [];
   let resto = d;
-  const marca = d.match(/^([A-Za-z0-9 .&'-]{1,15}?)(\s+[-–]\s+)/);
+  // marca: "VIEGA - …", anche scritto "VIEGA- …" o "VIEGA -…" (ma non O-RING)
+  const marca = d.match(/^([A-Za-z0-9 .&'-]{1,15}?)(\s+[-–]\s*|\s*[-–]\s+)/);
   if (marca) {
     out.push({ t: marca[1], k: "marca" }, { t: marca[2], k: "" });
     resto = d.slice(marca[0].length);

@@ -7,11 +7,11 @@
 //  6. abbreviazioni per esteso (c/ → CON, RUB → RUBINETTO…), niente spazi doppi né punto finale
 // Le frazioni che non sono pollici (0,6/1kV, 5/10, 130/220) non si toccano.
 
-export type Regola = "spazi" | "maiuscolo" | "marca" | "abbreviazioni" | "gradi" | "diametri" | "pollici" | "maschio_femmina" | "misure" | "metri" | "trattini" | "unita" | "finale";
+export type Regola = "spazi" | "maiuscolo" | "marca" | "abbreviazioni" | "gradi" | "diametri" | "pollici" | "maschio_femmina" | "misure" | "metri" | "trattini" | "materiale" | "unita" | "finale";
 export const NOMI_REGOLE: Record<Regola, string> = {
   spazi: "Spazi doppi", maiuscolo: "Maiuscolo", marca: "Stessa sigla per la marca", abbreviazioni: "Abbreviazioni per esteso",
   gradi: "Gradi 90°", diametri: "Diametri Ø e mm", pollici: 'Pollici con "', maschio_femmina: "Maschio/femmina", misure: "Misure AxB",
-  metri: "Metri 1MT", trattini: "Trattini solo dopo la marca", unita: "Unità (mm, kW, Vca…)", finale: "Punto o trattino in fondo",
+  metri: "Metri 1MT", trattini: "Trattini solo dopo la marca", materiale: "Materiale dopo le misure", unita: "Unità (mm, kW, Vca…)", finale: "Punto o trattino in fondo",
 };
 
 // Sigle della stessa marca scritte in modi diversi → la più usata nel catalogo
@@ -28,6 +28,10 @@ const SIGLE_MF: Record<string, [string, string]> = {
 const NUM = String.raw`(?<![\d\/.,])\d+(?:[.,]\d+)?(?![\d.,\/])(?:MM)?`;
 const COPPIA = String.raw`(?:(${MIS})\s*X\s*(${MIS}|${NUM})|(${NUM})\s*X\s*(${MIS}))`;
 const SIGLA = String.raw`(FFF|MMM|M\/F|F\/M|M-F|F-M|F\/F|M\/M|F-F|M-M|M\.F\.|F\.F\.|M\.M\.|MF|FM|FF|MM)`;
+
+const RACCORDI = new Set(["TEE", "GOMITO", "CURVA", "MANICOTTO", "RIDUZIONE", "NIPLES", "TAPPO", "CALOTTA", "BOCCHETTONE", "BARILOTTO", "CROCE",
+  "PORTAGOMMA", "PROLUNGA", "ADATTATORE", "GIUNTO", "RACCORDO", "TRONCHETTO", "CANOTTO"]);
+const MATERIALI_RACC = new Set(["OTTONE", "BRONZO", "RAME", "ACCIAIO", "INOX", "ZINCATO", "GHISA", "PVC", "CROMATO", "NICHELATO"]);
 
 const passi: { r: Regola; f: (d: string) => string }[] = [
   { r: "spazi", f: (d) => d.replace(/\s+/g, " ").trim() },
@@ -48,9 +52,9 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
     .replace(/(?:\bDIAM\.?|\bDIAMETRO|(?<![A-Z])D\.)\s*(?=\d)/g, "Ø").replace(/Ø\s+(?=\d)/g, "Ø")
     .replace(/(\d)\s+MM(?![A-Z0-9²2.])/g, "$1MM")
     .replace(/Ø(\d+(?:[.,]\d+)?)MM\b/g, "Ø$1")                                    // Ø50 MM → Ø50 (Ø è già in mm)
-    .replace(/(?<![A-Z\d])MM\.?\s*(\d+\/\d+)(?![\d"])/g, "$1MM")                   // MM.130/220 → 130/220mm
+    .replace(/(?<![A-Z\d"])MM\.?\s*(\d+\/\d+)(?![\d"])/g, "$1MM")                   // MM.130/220 → 130/220mm
     .replace(/(?<![A-Z\d])CM\.?\s*(\d+(?:[.,]\d+)?(?:-\d+)?)(?![\d\/"])/g, "$1CM")    // CM.30 → 30cm
-    .replace(/(?<![A-WYZ\d])MM\.?\s*(\d+(?:[.,]\d+)?(?:\s*X\s*\d+(?:[.,]\d+)?)*)(?![\d\/"])/g, "$1MM")
+    .replace(/(?<![A-WYZ\d"])MM\.?\s*(\d+(?:[.,]\d+)?(?:\s*X\s*\d+(?:[.,]\d+)?)*)(?![\d\/"])/g, "$1MM")
     .replace(/(\d)\s*(?:LT\.?|LITRI)(?![A-Z])/g, "$1LT") },
   { r: "pollici", f: (d) => d
     .replace(/(?<!°\s?\d{0,2}|(?:\.{2,}|…)\d{0,2})(\d)'(?![A-EG-LN-WYZ'])/g, '$1"')                              // apostrofo come pollici: 1'F X 1'1/2F → 1"F X 1"1/2F
@@ -112,6 +116,64 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
     const m = d.match(/^([A-Z0-9 .&'-]{1,15}? - )(.*)$/);
     return m ? m[1] + m[2].replace(/\s+-\s+/g, " ").replace(/^-\s+/, "") : d.replace(/\s+-\s+/g, " ");
   } },
+  // M o F scritti da soli vicino alla misura (RACCORDO F 1/2" X 16, 3/4" X 22 F, MANICOTTO Ø22 F): attaccati alla prima
+  // misura in pollici o con Ø → 1/2"F X 16, 3/4"F X 22, Ø22F (come le altre sigle)
+  { r: "maschio_femmina", f: (d) => {
+    const w = d.split(" ");
+    // pollici (1/2", 2", la frazione di 1 1/4") o Ø, senza lettere già attaccate
+    const sezione = (t: string) => /^(?:\d\/\d{1,2}"|\d{1,2}"|Ø\d+(?:[.,]\d+)?(?:X\d+(?:[.,]\d+)?)*)$/.test(t);
+    const misura = (t: string) => /^(?:Ø|\d)/.test(t) && !/°/.test(t);
+    // nel gruppo di misure (A X B X C) la lettera va sui pollici, se ci sono (TEE F Ø20 X 1/2" X 20 → Ø20 X 1/2"F X 20)
+    const scegli = (da: number) => {
+      const g = [da];
+      for (let q = da; w[q + 1] === "X" && misura(w[q + 2] ?? ""); q += 2) g.push(q + 2);
+      return g.find((q) => sezione(w[q]) && w[q].includes('"')) ?? g.find((q) => sezione(w[q]));
+    };
+    for (let k = 0; k < w.length; k++) {
+      if (w[k] !== "M" && w[k] !== "F") continue;
+      // misura dopo: "F 1/2" X 16" (anche "F 1 1/4"")
+      const dopo = /^\d{1,2}$/.test(w[k + 1] ?? "") && /^\d\/\d{1,2}"$/.test(w[k + 2] ?? "") ? k + 2 : k + 1;
+      let dove = misura(w[dopo] ?? "") ? scegli(dopo) : undefined;
+      // misura prima: "3/4" X 22 F"
+      if (dove === undefined && misura(w[k - 1] ?? "")) {
+        let q = k - 1;
+        while (q - 2 >= 0 && w[q - 1] === "X" && misura(w[q - 2])) q -= 2;
+        dove = scegli(q);
+      }
+      if (dove === undefined) continue;
+      w[dove] += w[k]; w.splice(k, 1); k--;
+    }
+    return w.join(" ");
+  } },
+  // Raccordi: il materiale (OTTONE GIALLO, BRONZO, RAME…) sempre subito dopo le misure, come nella maggior parte del catalogo
+  // (RACCORDO BRONZO F 1/2" X 16 SALDARE → RACCORDO F 1/2" X 16 BRONZO SALDARE). "PER RAME" resta dov'è.
+  { r: "materiale", f: (d) => {
+    const m = d.match(/^([A-Z0-9 .&'-]{1,15}? - )?(.*)$/)!;
+    const marca = m[1] ?? "", w = m[2].split(" ");
+    if (!RACCORDI.has(w[0])) return d;
+    // gli angoli (90°) non contano: le misure sono le sezioni
+    const misura = (t: string) => /^(?:Ø|\d)/.test(t) && !/°/.test(t) && !/^\d{4,}/.test(t);
+    const primo = w.findIndex(misura);
+    if (primo < 0) return d;
+    const tolti: string[] = [];
+    const via = new Set<number>();
+    for (let k = 1; k < primo; k++) {
+      const t = w[k], prima = w[k - 1] ?? "";
+      if (!(MATERIALI_RACC.has(t) || (/^(GIALLO|NERO)$/.test(t) && MATERIALI_RACC.has(prima)))) continue;
+      if (via.has(k - 1)) { via.add(k); continue; }                         // OTTONE GIALLO, ACCIAIO ZINCATO: insieme
+      if (/^(PER|X|DI|TUBO)$|PATINA$|EFFETTO$/.test(prima)) continue;        // "PER RAME", "TUBO RAME", "PATINA RAME": restano
+      if (prima === "IN" && k - 1 > 0) via.add(k - 1);                      // "IN OTTONE" si sposta tutto
+      via.add(k);
+    }
+    for (const k of [...via].sort((a, b) => a - b)) tolti.push(w[k]);
+    const resto = w.filter((_, k) => !via.has(k));
+    if (!tolti.length) return d;
+    // fine delle misure: misure, X tra misure, sigle M/F e unità
+    let fine = resto.findIndex(misura);
+    while (fine + 1 < resto.length && (misura(resto[fine + 1]) || (resto[fine + 1] === "X" && misura(resto[fine + 2] ?? "")) || /^(MF|FM|FF|MM|FFF|MMM|M|F|M\/F|F\/M|F\/F|M\/M)$/.test(resto[fine + 1]))) fine++;
+    resto.splice(fine + 1, 0, ...tolti);
+    return marca + resto.join(" ");
+  } },
   { r: "unita", f: (d) => d
     .replace(/(\d)\s?MM[²2](?![\d])/g, "$1mm²").replace(/(\d)MM(?=[MF]?\b)/g, "$1mm").replace(/(\d)\s?CM\b/g, "$1cm").replace(/(\d)CM(?=\s|$)/g, "$1cm")
     .replace(/(\d)\s?KW\b/g, "$1kW").replace(/(\d)\s?KVA\b/g, "$1kVA").replace(/(\d)\s?KV\b/g, "$1kV")
@@ -125,6 +187,11 @@ const passi: { r: Regola; f: (d: string) => string }[] = [
 /** Descrizione riordinata e regole che l'hanno cambiata */
 export function riordinaDescrizione(d: string): { nuova: string; regole: Regola[] } {
   let x = d; const regole = new Set<Regola>();
-  for (const p of passi) { const y = p.f(x); if (y !== x) regole.add(p.r); x = y; }
+  // si ripete finché non cambia più nulla (una regola può preparare il lavoro a un'altra), così riordinare due volte dà lo stesso risultato
+  for (let giro = 0; giro < 3; giro++) {
+    const inizio = x;
+    for (const p of passi) { const y = p.f(x); if (y !== x) regole.add(p.r); x = y; }
+    if (x === inizio) break;
+  }
   return { nuova: x, regole: [...regole] };
 }
