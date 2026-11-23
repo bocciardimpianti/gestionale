@@ -79,7 +79,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [daDdt, setDaDdt] = useState(false);
   const telefono = useTelefono();
   // Foto dei materiali nelle righe (telefono)
-  const fotoDi = useFotoMateriali(telefono && cfg.righe ? righe.map((r) => r.materiale_id as number | null) : []);
+  const fotoDi = useFotoMateriali(cfg.righe ? righe.map((r) => r.materiale_id as number | null) : []);
   // Modifiche fatte dall'utente e non ancora salvate: alla chiusura si chiede se salvarle
   const modificata = useRef(false);
   const segna = () => { modificata.current = true; };
@@ -768,12 +768,13 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         {!telefono && <div className="tabella-righe">
           <table>
             <thead>
-              <tr><th style={{ width: 16 }} />{rc.colonne.map((c) => <th key={c.chiave} style={{ width: c.larghezza }}>{c.titolo}</th>)}</tr>
+              <tr><th style={{ width: 16 }} /><th className="foto-cella" aria-label="Foto" />{rc.colonne.map((c) => <th key={c.chiave} style={{ width: c.larghezza }}>{c.titolo}</th>)}</tr>
             </thead>
             <tbody>
               {righe.map((r, i) => (
                 <tr key={i} className={i === rigaSel ? "attiva" : ""} onClick={() => setRigaSel(i)}>
                   <td className="indicatore-riga">{i === rigaSel ? "▸" : ""}</td>
+                  <td className="foto-cella"><span className="foto-riga">{fotoDi(r.materiale_id as number) ? <Miniatura percorso={fotoDi(r.materiale_id as number)!} archivio="materiali" /> : null}</span></td>
                   {rc.colonne.map((c) => (
                     <td key={c.chiave} className={c.tipo && c.tipo !== "testo" ? "destra" : ""}>
                       {c.solaLettura || !modificabile ? (

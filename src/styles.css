@@ -2229,3 +2229,8 @@ tr.scartato-ia td:nth-child(5) { text-decoration: none; opacity: 1; }
 .descr-materiale .dm-misura { font-weight: 700; }
 .descr-materiale .dm-tipo { font-weight: 700; }
 b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
+
+/* Foto dei materiali anche nella tabella delle righe (computer e tablet) */
+.tabella-righe .foto-cella { width: 40px; padding: 2px 4px; }
+.tabella-righe .foto-riga { width: 32px; height: 32px; border-radius: 6px; background: #e7eeef; overflow: hidden; display: grid; place-items: center; }
+.tabella-righe .foto-riga .miniatura { width: 32px; height: 32px; object-fit: cover; }
