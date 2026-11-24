@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { inizialiParole } from "./Autocompleta";
 import DescrizioneMateriale from "./DescrizioneMateriale";
 import { Camera, Filter } from "lucide-react";
 import { dataIt } from "../supabase";
@@ -189,6 +190,15 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
       });
     }
     const segno = ordine.su ? 1 : -1;
+    // Più parole cercate: prima le righe in cui sono le iniziali di parole (es. "ma me" → MATTEO MENICHINI), poi le altre
+    if (parole.length > 1) {
+      const iniziali = new Map(filtrate.map((r) => [r, dove.some((c) => inizialiParole(mostra(c, r), parole)) ? 0 : 1]));
+      const resto = (a: Riga, b: Riga) => iniziali.get(a)! - iniziali.get(b)!;
+      const ordinate = ordinaRighe(filtrate);
+      return ordinate.sort(resto);
+    }
+    return ordinaRighe(filtrate);
+    function ordinaRighe(filtrate: Riga[]) {
     const colonnaOrdine = colonne.find((c) => c.chiave === ordine.chiave);
     const tipo = colonnaOrdine?.tipo;
     if (colonnaOrdine?.ordina) {
@@ -202,6 +212,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
           ? segno * mostra(colonnaOrdine, a).localeCompare(mostra(colonnaOrdine, b), "it", { sensitivity: "base", numeric: true })
           : segno * testo(a[ordine.chiave]).localeCompare(testo(b[ordine.chiave]), "it", { sensitivity: "base", numeric: true }),
     );
+    }
   }, [righe, filtri, ordine, colonne, ricerca, colonnaRicerca, testiFurbi, paroleFurbe, sinonimi]);
 
   useEffect(() => {

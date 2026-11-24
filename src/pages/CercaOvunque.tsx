@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { inizialiParole } from "../components/Autocompleta";
 import { useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { ARCHIVI, type Archivio } from "../archivi";
@@ -110,7 +111,16 @@ export default function CercaOvunque() {
     const conteggio = new Map<number, number>();
     for (const p of parole) for (const id of collegati.clienti[p] ?? []) conteggio.set(id, (conteggio.get(id) ?? 0) + 1);
     const massimo = Math.max(0, ...conteggio.values());
-    const idMigliori = [...conteggio].filter(([, n]) => n === massimo && n > 0).map(([id]) => id).slice(0, 5);
+    let idMigliori = [...conteggio].filter(([, n]) => n === massimo && n > 0).map(([id]) => id).slice(0, 5);
+    // Più parole: clienti con tutte le parole nel nome, prima quelli in cui sono le iniziali ("ma me" → MATTEO MENICHINI)
+    if (parole.length > 1) {
+      let q = supabase.from("clienti").select("id, nome").is("eliminato_il", null);
+      for (const p of parole) q = q.ilike("nome", `%${p}%`);
+      const { data: tutte } = await q.limit(300);
+      const elenco = ((tutte ?? []) as { id: number; nome: string }[])
+        .sort((a, b) => Number(!inizialiParole(a.nome, parole)) - Number(!inizialiParole(b.nome, parole)) || a.nome.localeCompare(b.nome, "it"));
+      if (elenco.length) idMigliori = elenco.slice(0, 5).map((c) => c.id);
+    }
     const schedeClienti: typeof clienti = [];
     if (idMigliori.length && puo("clienti", "vedere")) {
       const { data: anag } = await supabase.from("clienti").select("*").in("id", idMigliori);

@@ -6,18 +6,35 @@ import MicDettatura from "./MicDettatura";
 
 // Campo con elenco di suggerimenti: scrivendo le prime lettere compaiono prima i nomi che INIZIANO così
 // (in ordine alfabetico), poi quelli in cui un'altra parola inizia così (es. "Ing. BELLAGAMBA" con "bel").
+// Più parole valgono come iniziali delle parole del nome, in qualsiasi ordine: "ma me" → MATTEO MENICHINI, MENICHINI MATTEO.
+export const paroleDi = (n: string) => n.split(/[\s.,'()/-]+/).filter(Boolean);
+/** Ogni parola cercata è l'inizio di una parola diversa del nome ("ma me" → MATTEO MENICHINI) */
+export function inizialiParole(nome: string, cercate: string[]) {
+  const w = paroleDi(nome.toLowerCase());
+  const usate = new Set<number>();
+  // prima le parole cercate più lunghe (più selettive)
+  return [...cercate].sort((a, b) => b.length - a.length).every((c) => {
+    const i = w.findIndex((x, k) => !usate.has(k) && x.startsWith(c));
+    if (i < 0) return false;
+    usate.add(i);
+    return true;
+  });
+}
 export function ordinaPerInizio<T>(elenco: T[], testo: string, nome: (x: T) => string, max = Infinity): T[] {
   const t = pulisciRicerca(testo);
   const alfabetico = (a: T, b: T) => nome(a).localeCompare(nome(b), "it", { sensitivity: "base" });
   if (!t) return [...elenco].sort(alfabetico).slice(0, max);
+  const cercate = paroleDi(t);
   const inizio: T[] = [];
   const parola: T[] = [];
+  const iniziali: T[] = [];
   for (const x of elenco) {
     const n = nome(x).trim().toLowerCase();
     if (n.startsWith(t)) inizio.push(x);
-    else if (n.split(/[\s.,'()/-]+/).some((p) => p.startsWith(t))) parola.push(x);
+    else if (paroleDi(n).some((p) => p.startsWith(t))) parola.push(x);
+    else if (cercate.length > 1 && inizialiParole(n, cercate)) iniziali.push(x);
   }
-  return [...inizio.sort(alfabetico), ...parola.sort(alfabetico)].slice(0, max);
+  return [...inizio.sort(alfabetico), ...parola.sort(alfabetico), ...iniziali.sort(alfabetico)].slice(0, max);
 }
 
 export default function Autocompleta({ id, valore, opzioni, onCambia, readOnly, placeholder, nonTrovato }: {
