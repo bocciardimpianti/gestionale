@@ -26,6 +26,8 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
   const [inCorso, setInCorso] = useState(false);
   const [aperto, setAperto] = useState<{ x: InArrivo; file: File } | null>(null);
   const [tutti, setTutti] = useState(false);
+  // Passo dell'importazione automatica in corso
+  const [passo, setPasso] = useState("");
 
   const carica = async () => {
     const settimana = new Date(Date.now() - 7 * 86400000).toISOString();
@@ -36,17 +38,23 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
   useEffect(() => {
     carica();
     const aggiorna = () => { carica(); onFinito(); };
+    const avanza = (e: Event) => { const t = String((e as CustomEvent).detail ?? ""); setPasso(t); if (!t) carica(); };
     window.addEventListener("ddt-in-arrivo", aggiorna);
-    return () => window.removeEventListener("ddt-in-arrivo", aggiorna);
+    window.addEventListener("ddt-avanzamento", avanza);
+    return () => { window.removeEventListener("ddt-in-arrivo", aggiorna); window.removeEventListener("ddt-avanzamento", avanza); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const controllaAdesso = async () => {
     setInCorso(true);
     try {
+      // Importazioni rimaste a metà (pagina chiusa o bloccata): si rimettono in coda
+      const vecchie = (righe ?? []).filter((x) => x.stato === "in_corso" && !passo);
+      for (const x of vecchie) await supabase.from("ddt_in_arrivo").update({ stato: "da_importare" }).eq("id", x.id);
       setStato("Controllo della cartella Drive…");
       const d = await controllaDrive().catch((e) => { setStato("Cartella Drive: " + (e as Error).message); return null; });
       await carica();
       const e = await importaDdtInArrivo(setStato);
+      if (e.giaInCorso) { await carica(); setInCorso(false); return controllaAdesso(); }
       setStato([
         d ? `${d.nuovi} PDF nuovi su Drive` : "",
         e.importati ? `${e.importati} DDT importati` : "", e.daControllare ? `${e.daControllare} da controllare` : "", e.errori ? `${e.errori} con errori` : "",
@@ -80,6 +88,7 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
         {righe.length > aperti.length && <button type="button" className="link" onClick={() => setTutti(!tutti)}>{tutti ? "Solo da sistemare" : "Mostra tutti"}</button>}
         {puoImportare && <button type="button" className="btn grigio piccolo-btn" disabled={inCorso} onClick={controllaAdesso}><RefreshCw size={14} /> Controlla adesso</button>}
       </div>
+      {passo && <p className="piccolo">⏳ {passo}</p>}
       {stato && <p className={stato.startsWith("Errore") || stato.startsWith("Cartella") ? "errore" : "piccolo"}>{stato}</p>}
       {visibili.map((x) => {
         const s = STATI[x.stato] ?? { testo: x.stato, classe: "grigio" };
@@ -87,7 +96,7 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
           <div key={x.id} className="dia-riga">
             <span className={`etichetta-pdf ${s.classe}`}>{s.testo}</span>
             <span className="dia-testi"><b>{x.nome_file}</b>{x.messaggio && <span className="piccolo">{x.messaggio}</span>}</span>
-            {puoImportare && ["da_controllare", "errore"].includes(x.stato) && <>
+            {puoImportare && (["da_controllare", "errore"].includes(x.stato) || (x.stato === "in_corso" && !passo)) && <>
               <button type="button" className="btn blu piccolo-btn" onClick={() => apri(x)}>Controlla</button>
               <button type="button" className="btn grigio piccolo-btn" onClick={() => confirm(`Scartare "${x.nome_file}"? Non verrà importato.`) && cambiaStato(x, "scartato", "Scartato a mano")}>Scarta</button>
             </>}
