@@ -14,6 +14,7 @@ import { useAuth } from "./auth";
 import UscitaBackup from "./components/UscitaBackup";
 import PulsanteVoce from "./components/PulsanteVoce";
 import { controllaConti, ricollegaNotifiche } from "./notifiche";
+import { importaDdtInArrivo } from "./ddtAutomatici";
 import { useIndietroChiude } from "./telefono";
 
 // Icone delle voci di menu, come nel programma originale
@@ -110,6 +111,22 @@ export default function Layout({ children }: { children: ReactNode }) {
   }, [vedeFgas]);
   // All'apertura (amministratore): controllo di conti e F-gas da notificare
   useEffect(() => { if (admin) controllaConti(); }, [admin]); // eslint-disable-line react-hooks/exhaustive-deps
+  // DDT arrivati dalla cartella Google Drive: con il gestionale aperto da un amministratore si importano da soli
+  // (all'apertura e poi ogni 3 minuti). Quelli dubbi restano in DDT di Acquisto → DDT in arrivo.
+  useEffect(() => {
+    if (!admin) return;
+    let fermo = false;
+    const giro = async () => {
+      if (fermo || document.hidden) return;
+      try {
+        const e = await importaDdtInArrivo();
+        if (e.importati || e.daControllare) window.dispatchEvent(new CustomEvent("ddt-in-arrivo", { detail: e }));
+      } catch { /* si riprova al prossimo giro */ }
+    };
+    const t = window.setTimeout(giro, 8000);
+    const i = window.setInterval(giro, 3 * 60 * 1000);
+    return () => { fermo = true; window.clearTimeout(t); window.clearInterval(i); };
+  }, [admin]);
   useEffect(() => {
     if (!vedeConti) return;
     let attivo = true;

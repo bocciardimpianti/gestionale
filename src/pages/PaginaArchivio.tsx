@@ -20,6 +20,7 @@ import UnisciDoppioni from "../components/UnisciDoppioni";
 import ImpiantiDaStorico from "../components/ImpiantiDaStorico";
 import DocumentiSpese from "../components/DocumentiSpese";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
+import DdtInArrivo from "../components/DdtInArrivo";
 import { categoriaDa } from "../categorie";
 import { stampaEtichette } from "../etichette";
 import { prendiInCarico } from "../archivi";
@@ -622,6 +623,19 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       {messaggio && <p className={messaggio.startsWith("Errore") ? "errore" : "ok"}>{messaggio}</p>}
 
       {cfg.sezione === "richieste" && <BannerNotifiche />}
+      {cfg.sezione === "materiali" && !nelCestino && (() => {
+        // Articoli arrivati dai DDT di Drive da controllare (nuovi o senza foto)
+        const n = righe.filter((r) => r.da_rivedere && !r.eliminato_il).length;
+        const i = cfg.visteRapide?.findIndex((v) => v.nome.startsWith("Da rivedere")) ?? -1;
+        if (!n || i < 0) return null;
+        const attiva = vista.tipo === "rapida" && vista.indice === i;
+        return (
+          <div className="avviso-da-rivedere">
+            <b>{n} {n === 1 ? "articolo da rivedere" : "articoli da rivedere"}</b> <span className="piccolo">nuovi arrivati dai DDT o senza foto: aggiungi la foto o correggili, poi premi "✓ Rivisto"</span>
+            <button type="button" className="btn grigio piccolo-btn" onClick={() => setVista(attiva ? { tipo: "tutti" } : { tipo: "rapida", indice: i })}>{attiva ? "Mostra tutti" : "Mostra"}</button>
+          </div>
+        );
+      })()}
       {cfg.sezione === "materiali" && <FiltriCategoria valore={categoriaRapida} onCambia={setCategoriaRapida} conteggi={conteggiCategorie} />}
       {cfg.pillole && (
         <div className="filtri-categoria pillole-sezione" role="group" aria-label="Categoria">
@@ -642,6 +656,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         </div>
       )}
 
+      {cfg.sezione === "ddt_acquisto" && !nelCestino && (
+        <DdtInArrivo onFinito={() => carica(true)} puoImportare={puo("ddt_acquisto", "creare") && puo("materiali", "creare")} onCorreggi={(v) => setScheda(v)} />
+      )}
       {galleria && cfg.galleria && (
         <Galleria cfg={cfg} righe={visibili} archivio={cfg.sezione} onApri={(r) => setScheda(r)} />
       )}

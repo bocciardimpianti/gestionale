@@ -775,12 +775,28 @@ export const ARCHIVI: Record<string, Archivio> = {
       ...(chiave === "codice_interno" && dati._barre_auto ? { codice_barre: dati.codice_interno } : {}),
       ...(chiave === "codice_barre" ? { _barre_auto: false } : {}),
     }),
-    azioniScheda: [{ etichetta: "Stampa etichetta QR", esegui: (dati) => { stampaEtichette([dati]).catch((e) => alert((e as Error).message)); } }],
+    azioniScheda: [
+      { etichetta: "Stampa etichetta QR", esegui: (dati) => { stampaEtichette([dati]).catch((e) => alert((e as Error).message)); } },
+      // Articolo arrivato da un DDT (nuovo o senza foto): controllato, esce dall'elenco "Da rivedere"
+      {
+        etichetta: (d) => `✓ Rivisto (${String(d.da_rivedere ?? "")})`, inEvidenza: true, mostra: (d) => !!d.da_rivedere && !!d.id,
+        esegui: async (d, { aggiorna }) => {
+          const { error } = await supabase.from("materiali").update({ da_rivedere: null, da_rivedere_il: null }).eq("id", d.id);
+          if (error) alert(error.message); else aggiorna();
+        },
+      },
+    ],
     valoriNuovo: async () => ({
       ...await (async () => { const c = (await prossimiCodiciInterni().catch(() => [""]))[0] || null; return { codice_interno: c, codice_barre: c, _barre_auto: true }; })(),
       ricarico: 35, prezzo_base: 0, prezzo_ricaricato: 0, giacenza: 0, giacenza_minima: 0,
     }),
     visteRapide: [{
+      // Arrivati dai DDT di Drive: articoli nuovi da controllare e articoli senza foto (script 0057)
+      nome: "Da rivedere (nuovi dai DDT e senza foto)",
+      filtro: (r) => !!r.da_rivedere,
+      ordine: { chiave: "da_rivedere_il", su: false },
+      fotoVeloce: true,
+    }, {
       nome: "Categorie da controllare",
       filtro: (r) => !r.categoria || r.categoria === DA_CONTROLLARE,
     }, {
