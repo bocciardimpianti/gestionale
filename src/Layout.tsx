@@ -15,6 +15,7 @@ import UscitaBackup from "./components/UscitaBackup";
 import PulsanteVoce from "./components/PulsanteVoce";
 import { controllaConti, ricollegaNotifiche } from "./notifiche";
 import { importaDdtInArrivo } from "./ddtAutomatici";
+import { smistaProgetti } from "./progettiClienti";
 import { EVENTO_BOZZA, leggiBozza } from "./bozzaPreventivo";
 import { useIndietroChiude } from "./telefono";
 
@@ -131,6 +132,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         const e = await importaDdtInArrivo();
         if (e.importati || e.daControllare) window.dispatchEvent(new CustomEvent("ddt-in-arrivo", { detail: e }));
       } catch { /* si riprova al prossimo giro */ }
+      // File della cartella Drive "Progetti clienti": smistati per cliente e argomento
+      try { await smistaProgetti(); } catch { /* si riprova al prossimo giro */ }
     };
     const t = window.setTimeout(giro, 8000);
     const i = window.setInterval(giro, 3 * 60 * 1000);

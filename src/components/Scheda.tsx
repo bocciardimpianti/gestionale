@@ -23,6 +23,7 @@ import { useIndietroChiude, useTelefono } from "../telefono";
 import { senzaPrezzi } from "../prezzi";
 import { linkWhatsapp } from "../whatsapp";
 import Autocompleta from "./Autocompleta";
+import ProgettiCliente from "./ProgettiCliente";
 
 interface Props {
   cfg: Archivio;
@@ -949,6 +950,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                       </div>
                     ))}
                   </>
+                ) : linguetta === "Progetti e schede" ? (
+                  <ProgettiCliente clienteId={valori.id as number | undefined} modificabile={modificabile} />
                 ) : linguetta === "Log Cloud" ? (
                   <LogRecord sezione={cfg.sezione} id={valori.id as number | undefined} />
                 ) : (

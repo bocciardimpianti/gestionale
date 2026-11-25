@@ -2285,3 +2285,20 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .scelta-stanze button:disabled { opacity: .5; cursor: default; }
 .esci-foglio { margin-left: 12px; font-size: 13px; vertical-align: middle; display: inline-flex; align-items: center; gap: 5px; } .ripreso { color: #8a5d00; margin: 2px 0 0; }
 .bozza-aperta { position: fixed; right: 16px; bottom: 70px; z-index: 40; border: 1px solid #eda100; background: #fdf0d2; color: #5c3d00; border-radius: 20px; padding: 8px 14px; font: inherit; font-size: 13.5px; box-shadow: 0 4px 14px rgba(0,0,0,.18); cursor: pointer; max-width: calc(100vw - 32px); text-align: left; }
+
+/* Progetti e schede dei clienti */
+.progetti-cliente { display: grid; gap: 6px; }
+.pc-barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pc-barra .btn { display: inline-flex; align-items: center; gap: 4px; }
+.pc-cartella { border: 1px solid #e1e0d9; border-radius: 8px; background: #fff; overflow: hidden; }
+.pc-testa { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: #f6f5f0; padding: 8px 10px; font: inherit; font-size: 14px; cursor: pointer; text-align: left; }
+.pc-icona { font-size: 17px; }
+.pc-file { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 10px 6px 34px; border-top: 1px solid #f0efe9; font-size: 13px; }
+.pc-file .piccolo { flex: 1 1 160px; }
+.pc-file select { height: 30px; border: 1px solid #c3c2b7; border-radius: 6px; font-size: 12.5px; max-width: 210px; }
+.pc-nome { text-align: left; overflow-wrap: anywhere; font-weight: 600; }
+.progetti-smistare { border: 1px solid #eda100; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; display: grid; gap: 6px; background: #fffaf0; max-height: 40vh; overflow-y: auto; }
+.progetti-smistare.vuoto { display: flex; align-items: center; gap: 6px; border-color: #e1e0d9; background: #fff; padding: 5px 10px; }
+.ps-riga { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid #f3e6c8; padding-top: 6px; font-size: 13px; }
+.ps-cliente { flex: 0 1 240px; min-width: 180px; }
+.ps-riga select { height: 34px; border: 1px solid #c3c2b7; border-radius: 6px; font-size: 13px; }

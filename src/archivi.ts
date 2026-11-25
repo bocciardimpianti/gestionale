@@ -371,7 +371,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     sezione: "clienti",
     titolo: "Clienti",
     titoloNuovo: "Nuovo cliente",
-    linguette: ["Impianti", "Storico", "Log Cloud"],
+    linguette: ["Impianti", "Progetti e schede", "Storico", "Log Cloud"],
     tabella: "clienti",
     figli: [{
       linguetta: "Storico",

@@ -21,6 +21,7 @@ import ImpiantiDaStorico from "../components/ImpiantiDaStorico";
 import DocumentiSpese from "../components/DocumentiSpese";
 import ImportaDdtPdf from "../components/ImportaDdtPdf";
 import DdtInArrivo from "../components/DdtInArrivo";
+import ProgettiDaSmistare from "../components/ProgettiDaSmistare";
 import { categoriaDa } from "../categorie";
 import { stampaEtichette } from "../etichette";
 import { prendiInCarico } from "../archivi";
@@ -657,6 +658,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
         </div>
       )}
 
+      {cfg.sezione === "clienti" && !nelCestino && <ProgettiDaSmistare puoModificare={puo("clienti", "modificare")} />}
       {cfg.sezione === "ddt_acquisto" && !nelCestino && (
         <DdtInArrivo onFinito={() => carica(true)} puoImportare={puo("ddt_acquisto", "creare") && puo("materiali", "creare")} onCorreggi={(v) => setScheda(v)} />
       )}
