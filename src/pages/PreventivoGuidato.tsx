@@ -89,8 +89,9 @@ export default function PreventivoGuidato() {
   // Catalogo dei materiali: serve per trovare i frutti della serie (presa TV Matix, interruttore Matix…)
   const { materiali } = useCatalogo();
   const fruttiDi = (s: SerieCivile) => (catalogo && materiali ? fruttiSerie(s, catalogo.voci, materiali) : undefined);
+  const serieFoglio = (s: SerieCivile | null): Foglio["serie"] => s && { id: s.id, nome: s.nome, prezzo_supporto_3: s.prezzo_supporto_3, prezzo_supporto_4: s.prezzo_supporto_4, prezzo_placca_3: s.prezzo_placca_3, prezzo_placca_4: s.prezzo_placca_4, prezzo_copriforo: s.prezzo_copriforo, collegati: s.collegati, cerca_frutti: s.cerca_frutti, frutti: fruttiDi(s) };
   const sceltaSerie = (s: SerieCivile | null) => {
-    cambia((x) => ({ ...x, serie: s && { id: s.id, nome: s.nome, prezzo_supporto_3: s.prezzo_supporto_3, prezzo_supporto_4: s.prezzo_supporto_4, prezzo_placca_3: s.prezzo_placca_3, prezzo_placca_4: s.prezzo_placca_4, prezzo_copriforo: s.prezzo_copriforo, collegati: s.collegati, cerca_frutti: s.cerca_frutti, frutti: fruttiDi(s) } }));
+    cambia((x) => ({ ...x, serie: serieFoglio(s) }));
   };
   // Serie scelta prima che il catalogo fosse pronto (foglio nuovo): i frutti si calcolano appena arriva
   useEffect(() => {
@@ -147,10 +148,21 @@ export default function PreventivoGuidato() {
   // Tutte le soluzioni con quella attiva aggiornata
   const tutte = (): Alternativa[] => (foglio ? (soluzioni.length ? soluzioni.map((x, i) => (i === attiva ? { ...x, foglio } : x)) : [{ nome: "", foglio }]) : []);
   const vaiSoluzione = (i: number) => { const t = tutte(); setSoluzioni(t); setFoglio(t[i].foglio); setAttiva(i); };
+  // Nuova soluzione: vuota (si riempie da capo), con la stessa tariffa; per l'elettrico si chiede prima la serie civile
+  const [chiediSerie, setChiediSerie] = useState(false);
   const aggiungiSoluzione = () => {
+    if (foglio?.tipo === "elettrico") return setChiediSerie(true);
+    creaSoluzione(undefined);
+  };
+  const creaSoluzione = (serie: Foglio["serie"] | undefined) => {
+    if (!foglio) return;
+    setChiediSerie(false);
     const t = tutte();
-    const copia: Alternativa = { nome: `Soluzione ${t.length + 1}`, foglio: JSON.parse(JSON.stringify(foglio)) };
-    setSoluzioni([...t, copia]); setFoglio(copia.foglio); setAttiva(t.length); setModificato(true);
+    const nuova: Alternativa = { nome: `Soluzione ${t.length + 1}`, foglio: {
+      tipo: foglio.tipo, ambienti: [], lavori: [], tariffa_oraria: foglio.tariffa_oraria, tariffa_nome: foglio.tariffa_nome,
+      ...(foglio.tipo === "elettrico" ? { serie: serie === undefined ? foglio.serie ?? null : serie } : {}),
+    } };
+    setSoluzioni([...t, nuova]); setFoglio(nuova.foglio); setAttiva(t.length); setModificato(true);
   };
   const togliSoluzione = (i: number) => {
     const t = tutte();
@@ -393,7 +405,7 @@ export default function PreventivoGuidato() {
             {tutte().length > 1 && i === attiva && <button type="button" className="togli-soluzione" title="Togli questa soluzione" onClick={() => togliSoluzione(i)}>×</button>}
           </div>
         ))}
-        <button type="button" className="aggiungi-soluzione" onClick={aggiungiSoluzione} title="Copia questa soluzione in una nuova (es. con unità esterna unica) da modificare: nel preventivo impaginato ognuna ha il suo totale">
+        <button type="button" className="aggiungi-soluzione" onClick={aggiungiSoluzione} title="Nuova soluzione vuota (es. con unità esterna unica): nel preventivo impaginato ognuna ha il suo foglio e il suo totale">
           <Plus size={14} /> Aggiungi soluzione alternativa</button>
       </div>
 
@@ -533,6 +545,22 @@ export default function PreventivoGuidato() {
         </aside>
       </div>
 
+      {chiediSerie && (
+        <div className="velo" onMouseDown={() => setChiediSerie(false)}>
+          <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo">Nuova soluzione: serie civile<button className="chiudi" onClick={() => setChiediSerie(false)}>×</button></div>
+            <div className="finestra-corpo scelta-serie-soluzione">
+              <p>La nuova soluzione parte vuota. Che serie civile usa?</p>
+              <button type="button" className="btn blu" onClick={() => creaSoluzione(foglio.serie ?? null)}>Mantieni la stessa{foglio.serie ? `: ${foglio.serie.nome}` : " (nessuna)"}</button>
+              <div className="piccolo">oppure cambiala:</div>
+              {serieCivili?.filter((x) => x.attiva && x.id !== foglio.serie?.id).map((x) => (
+                <button type="button" key={x.id} className="btn grigio" onClick={() => creaSoluzione(serieFoglio(x))}>{x.nome}</button>
+              ))}
+              <button type="button" className="btn grigio" onClick={() => creaSoluzione(null)}>Nessuna serie</button>
+            </div>
+          </div>
+        </div>
+      )}
       {vediMateriali && (
         <div className="velo" onMouseDown={() => setVediMateriali(false)}>
           <div className="finestra" onMouseDown={(e) => e.stopPropagation()}>

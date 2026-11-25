@@ -2277,3 +2277,4 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .linguetta-soluzione input { border: 0; padding: 7px 10px; font: inherit; font-size: 13.5px; font-weight: 600; min-width: 220px; }
 .linguetta-soluzione .togli-soluzione { color: #b3261e; font-size: 17px; padding: 4px 10px; }
 .aggiungi-soluzione { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed #8a9599; border-radius: 8px; background: none; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.scelta-serie-soluzione { display: grid; gap: 8px; } .scelta-serie-soluzione p { margin: 0; }
