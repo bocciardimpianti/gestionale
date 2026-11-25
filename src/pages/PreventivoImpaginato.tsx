@@ -5,6 +5,8 @@ import { dataIso, leggiTutto, registra, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import Autocompleta from "../components/Autocompleta";
 import MicDettatura from "../components/MicDettatura";
+import { impaginatoDaFoglio } from "../impaginaGuidato";
+import type { Foglio } from "../impianti";
 import { AZIENDA, htmlPreventivoImpaginato, importoPreventivo, type PiedePreventivo, type PreventivoImpaginato as Impaginato, type SoluzionePreventivo } from "../stampe";
 
 // Preventivo impaginato come il modello Word della ditta: si scrive il testo (una o più soluzioni con titolo,
@@ -33,6 +35,8 @@ export default function PreventivoImpaginato() {
   const [piedeAperto, setPiedeAperto] = useState(false);
   const [stato, setStato] = useState("");
   const [modificato, setModificato] = useState(false);
+  // Preventivo nato dal foglio guidato: totali e righe restano quelli del foglio; il testo si può rifare da lì
+  const [guidato, setGuidato] = useState<{ foglio: Foglio; totale: number } | null>(null);
   const [inCorso, setInCorso] = useState(false);
   // Anteprima A4 accanto al testo, aggiornata mentre si scrive
   const [anteprima, setAnteprima] = useState("");
@@ -43,12 +47,13 @@ export default function PreventivoImpaginato() {
       if (data?.valore) setPiede({ ...PIEDE_PREDEFINITO, ...(data.valore as PiedePreventivo) });
     });
     if (!id) return;
-    supabase.from("preventivi").select("id, data, numero, impaginato, cliente:clienti(nome)").eq("id", id).maybeSingle().then(({ data: r, error }) => {
+    supabase.from("preventivi").select("id, data, numero, impaginato, configurazione, prezzo_scontato, cliente:clienti(nome)").eq("id", id).maybeSingle().then(({ data: r, error }) => {
       if (error) return setStato(/impaginato/.test(error.message) ? "Esegui su Supabase lo script 0058_preventivo_impaginato.sql" : "Errore: " + error.message);
       if (!r) return setStato("Preventivo non trovato");
       setData(String(r.data ?? dataIso(new Date())));
       setOggetto(String(r.numero ?? ""));
       setTestoCliente(String((r.cliente as unknown as { nome: string } | null)?.nome ?? ""));
+      if (r.configurazione) setGuidato({ foglio: r.configurazione as Foglio, totale: Number(r.prezzo_scontato ?? 0) });
       const imp = r.impaginato as Impaginato | null;
       if (imp?.soluzioni?.length) setP({ soluzioni: imp.soluzioni, nota: imp.nota ?? NOTA });
     });
@@ -85,7 +90,8 @@ export default function PreventivoImpaginato() {
     const totale = Number(primo?.totale ?? 0) || 0;
     const record: Record<string, unknown> = {
       data, numero: ogg, cliente_id: cliente?.id ?? null, impaginato: { ...p, cliente_testo: testoCliente.trim() },
-      imponibile: totale, prezzo_scontato: totale, totale, sconto: 0, sconto_totale: 0, iva: 0, iva_totale: 0,
+      // dal foglio guidato i totali restano quelli calcolati là
+      ...(guidato ? {} : { imponibile: totale, prezzo_scontato: totale, totale, sconto: 0, sconto_totale: 0, iva: 0, iva_totale: 0 }),
     };
     const r = id
       ? await supabase.from("preventivi").update(record).eq("id", id).select("id").single()
@@ -145,7 +151,12 @@ export default function PreventivoImpaginato() {
           </label>
         </div>
       ))}
-      <button type="button" className="btn grigio" onClick={() => { setModificato(true); setP((x) => ({ ...x, soluzioni: [...x.soluzioni, nuovaSoluzione(true)] })); }}><Plus size={15} /> Aggiungi un'altra soluzione</button>
+      <div className="barra-soluzioni">
+        <button type="button" className="btn grigio" onClick={() => { setModificato(true); setP((x) => ({ ...x, soluzioni: [...x.soluzioni, nuovaSoluzione(true)] })); }}><Plus size={15} /> Aggiungi un'altra soluzione</button>
+        {guidato && <button type="button" className="btn grigio" title="Rifà il testo con le stanze e i punti del preventivo guidato"
+          onClick={() => confirm("Rifare il testo dal foglio guidato? Le modifiche fatte a mano al testo si perdono.") && (setModificato(true), setP(impaginatoDaFoglio(guidato.foglio, oggetto, guidato.totale)))}>
+          Rifai il testo dal foglio guidato</button>}
+      </div>
 
       <label className="nota-impaginato">Nota in fondo<textarea rows={2} value={p.nota} onChange={(e) => { setModificato(true); setP((x) => ({ ...x, nota: e.target.value })); }} /></label>
 

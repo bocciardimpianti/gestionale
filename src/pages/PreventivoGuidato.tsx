@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Copy, Minus, Package, Plus, Printer, Save, Trash2 } from "lucide-react";
+import { Copy, FileText, Minus, Package, Plus, Printer, Save, Trash2 } from "lucide-react";
+import { impaginatoDaFoglio } from "../impaginaGuidato";
 import { dataIso, leggiTutto, registra, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import Autocompleta from "../components/Autocompleta";
@@ -218,10 +219,10 @@ export default function PreventivoGuidato() {
     return [...m.values()].sort((a, b) => a.descrizione.localeCompare(b.descrizione));
   }, [foglio, catalogo]);
 
-  const salva = async () => {
-    if (!foglio) return;
-    if (!oggetto.trim()) return setErrore("Scrivi l'oggetto del preventivo (es. Impianto elettrico appartamento)");
-    if (testoCliente.trim() && !cliente) return setErrore("Cliente non trovato in anagrafica: sceglilo dall'elenco");
+  const salva = async (): Promise<number | null> => {
+    if (!foglio) return null;
+    if (!oggetto.trim()) { setErrore("Scrivi l'oggetto del preventivo (es. Impianto elettrico appartamento)"); return null; }
+    if (testoCliente.trim() && !cliente) { setErrore("Cliente non trovato in anagrafica: sceglilo dall'elenco"); return null; }
     setErrore(""); setStato("Salvataggio…");
     const record = {
       numero: oggetto.trim(), data, cliente_id: cliente?.id ?? null,
@@ -230,7 +231,7 @@ export default function PreventivoGuidato() {
     const ris = id
       ? await supabase.from("preventivi").update(record).eq("id", id).select("id").single()
       : await supabase.from("preventivi").insert({ ...record, stato: "Aperto" }).select("id").single();
-    if (ris.error) { setStato(""); return setErrore(/configurazione/.test(ris.error.message) ? "Esegui su Supabase lo script 0031_preventivo_guidato.sql" : ris.error.message); }
+    if (ris.error) { setStato(""); setErrore(/configurazione/.test(ris.error.message) ? "Esegui su Supabase lo script 0031_preventivo_guidato.sql" : ris.error.message); return null; }
     const nuovoId = ris.data.id as number;
     // Righe del preventivo: "Ambiente – Voce", ricreate a ogni salvataggio
     await supabase.from("righe_preventivo").delete().eq("preventivo_id", nuovoId);
@@ -244,12 +245,27 @@ export default function PreventivoGuidato() {
     }))).map((r, i) => ({ ...r, preventivo_id: nuovoId, ordine: i }));
     if (righe.length) {
       const { error } = await supabase.from("righe_preventivo").insert(righe);
-      if (error) { setStato(""); return setErrore("Righe non salvate: " + error.message); }
+      if (error) { setStato(""); setErrore("Righe non salvate: " + error.message); return null; }
     }
     await registra(`preventivi_${id ? "modificato" : "creato"}`, { id: nuovoId, nome: oggetto, guidato: foglio.tipo });
     setId(nuovoId);
     setModificato(false);
     setStato(`Preventivo salvato (${righe.length} righe, totale ${euro(totali.totale)})`);
+    return nuovoId;
+  };
+
+  // Preventivo impaginato (modello della ditta): stanze con l'elenco di quello che si installa, totale in fondo
+  const impagina = async () => {
+    if (!foglio) return;
+    const nuovoId = await salva();
+    if (!nuovoId) return;
+    const { data: p } = await supabase.from("preventivi").select("impaginato").eq("id", nuovoId).maybeSingle();
+    const gia = (p?.impaginato as { soluzioni?: unknown[] } | null)?.soluzioni?.length;
+    if (!gia || confirm("Questo preventivo è già stato impaginato. Rifare il testo dal foglio guidato?\n\nOK = testo nuovo dal foglio (le modifiche fatte a mano si perdono)\nAnnulla = apri l'impaginato com'è")) {
+      const { error } = await supabase.from("preventivi").update({ impaginato: impaginatoDaFoglio(foglio, oggetto, totali.prezzo_scontato) }).eq("id", nuovoId);
+      if (error) return setErrore(/impaginato/.test(error.message) ? "Esegui su Supabase lo script 0058_preventivo_impaginato.sql" : error.message);
+    }
+    naviga(`/preventivo-impaginato?id=${nuovoId}`);
   };
 
   const stampa = async () => {
@@ -468,6 +484,7 @@ export default function PreventivoGuidato() {
           {id && !modificato && <button className="link" onClick={() => naviga(`/s/preventivi?apri=${id}`)}>Apri il preventivo</button>}
           <label className="riga-check"><input type="checkbox" checked={prezziVoci} onChange={(e) => setPrezziVoci(e.target.checked)} /> Stampa con i prezzi delle singole voci</label>
           <button className="btn grigio" onClick={stampa}><Printer size={16} /> Stampa</button>
+          <button className="btn blu" onClick={impagina} title="Preventivo impaginato con logo: stanze con l'elenco dei punti, senza prezzi, totale in fondo"><FileText size={16} /> Impagina</button>
           <button className="btn grigio" onClick={() => setVediMateriali(true)}><Package size={16} /> Materiali da ordinare</button>
         </aside>
       </div>

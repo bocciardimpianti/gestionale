@@ -244,8 +244,11 @@ export type PreventivoImpaginato = { soluzioni: SoluzionePreventivo[]; nota: str
 export type PiedePreventivo = { riga1: string; riga2: string };
 
 /** "32095" → "32.095"; con i centesimi solo se ci sono (29050,5 → "29.050,50") */
-export const importoPreventivo = (n: number) =>
-  n.toLocaleString("it-IT", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
+export const importoPreventivo = (n: number) => {
+  // separatore delle migliaia anche sotto 10.000 (in italiano toLocaleString scrive "8450")
+  const [intero, dec] = Math.abs(n).toFixed(Number.isInteger(n) ? 0 : 2).split(".");
+  return (n < 0 ? "-" : "") + intero.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (dec ? "," + dec : "");
+};
 
 /** Testo scritto nel gestionale → paragrafi ed elenchi puntati (righe che iniziano con "-", "•" o "*") */
 export function testoInParagrafi(testo: string) {
@@ -253,7 +256,9 @@ export function testoInParagrafi(testo: string) {
   let paragrafo: string[] = [];
   let punti: string[] = [];
   const chiudi = () => {
-    if (paragrafo.length) blocchi.push(`<p>${paragrafo.map(esc).join("<br>")}</p>`);
+    // Riga corta che finisce con ":" (es. "Cucina:"): sottotitolo in grassetto
+    if (paragrafo.length === 1 && paragrafo[0].length <= 60 && paragrafo[0].endsWith(":")) blocchi.push(`<p class="sotto"><b>${esc(paragrafo[0])}</b></p>`);
+    else if (paragrafo.length) blocchi.push(`<p>${paragrafo.map(esc).join("<br>")}</p>`);
     if (punti.length) blocchi.push(`<ul>${punti.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>`);
     paragrafo = []; punti = [];
   };
@@ -261,7 +266,11 @@ export function testoInParagrafi(testo: string) {
     const t = riga.trim();
     const punto = t.match(/^[-•*]\s+(.*)$/);
     if (!t) chiudi();
-    else if (punto) { if (paragrafo.length) { const p = paragrafo; paragrafo = []; blocchi.push(`<p>${p.map(esc).join("<br>")}</p>`); } punti.push(punto[1]); }
+    else if (punto) {
+      if (paragrafo.length) { const p = paragrafo; paragrafo = [];
+        blocchi.push(p.length === 1 && p[0].length <= 60 && p[0].endsWith(":") ? `<p class="sotto"><b>${esc(p[0])}</b></p>` : `<p>${p.map(esc).join("<br>")}</p>`); }
+      punti.push(punto[1]);
+    }
     else { if (punti.length) chiudi(); paragrafo.push(t); }
   }
   chiudi();
@@ -280,7 +289,7 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
     if (i > 0) blocchi.push(s.nuovaPagina ? `<div class="salto"></div>` : `<div class="spazio"></div>`);
     if (s.titolo.trim()) blocchi.push(`<h2>${esc(s.titolo.trim())}</h2>`);
     // ogni punto dell'elenco è un blocco a sé (così l'elenco può continuare sul foglio dopo)
-    blocchi.push(...testoInParagrafi(s.testo).replace(/<ul>|<\/ul>/g, "").split(/(?=<p>|<li>)/).filter(Boolean)
+    blocchi.push(...testoInParagrafi(s.testo).replace(/<ul>|<\/ul>/g, "").split(/(?=<p[ >]|<li>)/).filter(Boolean)
       .map((b) => (b.startsWith("<li>") ? `<ul>${b}</ul>` : b)));
     // Totale sempre in fondo al foglio (con la nota, sotto l'ultima soluzione); la soluzione dopo parte su un foglio nuovo
     const ultima = i === soluzioni.length - 1;
@@ -314,6 +323,7 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
   .salto { height: 0; }
   h2 { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin: 0 0 3.5mm; line-height: 1.25; }
   p { margin: 0 0 3mm; }
+  p.sotto { margin: 4mm 0 1.5mm; }
   ul { margin: 0 0 .6mm; padding-left: 10mm; }
   ul + p, ul + h2, ul + .totale { margin-top: 3mm; }
   .totale { font-size: 12.5pt; font-weight: bold; margin: 0 0 2mm; }
@@ -354,10 +364,11 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
         else corpo.removeChild(prova);
       }
       // un titolo non resta da solo in fondo al foglio
-      var ultimo = corpo.lastElementChild, titolo = ultimo && ultimo.tagName === "H2" ? ultimo : null;
-      if (titolo) corpo.removeChild(titolo);
+      // titoli e sottotitoli ("Cucina:") non restano da soli in fondo al foglio
+      var titoli = [];
+      while (corpo.lastElementChild && corpo.children.length > 1 && (corpo.lastElementChild.tagName === "H2" || corpo.lastElementChild.classList.contains("sotto"))) titoli.unshift(corpo.removeChild(corpo.lastElementChild));
       nuovo();
-      if (titolo) corpo.appendChild(titolo);
+      for (var t = 0; t < titoli.length; t++) corpo.appendChild(titoli[t]);
       if (b.classList.contains("spazio")) continue;
       corpo.appendChild(b);
     }

@@ -938,7 +938,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     }, {
       // Preventivo scritto a testo e impaginato come il modello Word della ditta (script 0058)
       etichetta: (d) => (d.impaginato ? "Apri impaginato" : "Impagina preventivo"), inEvidenza: true,
-      mostra: (d) => !!d.id && !d.configurazione,
+      mostra: (d) => !!d.id && (!d.configurazione || !!d.impaginato),
       esegui: (d) => { location.hash = `#/preventivo-impaginato?id=${d.id}`; },
     }],
     valoriNuovo: async () => ({ data: dataIso(new Date()), stato: "Aperto", sconto: 0, iva: 0 }),
