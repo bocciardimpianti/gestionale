@@ -268,49 +268,103 @@ export function testoInParagrafi(testo: string) {
   return blocchi.join("");
 }
 
+// Impaginato sempre su fogli A4 veri (210 × 297 mm), uguali a schermo e in stampa: il testo viene distribuito
+// sui fogli uno alla volta (paragrafi, punti dell'elenco, titoli); ogni foglio ha logo in alto e piè di pagina.
+// Un titolo non resta mai da solo in fondo al foglio; un paragrafo troppo lungo continua sul foglio dopo.
 export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; titolo: string }, p: PreventivoImpaginato, piede: PiedePreventivo, stampa = true) {
   const data = d.data ? new Date(String(d.data)).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "";
   const soluzioni = p.soluzioni.filter((s) => s.titolo.trim() || s.testo.trim() || s.totale);
-  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(d.titolo || "Preventivo")}</title>
+  // Blocchi in ordine: ognuno è un pezzo che non si divide (tranne i paragrafi lunghi)
+  const blocchi: string[] = [`<div class="cliente"><span>${esc(d.cliente)}</span><span>${esc(data)}</span></div>`];
+  soluzioni.forEach((s, i) => {
+    if (i > 0) blocchi.push(s.nuovaPagina ? `<div class="salto"></div>` : `<div class="spazio"></div>`);
+    if (s.titolo.trim()) blocchi.push(`<h2>${esc(s.titolo.trim())}</h2>`);
+    // ogni punto dell'elenco è un blocco a sé (così l'elenco può continuare sul foglio dopo)
+    blocchi.push(...testoInParagrafi(s.testo).replace(/<ul>|<\/ul>/g, "").split(/(?=<p>|<li>)/).filter(Boolean)
+      .map((b) => (b.startsWith("<li>") ? `<ul>${b}</ul>` : b)));
+    if (s.totale) blocchi.push(`<div class="totale">Totale&nbsp; €. ${importoPreventivo(s.totale)} + IVA</div>`);
+  });
+  if (p.nota.trim()) blocchi.push(`<div class="nota">${esc(p.nota.trim()).replace(/\n/g, "<br>")}</div>`);
+  const logoUrl = new URL("logo-preventivo.png", location.href).href;
+  const foglio = `<div class="foglio"><div class="testa"><img src="${logoUrl}" alt="Bocciardi Impianti"></div><div class="corpo"></div>
+    <div class="piede"><div class="linea"></div><div class="r1">${esc(piede.riga1)}</div><div class="r2">${esc(piede.riga2)}</div></div></div>`;
+  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(d.titolo || "Preventivo")}</title>
 <style>
-  @page { size: A4; margin: 12mm 20mm 0 20mm; }
+  @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
   html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { font-family: Verdana, "DejaVu Sans", Geneva, sans-serif; font-size: 10pt; line-height: 1.3; color: #111; margin: 0; }
-  table.pagina { width: 100%; border-collapse: collapse; }
-  .testa { text-align: center; padding: 1mm 0 6mm 12mm; }
+  body { font-family: Verdana, "DejaVu Sans", Geneva, sans-serif; font-size: 10pt; line-height: 1.3; color: #111; margin: 0; background: #d9dde1; }
+  #fogli { padding: 10px 0; }
+  .foglio { width: 210mm; height: 297mm; position: relative; background: #fff; margin: 0 auto 10px; box-shadow: 0 2px 10px rgba(0,0,0,.2); overflow: hidden; break-after: page; page-break-after: always; }
+  .foglio:last-child { break-after: auto; page-break-after: auto; }
+  .testa { position: absolute; top: 12mm; left: 0; right: 0; text-align: center; padding-left: 12mm; }
   .testa img { width: 76mm; }
-  .spazio-piede { height: 24mm; }
-  .piede { position: fixed; left: 0; right: 0; bottom: 6mm; text-align: center; font-family: Arial, Helvetica, sans-serif; color: #404099; }
-  .piede .linea { border-top: 1px solid #404099; margin: 0 -8mm 1.5mm; }
+  .corpo { position: absolute; top: 42mm; bottom: 26mm; left: 20mm; right: 20mm; overflow: hidden; }
+  .piede { position: absolute; left: 12mm; right: 12mm; bottom: 7mm; text-align: center; font-family: Arial, Helvetica, sans-serif; color: #404099; }
+  .piede .linea { border-top: 1px solid #404099; margin-bottom: 1.5mm; }
   .piede .r1 { font-size: 8.5pt; }
   .piede .r2 { font-size: 6.5pt; margin-top: .6mm; }
-  .cliente { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 0 0 1mm; margin: 6mm 0 11mm; font-size: 10pt; }
+  .cliente { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 0 0 1mm; margin: 4mm 0 11mm; }
   .cliente span:last-child { margin-right: 14mm; }
-  .soluzione { margin-bottom: 9mm; }
-  .soluzione.nuova { break-before: page; page-break-before: always; }
+  .spazio { height: 6mm; }
+  .salto { height: 0; }
   h2 { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin: 0 0 3.5mm; line-height: 1.25; }
   p { margin: 0 0 3mm; }
-  ul { margin: 0 0 3mm; padding-left: 10mm; }
-  li { margin-bottom: .6mm; }
+  ul { margin: 0 0 .6mm; padding-left: 10mm; }
+  ul + p, ul + h2, ul + .totale { margin-top: 3mm; }
   .totale { font-size: 12.5pt; font-weight: bold; margin: 8mm 0 2mm; }
   .nota { font-size: 7.5pt; margin-top: 3mm; }
-  @media screen { body { background: #e9ecef; } table.pagina { background: #fff; max-width: 210mm; margin: 10px auto; padding: 12mm 20mm; box-shadow: 0 2px 10px rgba(0,0,0,.15); } .piede { position: static; max-width: 210mm; margin: -10px auto 20px; background: #fff; padding: 0 20mm 6mm; } }
+  #sorgente { position: absolute; left: -9999px; top: 0; width: 170mm; }
+  @media print { body { background: none; } #fogli { padding: 0; zoom: 1 !important; } .foglio { margin: 0; box-shadow: none; } }
 </style></head><body>
-<table class="pagina">
-  <thead><tr><td><div class="testa"><img src="${new URL("logo-preventivo.png", location.href).href}" alt="Bocciardi Impianti"></div></td></tr></thead>
-  <tfoot><tr><td><div class="spazio-piede"></div></td></tr></tfoot>
-  <tbody><tr><td>
-    <div class="cliente"><span>${esc(d.cliente)}</span><span>${esc(data)}</span></div>
-    ${soluzioni.map((s, i) => `<div class="soluzione${i > 0 && s.nuovaPagina ? " nuova" : ""}">
-      ${s.titolo.trim() ? `<h2>${esc(s.titolo.trim())}</h2>` : ""}
-      ${testoInParagrafi(s.testo)}
-      ${s.totale ? `<div class="totale">Totale&nbsp; €. ${importoPreventivo(s.totale)} + IVA</div>` : ""}
-    </div>`).join("")}
-    ${p.nota.trim() ? `<div class="nota">${esc(p.nota.trim()).replace(/\n/g, "<br>")}</div>` : ""}
-  </td></tr></tbody>
-</table>
-<div class="piede"><div class="linea"></div><div class="r1">${esc(piede.riga1)}</div><div class="r2">${esc(piede.riga2)}</div></div>
-${stampa ? "<script>window.onload = () => setTimeout(() => window.print(), 300)</script>" : ""}
+<div id="sorgente">${blocchi.map((b) => `<div class="blocco">${b}</div>`).join("")}</div>
+<div id="fogli"></div>
+<template id="modello">${foglio}</template>
+<script>
+(function () {
+  var fogli = document.getElementById("fogli");
+  var modello = document.getElementById("modello");
+  var corpo;
+  function nuovo() { fogli.appendChild(modello.content.cloneNode(true)); corpo = fogli.lastElementChild.querySelector(".corpo"); }
+  function pieno() { return corpo.scrollHeight > corpo.clientHeight + 1; }
+  function impagina() {
+    fogli.innerHTML = ""; nuovo();
+    var blocchi = Array.prototype.slice.call(document.querySelectorAll("#sorgente > .blocco"));
+    for (var i = 0; i < blocchi.length; i++) {
+      var b = blocchi[i].firstElementChild.cloneNode(true);
+      if (b.classList.contains("salto")) { if (corpo.children.length) nuovo(); continue; }
+      if (b.classList.contains("spazio") && !corpo.children.length) continue;
+      corpo.appendChild(b);
+      if (!pieno()) continue;
+      corpo.removeChild(b);
+      // paragrafo lungo: quello che ci sta resta qui, il resto continua sul foglio dopo
+      if (b.tagName === "P") {
+        var parole = b.innerHTML.split(" "), lo = 0, hi = parole.length, prova = b.cloneNode(false);
+        corpo.appendChild(prova);
+        while (lo < hi) { var m = Math.ceil((lo + hi) / 2); prova.innerHTML = parole.slice(0, m).join(" "); if (pieno()) hi = m - 1; else lo = m; }
+        if (lo > 0 && lo < parole.length) { prova.innerHTML = parole.slice(0, lo).join(" "); b.innerHTML = parole.slice(lo).join(" "); }
+        else corpo.removeChild(prova);
+      }
+      // un titolo non resta da solo in fondo al foglio
+      var ultimo = corpo.lastElementChild, titolo = ultimo && ultimo.tagName === "H2" ? ultimo : null;
+      if (titolo) corpo.removeChild(titolo);
+      nuovo();
+      if (titolo) corpo.appendChild(titolo);
+      if (b.classList.contains("spazio")) continue;
+      corpo.appendChild(b);
+    }
+    adatta();
+  }
+  // Su schermi stretti (tablet, telefono) i fogli si rimpiccioliscono restando A4
+  function adatta() {
+    var mm = 210 * 96 / 25.4, z = Math.min(1, (window.innerWidth - 16) / mm);
+    fogli.style.zoom = z < 1 ? String(z) : "";
+  }
+  window.addEventListener("resize", adatta);
+  var img = new Image();
+  img.onload = img.onerror = function () { impagina(); ${stampa ? "setTimeout(function () { window.print(); }, 300);" : ""} };
+  img.src = ${JSON.stringify(logoUrl)};
+})();
+</script>
 </body></html>`;
 }

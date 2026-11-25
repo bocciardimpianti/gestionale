@@ -2263,3 +2263,7 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .barra-impaginato { position: sticky; bottom: 0; display: flex; gap: 8px; flex-wrap: wrap; background: var(--sfondo, #f6f5f0); padding: 10px 0; border-top: 1px solid #e1e0d9; }
 .barra-impaginato .btn { display: inline-flex; align-items: center; gap: 5px; }
 @media (max-width: 760px) { .testa-impaginato { grid-template-columns: 1fr; } }
+.impaginato-due { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.anteprima-a4 { position: sticky; top: 0; display: grid; gap: 4px; }
+.anteprima-a4 iframe { width: 100%; height: calc(100vh - 120px); border: 1px solid #c9cdd2; border-radius: 8px; background: #d9dde1; }
+@media (max-width: 1100px) { .impaginato-due { grid-template-columns: 1fr; } .anteprima-a4 { position: static; } .anteprima-a4 iframe { height: 75vh; } }

@@ -34,6 +34,8 @@ export default function PreventivoImpaginato() {
   const [stato, setStato] = useState("");
   const [modificato, setModificato] = useState(false);
   const [inCorso, setInCorso] = useState(false);
+  // Anteprima A4 accanto al testo, aggiornata mentre si scrive
+  const [anteprima, setAnteprima] = useState("");
 
   useEffect(() => {
     leggiTutto("clienti", "id, nome", true).then((c) => setClienti(c as { id: number; nome: string }[])).catch(() => {});
@@ -51,6 +53,11 @@ export default function PreventivoImpaginato() {
       if (imp?.soluzioni?.length) setP({ soluzioni: imp.soluzioni, nota: imp.nota ?? NOTA });
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setAnteprima(htmlPreventivoImpaginato({ cliente: testoCliente.trim(), data, titolo: "Anteprima" }, p, piede, false)), 500);
+    return () => window.clearTimeout(t);
+  }, [p, testoCliente, data, piede]);
 
   const cliente = clienti.find((c) => c.nome.trim().toLowerCase() === testoCliente.trim().toLowerCase()) ?? null;
   const cambia = (i: number, v: Partial<SoluzionePreventivo>) => { setModificato(true); setP((x) => ({ ...x, soluzioni: x.soluzioni.map((s, j) => (j === i ? { ...s, ...v } : s)) })); };
@@ -99,6 +106,7 @@ export default function PreventivoImpaginato() {
 
   const totaleTesto = (s: SoluzionePreventivo) => (s.totale ? `Totale €. ${importoPreventivo(s.totale)} + IVA` : "");
   return (
+    <div className="impaginato-due">
     <div className="pagina-impaginato">
       <div className="testata"><h1><span className="icona-titolo"><FileText size={20} strokeWidth={2} /></span>Preventivo impaginato</h1></div>
       <p className="piccolo">Scrivi il testo: il gestionale lo impagina come il modello della ditta (logo, cliente e data, titolo in maiuscolo, testo, <b>Totale €. … + IVA</b>, piè di pagina). Per un elenco puntato inizia la riga con <b>-</b>. Una riga vuota separa i paragrafi.</p>
@@ -158,6 +166,11 @@ export default function PreventivoImpaginato() {
         <button type="button" className="btn grigio" onClick={() => finestra(true)}><Printer size={15} /> Stampa / PDF</button>
         <button type="button" className="btn blu" disabled={inCorso} onClick={salva}><Save size={15} /> {inCorso ? "Salvataggio…" : "Salva"}</button>
       </div>
+    </div>
+    <div className="anteprima-a4">
+      <div className="piccolo">Anteprima su foglio A4 (come verrà stampato)</div>
+      {anteprima && <iframe title="Anteprima A4" srcDoc={anteprima} />}
+    </div>
     </div>
   );
 }
