@@ -115,7 +115,7 @@ export default function PreventivoImpaginato() {
         <label>Cliente<Autocompleta id="cliente-impaginato" valore={testoCliente} opzioni={clienti.map((c) => c.nome)}
           onCambia={(t) => { setTestoCliente(t); setModificato(true); }} placeholder="Scrivi le prime lettere…" nonTrovato={!!testoCliente.trim() && !cliente} /></label>
         <label>Data<input type="date" value={data} onChange={(e) => { setData(e.target.value); setModificato(true); }} /></label>
-        <label className="largo">Oggetto (per l'elenco dei preventivi)<input value={oggetto} placeholder="se vuoto: il titolo della prima soluzione" onChange={(e) => { setOggetto(e.target.value); setModificato(true); }} /></label>
+        <label className="largo">Nome nell'elenco dei preventivi (non va in stampa)<input value={oggetto} placeholder="se lo lasci vuoto: il titolo della prima soluzione" onChange={(e) => { setOggetto(e.target.value); setModificato(true); }} /></label>
       </div>
 
       {p.soluzioni.map((s, i) => (

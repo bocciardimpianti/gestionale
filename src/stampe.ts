@@ -282,9 +282,11 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
     // ogni punto dell'elenco è un blocco a sé (così l'elenco può continuare sul foglio dopo)
     blocchi.push(...testoInParagrafi(s.testo).replace(/<ul>|<\/ul>/g, "").split(/(?=<p>|<li>)/).filter(Boolean)
       .map((b) => (b.startsWith("<li>") ? `<ul>${b}</ul>` : b)));
-    if (s.totale) blocchi.push(`<div class="totale">Totale&nbsp; €. ${importoPreventivo(s.totale)} + IVA</div>`);
+    // Totale sempre in fondo al foglio (con la nota, sotto l'ultima soluzione); la soluzione dopo parte su un foglio nuovo
+    const ultima = i === soluzioni.length - 1;
+    const nota = ultima && p.nota.trim() ? `<div class="nota">${esc(p.nota.trim()).replace(/\n/g, "<br>")}</div>` : "";
+    if (s.totale || nota) blocchi.push(`<div class="fondo">${s.totale ? `<div class="totale">Totale&nbsp; €. ${importoPreventivo(s.totale)} + IVA</div>` : ""}${nota}</div>`);
   });
-  if (p.nota.trim()) blocchi.push(`<div class="nota">${esc(p.nota.trim()).replace(/\n/g, "<br>")}</div>`);
   const logoUrl = new URL("logo-preventivo.png", location.href).href;
   const foglio = `<div class="foglio"><div class="testa"><img src="${logoUrl}" alt="Bocciardi Impianti"></div><div class="corpo"></div>
     <div class="piede"><div class="linea"></div><div class="r1">${esc(piede.riga1)}</div><div class="r2">${esc(piede.riga2)}</div></div></div>`;
@@ -299,7 +301,9 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
   .foglio:last-child { break-after: auto; page-break-after: auto; }
   .testa { position: absolute; top: 12mm; left: 0; right: 0; text-align: center; padding-left: 12mm; }
   .testa img { width: 76mm; }
-  .corpo { position: absolute; top: 42mm; bottom: 26mm; left: 20mm; right: 20mm; overflow: hidden; }
+  .corpo { position: absolute; top: 42mm; bottom: 26mm; left: 20mm; right: 20mm; overflow: hidden; display: flex; flex-direction: column; }
+  .corpo > * { flex: none; }
+  .corpo > .fondo { margin-top: auto; padding-top: 6mm; }
   .piede { position: absolute; left: 12mm; right: 12mm; bottom: 7mm; text-align: center; font-family: Arial, Helvetica, sans-serif; color: #404099; }
   .piede .linea { border-top: 1px solid #404099; margin-bottom: 1.5mm; }
   .piede .r1 { font-size: 8.5pt; }
@@ -312,7 +316,7 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
   p { margin: 0 0 3mm; }
   ul { margin: 0 0 .6mm; padding-left: 10mm; }
   ul + p, ul + h2, ul + .totale { margin-top: 3mm; }
-  .totale { font-size: 12.5pt; font-weight: bold; margin: 8mm 0 2mm; }
+  .totale { font-size: 12.5pt; font-weight: bold; margin: 0 0 2mm; }
   .nota { font-size: 7.5pt; margin-top: 3mm; }
   #sorgente { position: absolute; left: -9999px; top: 0; width: 170mm; }
   @media print { body { background: none; } #fogli { padding: 0; zoom: 1 !important; } .foglio { margin: 0; box-shadow: none; } }
@@ -330,8 +334,12 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
   function impagina() {
     fogli.innerHTML = ""; nuovo();
     var blocchi = Array.prototype.slice.call(document.querySelectorAll("#sorgente > .blocco"));
+    var chiuso = false;
     for (var i = 0; i < blocchi.length; i++) {
       var b = blocchi[i].firstElementChild.cloneNode(true);
+      // dopo un totale (in fondo al foglio) si riparte da un foglio nuovo
+      if (chiuso) { chiuso = false; if (b.classList.contains("salto") || b.classList.contains("spazio")) { nuovo(); continue; } nuovo(); }
+      if (b.classList.contains("fondo")) chiuso = true;
       if (b.classList.contains("salto")) { if (corpo.children.length) nuovo(); continue; }
       if (b.classList.contains("spazio") && !corpo.children.length) continue;
       corpo.appendChild(b);
