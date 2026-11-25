@@ -5,8 +5,7 @@ import { dataIso, leggiTutto, registra, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import Autocompleta from "../components/Autocompleta";
 import MicDettatura from "../components/MicDettatura";
-import { impaginatoDaFoglio } from "../impaginaGuidato";
-import type { Foglio } from "../impianti";
+import { impaginatoDaConfigurazione, type Configurazione } from "../impaginaGuidato";
 import { AZIENDA, htmlPreventivoImpaginato, importoPreventivo, type PiedePreventivo, type PreventivoImpaginato as Impaginato, type SoluzionePreventivo } from "../stampe";
 
 // Preventivo impaginato come il modello Word della ditta: si scrive il testo (una o più soluzioni con titolo,
@@ -36,7 +35,7 @@ export default function PreventivoImpaginato() {
   const [stato, setStato] = useState("");
   const [modificato, setModificato] = useState(false);
   // Preventivo nato dal foglio guidato: totali e righe restano quelli del foglio; il testo si può rifare da lì
-  const [guidato, setGuidato] = useState<{ foglio: Foglio; totale: number } | null>(null);
+  const [guidato, setGuidato] = useState<{ conf: Configurazione; sconto: number } | null>(null);
   const [inCorso, setInCorso] = useState(false);
   // Anteprima A4 accanto al testo, aggiornata mentre si scrive
   const [anteprima, setAnteprima] = useState("");
@@ -47,13 +46,13 @@ export default function PreventivoImpaginato() {
       if (data?.valore) setPiede({ ...PIEDE_PREDEFINITO, ...(data.valore as PiedePreventivo) });
     });
     if (!id) return;
-    supabase.from("preventivi").select("id, data, numero, impaginato, configurazione, prezzo_scontato, cliente:clienti(nome)").eq("id", id).maybeSingle().then(({ data: r, error }) => {
+    supabase.from("preventivi").select("id, data, numero, impaginato, configurazione, sconto, cliente:clienti(nome)").eq("id", id).maybeSingle().then(({ data: r, error }) => {
       if (error) return setStato(/impaginato/.test(error.message) ? "Esegui su Supabase lo script 0058_preventivo_impaginato.sql" : "Errore: " + error.message);
       if (!r) return setStato("Preventivo non trovato");
       setData(String(r.data ?? dataIso(new Date())));
       setOggetto(String(r.numero ?? ""));
       setTestoCliente(String((r.cliente as unknown as { nome: string } | null)?.nome ?? ""));
-      if (r.configurazione) setGuidato({ foglio: r.configurazione as Foglio, totale: Number(r.prezzo_scontato ?? 0) });
+      if (r.configurazione) setGuidato({ conf: r.configurazione as Configurazione, sconto: Number(r.sconto ?? 0) });
       const imp = r.impaginato as Impaginato | null;
       if (imp?.soluzioni?.length) setP({ soluzioni: imp.soluzioni, nota: imp.nota ?? NOTA });
     });
@@ -152,9 +151,12 @@ export default function PreventivoImpaginato() {
         </div>
       ))}
       <div className="barra-soluzioni">
-        <button type="button" className="btn grigio" onClick={() => { setModificato(true); setP((x) => ({ ...x, soluzioni: [...x.soluzioni, nuovaSoluzione(true)] })); }}><Plus size={15} /> Aggiungi un'altra soluzione</button>
+        {/* Preventivo guidato: le soluzioni alternative si fanno nel foglio guidato (ognuna con le sue stanze e il suo totale) */}
+        {guidato
+          ? <span className="piccolo">Per un'altra soluzione (es. con unità esterna unica): <b>Torna al preventivo guidato</b> → <b>Aggiungi soluzione alternativa</b>, poi <b>Impagina</b>.</span>
+          : <button type="button" className="btn grigio" onClick={() => { setModificato(true); setP((x) => ({ ...x, soluzioni: [...x.soluzioni, nuovaSoluzione(true)] })); }}><Plus size={15} /> Aggiungi un'altra soluzione</button>}
         {guidato && <button type="button" className="btn grigio" title="Rifà il testo con le stanze e i punti del preventivo guidato"
-          onClick={() => confirm("Rifare il testo dal foglio guidato? Le modifiche fatte a mano al testo si perdono.") && (setModificato(true), setP(impaginatoDaFoglio(guidato.foglio, oggetto, guidato.totale)))}>
+          onClick={() => confirm("Rifare il testo dal foglio guidato? Le modifiche fatte a mano al testo si perdono.") && (setModificato(true), setP(impaginatoDaConfigurazione(guidato.conf, oggetto, guidato.sconto)))}>
           Rifai il testo dal foglio guidato</button>}
       </div>
 
@@ -171,7 +173,10 @@ export default function PreventivoImpaginato() {
 
       {stato && <p className={stato.startsWith("Errore") || stato.startsWith("Esegui") ? "errore" : "ok"}>{stato}</p>}
       <div className="barra-impaginato">
-        <button type="button" className="btn grigio" onClick={() => (!modificato || confirm("Uscire senza salvare le modifiche?")) && naviga("/s/preventivi")}>Torna ai preventivi</button>
+        {/* Si torna al preventivo da cui si è partiti: il foglio guidato da modificare, oppure la scheda del preventivo */}
+        <button type="button" className="btn grigio" onClick={() => (!modificato || confirm("Uscire senza salvare le modifiche?"))
+          && naviga(guidato && id ? `/preventivo-guidato?id=${id}` : id ? `/s/preventivi?apri=${id}` : "/s/preventivi")}>
+          {guidato ? "Torna al preventivo guidato" : "Torna al preventivo"}</button>
         <span style={{ flex: 1 }} />
         <button type="button" className="btn grigio" onClick={() => finestra(false)}><Eye size={15} /> Anteprima</button>
         <button type="button" className="btn grigio" onClick={() => finestra(true)}><Printer size={15} /> Stampa / PDF</button>

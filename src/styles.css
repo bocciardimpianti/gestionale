@@ -2268,3 +2268,12 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .anteprima-a4 iframe { width: 100%; height: calc(100vh - 120px); border: 1px solid #c9cdd2; border-radius: 8px; background: #d9dde1; }
 @media (max-width: 1100px) { .impaginato-due { grid-template-columns: 1fr; } .anteprima-a4 { position: static; } .anteprima-a4 iframe { height: 75vh; } }
 .barra-soluzioni { display: flex; gap: 8px; flex-wrap: wrap; } .barra-soluzioni .btn { display: inline-flex; align-items: center; gap: 5px; }
+
+/* Foglio guidato: soluzioni alternative */
+.soluzioni-foglio { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0 8px; }
+.linguetta-soluzione { display: inline-flex; align-items: center; border: 1px solid #c3c2b7; border-radius: 8px; background: #fff; overflow: hidden; }
+.linguetta-soluzione button { border: 0; background: none; padding: 7px 12px; font: inherit; font-size: 13.5px; cursor: pointer; }
+.linguetta-soluzione.attiva { border-color: var(--ottanio, #0f6b73); box-shadow: inset 0 -3px 0 var(--ottanio, #0f6b73); font-weight: 600; }
+.linguetta-soluzione input { border: 0; padding: 7px 10px; font: inherit; font-size: 13.5px; font-weight: 600; min-width: 220px; }
+.linguetta-soluzione .togli-soluzione { color: #b3261e; font-size: 17px; padding: 4px 10px; }
+.aggiungi-soluzione { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed #8a9599; border-radius: 8px; background: none; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }

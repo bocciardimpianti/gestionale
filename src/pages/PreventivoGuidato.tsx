@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Copy, FileText, Minus, Package, Plus, Printer, Save, Trash2 } from "lucide-react";
-import { impaginatoDaFoglio } from "../impaginaGuidato";
+import { impaginatoDaConfigurazione, totaliFoglio, type Alternativa, type Configurazione } from "../impaginaGuidato";
 import { dataIso, leggiTutto, registra, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import Autocompleta from "../components/Autocompleta";
@@ -29,6 +29,10 @@ export default function PreventivoGuidato() {
   const idPreventivo = parametri.get("id") ? Number(parametri.get("id")) : null;
 
   const [foglio, setFoglio] = useState<Foglio | null>(null);
+  // Soluzioni alternative (es. 2 unità esterne / unità unica): ognuna con le sue stanze e il suo totale.
+  // "foglio" è quella che si sta modificando; le altre restano in "soluzioni" (la prima è il preventivo vero)
+  const [soluzioni, setSoluzioni] = useState<Alternativa[]>([]);
+  const [attiva, setAttiva] = useState(0);
   const [catalogo, setCatalogo] = useState<{ voci: VoceImpianto[]; ambienti: AmbienteTipo[] } | null>(null);
   const [clienti, setClienti] = useState<{ id: number; nome: string }[]>([]);
   const [testoCliente, setTestoCliente] = useState("");
@@ -56,9 +60,12 @@ export default function PreventivoGuidato() {
     if (!idPreventivo) return;
     supabase.from("preventivi").select("id, numero, data, sconto, iva, configurazione, cliente:clienti(nome)").eq("id", idPreventivo).maybeSingle().then(({ data: p, error }) => {
       if (error || !p) return setErrore("Preventivo non trovato" + (error ? ": " + error.message : ""));
-      const conf = p.configurazione as Foglio | null;
+      const conf = p.configurazione as Configurazione | null;
       if (!conf?.tipo) return setErrore("Questo preventivo non è stato fatto con il foglio guidato");
-      setFoglio(conf);
+      const { alternative = [], nome_soluzione, ...principale } = conf;
+      setFoglio(principale);
+      setSoluzioni([{ nome: nome_soluzione ?? "", foglio: principale }, ...alternative]);
+      setAttiva(0);
       setOggetto(String(p.numero ?? ""));
       setData(String(p.data));
       setSconto(String(p.sconto ?? 0).replace(".", ","));
@@ -137,6 +144,27 @@ export default function PreventivoGuidato() {
   const cambia = (f: (x: Foglio) => Foglio) => { setFoglio((x) => (x ? f(x) : x)); setModificato(true); };
   const cambiaAmbiente = (chiave: string, f: (a: AmbienteFoglio) => AmbienteFoglio) =>
     cambia((x) => ({ ...x, ambienti: x.ambienti.map((a) => (a.chiave === chiave ? f(a) : a)) }));
+  // Tutte le soluzioni con quella attiva aggiornata
+  const tutte = (): Alternativa[] => (foglio ? (soluzioni.length ? soluzioni.map((x, i) => (i === attiva ? { ...x, foglio } : x)) : [{ nome: "", foglio }]) : []);
+  const vaiSoluzione = (i: number) => { const t = tutte(); setSoluzioni(t); setFoglio(t[i].foglio); setAttiva(i); };
+  const aggiungiSoluzione = () => {
+    const t = tutte();
+    const copia: Alternativa = { nome: `Soluzione ${t.length + 1}`, foglio: JSON.parse(JSON.stringify(foglio)) };
+    setSoluzioni([...t, copia]); setFoglio(copia.foglio); setAttiva(t.length); setModificato(true);
+  };
+  const togliSoluzione = (i: number) => {
+    const t = tutte();
+    if (t.length < 2 || !confirm(`Togliere "${t[i].nome || `Soluzione ${i + 1}`}" e tutte le sue stanze?`)) return;
+    const n = t.filter((_, j) => j !== i);
+    const k = Math.min(attiva >= i ? Math.max(0, attiva - 1) : attiva, n.length - 1);
+    setSoluzioni(n); setFoglio(n[k].foglio); setAttiva(k); setModificato(true);
+  };
+  const rinominaSoluzione = (i: number, nome: string) => { setSoluzioni(tutte().map((x, j) => (j === i ? { ...x, nome } : x))); setModificato(true); };
+  // Configurazione da salvare: la prima soluzione è il foglio del preventivo, le altre vanno in "alternative"
+  const configurazione = (): Configurazione => {
+    const [prima, ...altre] = tutte();
+    return { ...prima.foglio, ...(prima.nome.trim() ? { nome_soluzione: prima.nome.trim() } : {}), ...(altre.length ? { alternative: altre } : {}) };
+  };
 
   // Ambiente dal tipo: le sue voci con i prezzi attuali; il nome si numera se c'è già (Camera, Camera 2…)
   const aggiungiAmbiente = (t: AmbienteTipo | null) => {
@@ -224,9 +252,12 @@ export default function PreventivoGuidato() {
     if (!oggetto.trim()) { setErrore("Scrivi l'oggetto del preventivo (es. Impianto elettrico appartamento)"); return null; }
     if (testoCliente.trim() && !cliente) { setErrore("Cliente non trovato in anagrafica: sceglilo dall'elenco"); return null; }
     setErrore(""); setStato("Salvataggio…");
+    // Totali e righe del preventivo: quelli della prima soluzione (le alternative sono solo nell'impaginato)
+    const principale = tutte()[0].foglio;
+    const predP: TariffaFoglio = { nome: principale.tariffa_nome ?? "Manodopera", prezzo: principale.tariffa_oraria ?? 0 };
     const record = {
       numero: oggetto.trim(), data, cliente_id: cliente?.id ?? null,
-      sconto: numero(sconto) || 0, iva: numero(iva) || 0, ...totali, configurazione: foglio,
+      sconto: numero(sconto) || 0, iva: numero(iva) || 0, ...totaliFoglio(principale, numero(sconto) || 0, numero(iva) || 0), configurazione: configurazione(),
     };
     const ris = id
       ? await supabase.from("preventivi").update(record).eq("id", id).select("id").single()
@@ -235,10 +266,10 @@ export default function PreventivoGuidato() {
     const nuovoId = ris.data.id as number;
     // Righe del preventivo: "Ambiente – Voce", ricreate a ogni salvataggio
     await supabase.from("righe_preventivo").delete().eq("preventivo_id", nuovoId);
-    const righe = foglio.ambienti.flatMap((a) => [
+    const righe = principale.ambienti.flatMap((a) => [
       ...a.voci.filter((v) => v.quantita > 0).map((v) => ({ nome: v.nome, unita: v.unita, quantita: v.quantita, prezzo: v.prezzo, materiale_id: v.materiale_id ?? null })),
-      ...accessoriAmbiente(a, foglio.serie).map((x) => ({ ...x, unita: "pz", materiale_id: null })),
-      ...manodopera(a, pred),
+      ...accessoriAmbiente(a, principale.serie).map((x) => ({ ...x, unita: "pz", materiale_id: null })),
+      ...manodopera(a, predP),
     ].map((v) => ({
       materiale_id: v.materiale_id,
       descrizione: `${a.nome} – ${v.nome}`, unita_misura: v.unita, quantita: v.quantita, prezzo_base: v.prezzo, ricarico: 0, prezzo: v.prezzo, totale: r2(v.prezzo * v.quantita),
@@ -250,7 +281,7 @@ export default function PreventivoGuidato() {
     await registra(`preventivi_${id ? "modificato" : "creato"}`, { id: nuovoId, nome: oggetto, guidato: foglio.tipo });
     setId(nuovoId);
     setModificato(false);
-    setStato(`Preventivo salvato (${righe.length} righe, totale ${euro(totali.totale)})`);
+    setStato(`Preventivo salvato (${righe.length} righe, totale ${euro(record.totale)})${tutte().length > 1 ? ` · ${tutte().length} soluzioni` : ""}`);
     return nuovoId;
   };
 
@@ -262,7 +293,7 @@ export default function PreventivoGuidato() {
     const { data: p } = await supabase.from("preventivi").select("impaginato").eq("id", nuovoId).maybeSingle();
     const gia = (p?.impaginato as { soluzioni?: unknown[] } | null)?.soluzioni?.length;
     if (!gia || confirm("Questo preventivo è già stato impaginato. Rifare il testo dal foglio guidato?\n\nOK = testo nuovo dal foglio (le modifiche fatte a mano si perdono)\nAnnulla = apri l'impaginato com'è")) {
-      const { error } = await supabase.from("preventivi").update({ impaginato: impaginatoDaFoglio(foglio, oggetto, totali.prezzo_scontato) }).eq("id", nuovoId);
+      const { error } = await supabase.from("preventivi").update({ impaginato: impaginatoDaConfigurazione(configurazione(), oggetto, numero(sconto) || 0) }).eq("id", nuovoId);
       if (error) return setErrore(/impaginato/.test(error.message) ? "Esegui su Supabase lo script 0058_preventivo_impaginato.sql" : error.message);
     }
     naviga(`/preventivo-impaginato?id=${nuovoId}`);
@@ -298,7 +329,7 @@ export default function PreventivoGuidato() {
         <p>Che impianto è?</p>
         <div className="scelta-tipo-impianto">
           {(Object.keys(NOMI_TIPO) as TipoImpianto[]).map((t) => (
-            <button key={t} className={`carta-tipo ${t}`} onClick={() => { setFoglio({ tipo: t, ambienti: [] }); setOggetto(NOMI_TIPO[t]); }}>
+            <button key={t} className={`carta-tipo ${t}`} onClick={() => { setFoglio({ tipo: t, ambienti: [] }); setSoluzioni([]); setAttiva(0); setOggetto(NOMI_TIPO[t]); }}>
               <span className="icona-tipo">{t === "elettrico" ? "⚡" : "💧"}</span>
               <b>{NOMI_TIPO[t]}</b>
               <span className="piccolo">{t === "elettrico" ? "Punti luce, prese, comandi, linee, quadro…" : "Punti acqua, scarichi, collettori, caldaia…"}</span>
@@ -352,6 +383,19 @@ export default function PreventivoGuidato() {
         </div>
       </div>
       {errore && <p className="errore">{errore}</p>}
+
+      <div className="soluzioni-foglio">
+        {tutte().map((x, i) => (
+          <div key={i} className={`linguetta-soluzione${i === attiva ? " attiva" : ""}`}>
+            {i === attiva && tutte().length > 1
+              ? <input value={x.nome} placeholder={i ? `Soluzione ${i + 1}` : "Soluzione 1 (titolo nel preventivo)"} aria-label="Nome della soluzione" onChange={(e) => rinominaSoluzione(i, e.target.value)} />
+              : <button type="button" onClick={() => vaiSoluzione(i)}>{x.nome.trim() || `Soluzione ${i + 1}`}</button>}
+            {tutte().length > 1 && i === attiva && <button type="button" className="togli-soluzione" title="Togli questa soluzione" onClick={() => togliSoluzione(i)}>×</button>}
+          </div>
+        ))}
+        <button type="button" className="aggiungi-soluzione" onClick={aggiungiSoluzione} title="Copia questa soluzione in una nuova (es. con unità esterna unica) da modificare: nel preventivo impaginato ognuna ha il suo totale">
+          <Plus size={14} /> Aggiungi soluzione alternativa</button>
+      </div>
 
       {(foglio.tipo === "idraulico" || !!lavori?.some((l) => l.attivo)) && (
         <div className="cosa-facciamo">
