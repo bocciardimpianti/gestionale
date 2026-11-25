@@ -34,7 +34,7 @@ export const iconaCategoria = (nome: string | null) =>
 
 export const normalizza = (s: unknown) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
   .replace(/[_\-.,;:()/\\'"’]+/g, " ").replace(/\s+/g, " ").trim();
-const VUOTE = new Set(["srl", "spa", "snc", "sas", "srls", "ditta", "studio", "sig", "sig ra", "sigra", "dott", "ing", "geom", "arch", "di", "de", "del", "della", "e", "la", "il", "lo", "condominio", "via", "presso"]);
+const VUOTE = new Set(["srl", "spa", "snc", "sas", "srls", "ditta", "studio", "sig", "sig ra", "sigra", "dott", "ing", "geom", "arch", "di", "de", "del", "della", "e", "la", "il", "lo", "condominio", "via", "presso", "progetto", "impianti", "costruzioni", "edile", "edilizia", "immobiliare", "societa", "agricola"]);
 
 // Argomenti generici: valgono solo se il file non parla di un impianto preciso (un progetto del bagno va in Bagni)
 const GENERICHE = new Set(["Planimetrie e progetti", "Documenti"]);
@@ -53,36 +53,63 @@ export function categoriaDi(nome: string, cartella: string, testo: string, tipo:
   return { categoria: /^image\//.test(tipo ?? "") ? FOTO.nome : ALTRO.nome, parole: [] };
 }
 
-/** Cliente del file: il nome dell'anagrafica trovato (tutto il nome, o tutte le sue parole in qualsiasi ordine) */
+// Parole uguali o quasi (una lettera di differenza nelle parole lunghe: SAMANTA = SAMANTHA)
+function quasiUguale(a: string, b: string) {
+  if (a === b) return true;
+  if (Math.min(a.length, b.length) < 6 || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, diff = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++diff > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return diff + (a.length - i) + (b.length - j) <= 1;
+}
+const ETICHETTE_CLIENTE = new Set(["committente", "cliente", "spett", "spettabile", "sig", "sigg", "intestatario", "proprietario", "ditta", "richiedente"]);
+
+/**
+ * Cliente del file: il nome dell'anagrafica trovato nel nome del file, nella cartella o nel testo.
+ * Nel testo le parole del nome (in qualsiasi ordine) devono essere vicine tra loro; vale di più dopo
+ * "Committente", "Cliente", "Spett.le"…; un cognome che ha un solo cliente basta se è nel nome del file o della cartella.
+ */
 export function clienteDi(nome: string, cartella: string, testo: string, clienti: { id: number; nome: string }[]) {
-  const testa = ` ${normalizza(`${cartella} ${nome}`)} `, tutto = ` ${testa} ${normalizza(testo).slice(0, 80000)} `;
-  const trovati: { id: number; nome: string; punti: number }[] = [];
-  // Quante volte ogni parola compare nei nomi dei clienti: un cognome che ha un solo cliente basta da solo
-  // se è nel nome del file o della cartella (es. cartella "Bellagamba" → BELLAGAMBA STEFANO)
+  const testa = normalizza(`${cartella} ${nome}`).split(" ").filter(Boolean);
+  const corpo = normalizza(testo).slice(0, 120000).split(" ").filter(Boolean);
+  // posizioni di ogni parola nel testo (per cercare in fretta)
+  const indice = new Map<string, number[]>();
+  corpo.forEach((w, k) => { if (w.length >= 3) { const l = indice.get(w); if (l) l.push(k); else indice.set(w, [k]); } });
+  const vocaboli = [...indice.keys()];
+  const posizioni = (w: string) => {
+    const esatte = indice.get(w) ?? [];
+    if (w.length < 6) return esatte;
+    return [...esatte, ...vocaboli.filter((v) => v !== w && v[0] === w[0] && quasiUguale(v, w)).flatMap((v) => indice.get(v)!)];
+  };
   const usi = new Map<string, number>();
   for (const c of clienti) for (const w of new Set(normalizza(c.nome).split(" "))) usi.set(w, (usi.get(w) ?? 0) + 1);
+
+  const trovati: { id: number; nome: string; punti: number }[] = [];
   for (const c of clienti) {
-    const n = normalizza(c.nome);
-    const parole = n.split(" ").filter((w) => w.length >= 3 && !VUOTE.has(w));
+    const parole = [...new Set(normalizza(c.nome).split(" ").filter((w) => w.length >= 3 && !VUOTE.has(w)))];
     if (!parole.length) continue;
-    const parola = (w: string, dove: string) => dove.includes(` ${w} `);
-    // un nome di una sola parola (es. ROSSI) conta solo se è nel nome del file o della cartella, ed è lungo
-    if (parole.length === 1) {
-      if (parole[0].length >= 5 && parola(parole[0], testa)) trovati.push({ ...c, punti: 3 });
-      continue;
+    const inTesta = (w: string) => testa.some((t) => quasiUguale(t, w));
+    // nel nome del file o della cartella
+    if (parole.every(inTesta) && (parole.length > 1 || parole[0].length >= 5)) { trovati.push({ ...c, punti: 6 + parole.length * 0.1 }); continue; }
+    if (parole.length > 1 && parole.some((w) => w.length >= 5 && usi.get(w) === 1 && inTesta(w))) { trovati.push({ ...c, punti: 4 }); continue; }
+    if (parole.length < 2) continue;
+    // nel testo: tutte le parole entro 6 parole l'una dall'altra
+    const pos = parole.map(posizioni);
+    if (pos.some((l) => !l.length)) continue;
+    let migliore = -1;
+    for (const k of pos[0]) {
+      if (!pos.slice(1).every((l) => l.some((x) => Math.abs(x - k) <= 6))) continue;
+      const dopoEtichetta = corpo.slice(Math.max(0, k - 12), k).some((w) => ETICHETTE_CLIENTE.has(w));
+      migliore = Math.max(migliore, dopoEtichetta ? 4 : 2);
     }
-    const intero = tutto.includes(` ${n} `);
-    const tutte = parole.every((w) => parola(w, tutto));
-    if (!intero && !tutte) {
-      if (parole.some((w) => w.length >= 5 && usi.get(w) === 1 && parola(w, testa))) trovati.push({ ...c, punti: 2.5 });
-      continue;
-    }
-    const inTesta = parole.every((w) => parola(w, testa));
-    trovati.push({ ...c, punti: (intero ? 3 : 2) + (inTesta ? 3 : 0) + parole.length * 0.1 });
+    if (migliore > 0) trovati.push({ ...c, punti: migliore + parole.length * 0.1 });
   }
   trovati.sort((a, b) => b.punti - a.punti);
   const primo = trovati[0];
-  const unico = primo && (!trovati[1] || trovati[1].punti < primo.punti);
+  const unico = primo && (!trovati[1] || trovati[1].punti < primo.punti - 0.5);
   return { cliente: unico ? primo : null, candidati: trovati.slice(0, 4) };
 }
 
