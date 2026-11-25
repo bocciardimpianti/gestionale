@@ -37,9 +37,16 @@ export default function ProgettiDaSmistare({ puoModificare }: { puoModificare: b
     setInCorso(true);
     try {
       setStato("Controllo di Drive…");
-      await controllaDrive().catch(() => null);
+      // Cosa ha visto la funzione su Drive: così un problema (cartella non condivisa, funzione vecchia) si vede subito
+      let drive = "";
+      try {
+        const d = await controllaDrive() as { progetti?: { nuovi?: number; errore?: string; errori?: string[] } };
+        if (!d.progetti) drive = "La funzione ddt-drive su Supabase non è aggiornata: incolla il codice nuovo e pubblicala.";
+        else if (d.progetti.errore) drive = "Drive: " + d.progetti.errore;
+        else drive = `Drive: ${d.progetti.nuovi ?? 0} file nuovi${d.progetti.errori?.length ? ` · problemi: ${d.progetti.errori.join("; ")}` : ""}`;
+      } catch (e) { drive = "Drive non raggiungibile: " + (e as Error).message; }
       const e = await smistaProgetti(setStato);
-      setStato([e.smistati ? `${e.smistati} file smistati` : "", e.daSmistare ? `${e.daSmistare} da smistare a mano` : "", e.errori ? `${e.errori} con errori` : ""].filter(Boolean).join(" · ") || "Niente di nuovo.");
+      setStato([drive, e.smistati ? `${e.smistati} file smistati` : "", e.daSmistare ? `${e.daSmistare} da smistare a mano` : "", e.errori ? `${e.errori} con errori` : ""].filter(Boolean).join(" · "));
     } catch (e) { setStato("Errore: " + (e as Error).message); }
     await carica();
     setInCorso(false);
@@ -76,7 +83,7 @@ export default function ProgettiDaSmistare({ puoModificare }: { puoModificare: b
         <button type="button" className="link" onClick={() => setAperto(!aperto)}>{aperto ? "Nascondi" : "Mostra"}</button>
         {puoModificare && <button type="button" className="btn grigio piccolo-btn" disabled={inCorso} onClick={controlla}><RefreshCw size={14} /> Controlla adesso</button>}
       </div>
-      {stato && <p className="piccolo">{stato}</p>}
+      {stato && <p className={/non è aggiornata|non leggibile|non raggiungibile|Errore/.test(stato) ? "errore" : "piccolo"}>{stato}</p>}
       {aperto && daFare.map((x) => (
         <div key={x.id} className="ps-riga">
           <span className="dia-testi">
