@@ -235,3 +235,82 @@ ${d.tipologia_pagamento || d.modalita_pagamento ? `<p>Pagamento: ${esc([d.modali
 <script>window.onload = () => window.print()</script>
 </body></html>`;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Preventivo impaginato (come il modello Word della ditta): logo in alto, cliente e data, una o più soluzioni
+// con titolo, testo e totale "+ IVA", nota finale e piede con indirizzo e dati bancari su ogni pagina.
+export type SoluzionePreventivo = { titolo: string; testo: string; totale: number | null; nuovaPagina?: boolean };
+export type PreventivoImpaginato = { soluzioni: SoluzionePreventivo[]; nota: string };
+export type PiedePreventivo = { riga1: string; riga2: string };
+
+/** "32095" → "32.095"; con i centesimi solo se ci sono (29050,5 → "29.050,50") */
+export const importoPreventivo = (n: number) =>
+  n.toLocaleString("it-IT", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
+
+/** Testo scritto nel gestionale → paragrafi ed elenchi puntati (righe che iniziano con "-", "•" o "*") */
+export function testoInParagrafi(testo: string) {
+  const blocchi: string[] = [];
+  let paragrafo: string[] = [];
+  let punti: string[] = [];
+  const chiudi = () => {
+    if (paragrafo.length) blocchi.push(`<p>${paragrafo.map(esc).join("<br>")}</p>`);
+    if (punti.length) blocchi.push(`<ul>${punti.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>`);
+    paragrafo = []; punti = [];
+  };
+  for (const riga of testo.replace(/\r/g, "").split("\n")) {
+    const t = riga.trim();
+    const punto = t.match(/^[-•*]\s+(.*)$/);
+    if (!t) chiudi();
+    else if (punto) { if (paragrafo.length) { const p = paragrafo; paragrafo = []; blocchi.push(`<p>${p.map(esc).join("<br>")}</p>`); } punti.push(punto[1]); }
+    else { if (punti.length) chiudi(); paragrafo.push(t); }
+  }
+  chiudi();
+  return blocchi.join("");
+}
+
+export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; titolo: string }, p: PreventivoImpaginato, piede: PiedePreventivo, stampa = true) {
+  const data = d.data ? new Date(String(d.data)).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "";
+  const soluzioni = p.soluzioni.filter((s) => s.titolo.trim() || s.testo.trim() || s.totale);
+  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(d.titolo || "Preventivo")}</title>
+<style>
+  @page { size: A4; margin: 12mm 20mm 0 20mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: Verdana, "DejaVu Sans", Geneva, sans-serif; font-size: 10pt; line-height: 1.3; color: #111; margin: 0; }
+  table.pagina { width: 100%; border-collapse: collapse; }
+  .testa { text-align: center; padding: 1mm 0 6mm 12mm; }
+  .testa img { width: 76mm; }
+  .spazio-piede { height: 24mm; }
+  .piede { position: fixed; left: 0; right: 0; bottom: 6mm; text-align: center; font-family: Arial, Helvetica, sans-serif; color: #404099; }
+  .piede .linea { border-top: 1px solid #404099; margin: 0 -8mm 1.5mm; }
+  .piede .r1 { font-size: 8.5pt; }
+  .piede .r2 { font-size: 6.5pt; margin-top: .6mm; }
+  .cliente { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 0 0 1mm; margin: 6mm 0 11mm; font-size: 10pt; }
+  .cliente span:last-child { margin-right: 14mm; }
+  .soluzione { margin-bottom: 9mm; }
+  .soluzione.nuova { break-before: page; page-break-before: always; }
+  h2 { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin: 0 0 3.5mm; line-height: 1.25; }
+  p { margin: 0 0 3mm; }
+  ul { margin: 0 0 3mm; padding-left: 10mm; }
+  li { margin-bottom: .6mm; }
+  .totale { font-size: 12.5pt; font-weight: bold; margin: 8mm 0 2mm; }
+  .nota { font-size: 7.5pt; margin-top: 3mm; }
+  @media screen { body { background: #e9ecef; } table.pagina { background: #fff; max-width: 210mm; margin: 10px auto; padding: 12mm 20mm; box-shadow: 0 2px 10px rgba(0,0,0,.15); } .piede { position: static; max-width: 210mm; margin: -10px auto 20px; background: #fff; padding: 0 20mm 6mm; } }
+</style></head><body>
+<table class="pagina">
+  <thead><tr><td><div class="testa"><img src="${new URL("logo-preventivo.png", location.href).href}" alt="Bocciardi Impianti"></div></td></tr></thead>
+  <tfoot><tr><td><div class="spazio-piede"></div></td></tr></tfoot>
+  <tbody><tr><td>
+    <div class="cliente"><span>${esc(d.cliente)}</span><span>${esc(data)}</span></div>
+    ${soluzioni.map((s, i) => `<div class="soluzione${i > 0 && s.nuovaPagina ? " nuova" : ""}">
+      ${s.titolo.trim() ? `<h2>${esc(s.titolo.trim())}</h2>` : ""}
+      ${testoInParagrafi(s.testo)}
+      ${s.totale ? `<div class="totale">Totale&nbsp; €. ${importoPreventivo(s.totale)} + IVA</div>` : ""}
+    </div>`).join("")}
+    ${p.nota.trim() ? `<div class="nota">${esc(p.nota.trim()).replace(/\n/g, "<br>")}</div>` : ""}
+  </td></tr></tbody>
+</table>
+<div class="piede"><div class="linea"></div><div class="r1">${esc(piede.riga1)}</div><div class="r2">${esc(piede.riga2)}</div></div>
+${stampa ? "<script>window.onload = () => setTimeout(() => window.print(), 300)</script>" : ""}
+</body></html>`;
+}

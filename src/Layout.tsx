@@ -91,7 +91,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const percorsoAttuale = useLocation().pathname;
   // Colore della sezione aperta (lo stesso della sua icona nel menu): colora la barra in alto della pagina
   const chiaveSezione = percorsoAttuale === "/" ? "home" : percorsoAttuale.startsWith("/s/") ? percorsoAttuale.slice(3).split("/")[0]
-    : percorsoAttuale.startsWith("/admin/") ? percorsoAttuale.slice(1) : percorsoAttuale === "/preventivo-guidato" ? "preventivi" : "";
+    : percorsoAttuale.startsWith("/admin/") ? percorsoAttuale.slice(1) : ["/preventivo-guidato", "/preventivo-impaginato"].includes(percorsoAttuale) ? "preventivi" : "";
   const coloreSezione = COLORI_ICONE[chiaveSezione];
   const vedeRichieste = puo("richieste", "vedere");
   // Conti Clienti: quanti clienti hanno superato la soglia di avviso (numero rosso nel menu)

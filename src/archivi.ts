@@ -935,6 +935,11 @@ export const ARCHIVI: Record<string, Archivio> = {
       etichetta: "Apri nel foglio guidato", inEvidenza: true,
       mostra: (d) => !!d.id && !!d.configurazione,
       esegui: (d) => { location.hash = `#/preventivo-guidato?id=${d.id}`; },
+    }, {
+      // Preventivo scritto a testo e impaginato come il modello Word della ditta (script 0058)
+      etichetta: (d) => (d.impaginato ? "Apri impaginato" : "Impagina preventivo"), inEvidenza: true,
+      mostra: (d) => !!d.id && !d.configurazione,
+      esegui: (d) => { location.hash = `#/preventivo-impaginato?id=${d.id}`; },
     }],
     valoriNuovo: async () => ({ data: dataIso(new Date()), stato: "Aperto", sconto: 0, iva: 0 }),
     colonne: [

@@ -11,6 +11,7 @@ import DirittoChiamata from "./pages/admin/DirittoChiamata";
 import MaterialiTecnici from "./pages/admin/MaterialiTecnici";
 import ImpiantiTipo from "./pages/admin/ImpiantiTipo";
 import PreventivoGuidato from "./pages/PreventivoGuidato";
+import PreventivoImpaginato from "./pages/PreventivoImpaginato";
 import Dashboard from "./pages/Dashboard";
 import Layout from "./Layout";
 import PaginaArchivio from "./pages/PaginaArchivio";
@@ -75,6 +76,7 @@ function Struttura() {
         {admin && <Route path="/admin/materiali-tecnici" element={<MaterialiTecnici />} />}
         {admin && <Route path="/admin/impianti-tipo" element={<ImpiantiTipo />} />}
         {puo("preventivi", "creare") && <Route path="/preventivo-guidato" element={<PreventivoGuidato />} />}
+        {puo("preventivi", "creare") && <Route path="/preventivo-impaginato" element={<PreventivoImpaginato />} />}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Layout>

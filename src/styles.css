@@ -2244,3 +2244,22 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .dia-riga .etichetta-pdf { flex: none; }
 .avviso-da-rivedere { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #fdf0d2; border: 1px solid #eda100; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: 13px; }
 .etichetta-pdf.grigio { background: #8a9599; }
+
+/* Preventivo impaginato */
+.pagina-impaginato { max-width: 980px; display: grid; gap: 10px; padding-bottom: 70px; }
+.testa-impaginato { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 3fr); gap: 10px; }
+.testa-impaginato label, .soluzione-impaginato label, .nota-impaginato, .piede-impaginato label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.pagina-impaginato input, .pagina-impaginato textarea { border: 1px solid var(--bordo-forte, #c3c2b7); border-radius: 6px; padding: 7px 9px; font: inherit; font-size: 14px; }
+.pagina-impaginato textarea { font-family: Verdana, Geneva, sans-serif; font-size: 13px; line-height: 1.4; resize: vertical; width: 100%; }
+.soluzione-impaginato { border: 1px solid #e1e0d9; border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; background: #fff; }
+.si-testa { display: flex; align-items: center; gap: 10px; }
+.si-testa label { flex-direction: row !important; align-items: center; }
+.si-titolo { font-weight: 700; text-transform: uppercase; }
+.si-totale input { max-width: 200px; font-weight: 700; }
+.con-microfono { position: relative; }
+.con-microfono > button { position: absolute; right: 8px; bottom: 10px; }
+.piede-impaginato { border: 1px solid #e1e0d9; border-radius: 8px; padding: 8px 12px; display: grid; gap: 8px; }
+.piede-impaginato summary { cursor: pointer; font-weight: 600; }
+.barra-impaginato { position: sticky; bottom: 0; display: flex; gap: 8px; flex-wrap: wrap; background: var(--sfondo, #f6f5f0); padding: 10px 0; border-top: 1px solid #e1e0d9; }
+.barra-impaginato .btn { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 760px) { .testa-impaginato { grid-template-columns: 1fr; } }
