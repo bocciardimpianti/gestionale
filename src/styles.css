@@ -2283,3 +2283,5 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .scelta-stanze button + button { border-left: 1px solid #c3c2b7; }
 .scelta-stanze button.attiva { background: var(--ottanio, #0f6b73); color: #fff; font-weight: 600; }
 .scelta-stanze button:disabled { opacity: .5; cursor: default; }
+.esci-foglio { margin-left: 12px; font-size: 13px; vertical-align: middle; display: inline-flex; align-items: center; gap: 5px; } .ripreso { color: #8a5d00; margin: 2px 0 0; }
+.bozza-aperta { position: fixed; right: 16px; bottom: 70px; z-index: 40; border: 1px solid #eda100; background: #fdf0d2; color: #5c3d00; border-radius: 20px; padding: 8px 14px; font: inherit; font-size: 13.5px; box-shadow: 0 4px 14px rgba(0,0,0,.18); cursor: pointer; max-width: calc(100vw - 32px); text-align: left; }

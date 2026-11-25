@@ -15,6 +15,7 @@ import UscitaBackup from "./components/UscitaBackup";
 import PulsanteVoce from "./components/PulsanteVoce";
 import { controllaConti, ricollegaNotifiche } from "./notifiche";
 import { importaDdtInArrivo } from "./ddtAutomatici";
+import { EVENTO_BOZZA, leggiBozza } from "./bozzaPreventivo";
 import { useIndietroChiude } from "./telefono";
 
 // Icone delle voci di menu, come nel programma originale
@@ -89,6 +90,14 @@ export default function Layout({ children }: { children: ReactNode }) {
   // Richieste di intervento ancora aperte: contatore accanto alla voce del menu
   const [richiesteAperte, setRichiesteAperte] = useState(0);
   const percorsoAttuale = useLocation().pathname;
+  // Preventivo guidato lasciato aperto: un pulsante per riprenderlo da qualsiasi sezione
+  const [bozza, setBozza] = useState(() => leggiBozza());
+  useEffect(() => {
+    setBozza(leggiBozza());
+    const agg = () => setBozza(leggiBozza());
+    window.addEventListener(EVENTO_BOZZA, agg);
+    return () => window.removeEventListener(EVENTO_BOZZA, agg);
+  }, [percorsoAttuale]);
   // Colore della sezione aperta (lo stesso della sua icona nel menu): colora la barra in alto della pagina
   const chiaveSezione = percorsoAttuale === "/" ? "home" : percorsoAttuale.startsWith("/s/") ? percorsoAttuale.slice(3).split("/")[0]
     : percorsoAttuale.startsWith("/admin/") ? percorsoAttuale.slice(1) : ["/preventivo-guidato", "/preventivo-impaginato"].includes(percorsoAttuale) ? "preventivi" : "";
@@ -301,6 +310,12 @@ export default function Layout({ children }: { children: ReactNode }) {
       </aside>
       {tavolozza && <TavolozzaComandi comandi={comandi} onChiudi={() => setTavolozza(false)} cercaOvunque={(t) => naviga(`/cerca?q=${encodeURIComponent(t)}`)} />}
 
+      {bozza && percorsoAttuale !== "/preventivo-guidato" && (
+        <button type="button" className="bozza-aperta" onClick={() => naviga(bozza.id ? `/preventivo-guidato?id=${bozza.id}` : "/preventivo-guidato")}
+          title="Preventivo guidato lasciato aperto: torna a lavorarci">
+          📝 Preventivo aperto: <b>{bozza.oggetto || "senza oggetto"}</b>{bozza.modificato ? " (non salvato)" : ""} — Riprendi
+        </button>
+      )}
       <main className={`centro${coloreSezione ? " con-colore" : ""}`} style={coloreSezione ? { "--colore-sezione": coloreSezione } as React.CSSProperties : undefined}>{children}</main>
 
       <footer className="barra-bassa">

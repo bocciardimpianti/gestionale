@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Copy, FileText, Minus, Package, Plus, Printer, Save, Trash2 } from "lucide-react";
+import { Copy, FileText, LogOut, Minus, Package, Plus, Printer, Save, Trash2 } from "lucide-react";
+import { cancellaBozza, leggiBozza, salvaBozza } from "../bozzaPreventivo";
 import { impaginatoDaConfigurazione, totaliFoglio, type Alternativa, type Configurazione } from "../impaginaGuidato";
 import { dataIso, leggiTutto, registra, supabase } from "../supabase";
 import { useAuth } from "../auth";
@@ -55,9 +56,24 @@ export default function PreventivoGuidato() {
 
   useEffect(() => { leggiTutto("clienti", "id, nome", true).then((c) => setClienti(c as unknown as { id: number; nome: string }[])).catch(() => {}); }, []);
 
+  // Preventivo lasciato aperto (andando in un'altra sezione): si riprende da dove si era rimasti
+  const [ripreso, setRipreso] = useState(false);
+  useEffect(() => {
+    const b = leggiBozza();
+    if (!b || !b.soluzioni?.length) return;
+    if (idPreventivo && b.id !== idPreventivo) {
+      if (!b.modificato || confirm(`C'è un altro preventivo guidato aperto con modifiche non salvate ("${b.oggetto}"). Lo chiudo e lo perdo?\n\nOK = chiudi quello e apri questo\nAnnulla = torna a quello`)) { cancellaBozza(); return; }
+      naviga(b.id ? `/preventivo-guidato?id=${b.id}` : "/preventivo-guidato", { replace: true });
+    }
+    setSoluzioni(b.soluzioni); setAttiva(b.attiva); setFoglio(b.soluzioni[b.attiva]?.foglio ?? b.soluzioni[0].foglio);
+    setOggetto(b.oggetto); setTestoCliente(b.cliente); setData(b.data); setSconto(b.sconto); setIva(b.iva);
+    setId(b.id); setModificato(b.modificato); setRipreso(true);
+    if (b.id && !idPreventivo) naviga(`/preventivo-guidato?id=${b.id}`, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Preventivo già fatto con il foglio: si riapre
   useEffect(() => {
-    if (!idPreventivo) return;
+    if (!idPreventivo || ripreso || leggiBozza()?.id === idPreventivo) return;
     supabase.from("preventivi").select("id, numero, data, sconto, iva, configurazione, cliente:clienti(nome)").eq("id", idPreventivo).maybeSingle().then(({ data: p, error }) => {
       if (error || !p) return setErrore("Preventivo non trovato" + (error ? ": " + error.message : ""));
       const conf = p.configurazione as Configurazione | null;
@@ -172,6 +188,30 @@ export default function PreventivoGuidato() {
     setSoluzioni(n); setFoglio(n[k].foglio); setAttiva(k); setModificato(true);
   };
   const rinominaSoluzione = (i: number, nome: string) => { setSoluzioni(tutte().map((x, j) => (j === i ? { ...x, nome } : x))); setModificato(true); };
+  // Il preventivo aperto resta su questo dispositivo: cambiando sezione (o chiudendo la pagina) si riprende da qui
+  const chiuso = useRef(false);
+  useEffect(() => {
+    if (chiuso.current || !foglio || (!id && !foglio.ambienti.length && soluzioni.length < 2 && !modificato)) return;
+    salvaBozza({ id, soluzioni: tutte(), attiva, oggetto, cliente: testoCliente, data, sconto, iva, modificato });
+  }, [foglio, soluzioni, attiva, oggetto, testoCliente, data, sconto, iva, id, modificato]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Esci: salva ed esci, esci senza salvare, elimina il preventivo
+  const [chiediEsci, setChiediEsci] = useState(false);
+  const esci = async (come: "salva" | "senza" | "elimina") => {
+    if (come === "salva") { const ok = await salva(); if (!ok) { setChiediEsci(false); return; } }
+    if (come === "elimina") {
+      if (!confirm(id ? "Eliminare questo preventivo? Va nel Cestino dei preventivi (si può recuperare)." : "Buttare via questo preventivo non salvato?")) return;
+      if (id) {
+        const { error } = await supabase.from("preventivi").update({ eliminato_il: new Date().toISOString() }).eq("id", id);
+        if (error) { setChiediEsci(false); return setErrore("Non eliminato: " + error.message); }
+        await registra("preventivi_eliminato", { id, nome: oggetto, guidato: true });
+      }
+    }
+    chiuso.current = true;
+    cancellaBozza();
+    naviga("/s/preventivi");
+  };
+
   // Configurazione da salvare: la prima soluzione è il foglio del preventivo, le altre vanno in "alternative"
   const configurazione = (): Configurazione => {
     const [prima, ...altre] = tutte();
@@ -378,7 +418,9 @@ export default function PreventivoGuidato() {
   return (
     <div className="pagina-guidato foglio">
       <div className="testata-foglio">
-        <h1>{foglio.tipo === "elettrico" ? "⚡" : "💧"} {NOMI_TIPO[foglio.tipo]}{modificato ? " *" : ""}</h1>
+        <h1>{foglio.tipo === "elettrico" ? "⚡" : "💧"} {NOMI_TIPO[foglio.tipo]}{modificato ? " *" : ""}
+          <button type="button" className="btn grigio esci-foglio" onClick={() => setChiediEsci(true)} title="Chiudi il preventivo: salvalo, lascialo com'era o eliminalo"><LogOut size={15} /> Chiudi preventivo</button></h1>
+        {ripreso && <p className="piccolo ripreso">Ripreso il preventivo che avevi lasciato aperto{modificato ? " (con modifiche non ancora salvate)" : ""}.</p>}
         <div className="dati-foglio">
           <label>Cliente<Autocompleta id="cliente-guidato" valore={testoCliente} opzioni={clienti.map((c) => c.nome)} onCambia={(t) => { setTestoCliente(t); setModificato(true); }} placeholder="Scrivi le prime lettere…" nonTrovato={!!testoCliente.trim() && !cliente} /></label>
           <label>Oggetto<input value={oggetto} onChange={(e) => { setOggetto(e.target.value); setModificato(true); }} /></label>
@@ -545,6 +587,22 @@ export default function PreventivoGuidato() {
         </aside>
       </div>
 
+      {chiediEsci && (
+        <div className="velo" onMouseDown={() => setChiediEsci(false)}>
+          <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo">Chiudi il preventivo<button className="chiudi" onClick={() => setChiediEsci(false)}>×</button></div>
+            <div className="finestra-corpo scelta-serie-soluzione">
+              <p><b>{oggetto || NOMI_TIPO[foglio.tipo]}</b>{modificato ? " — ci sono modifiche non salvate" : id ? " — salvato" : " — non ancora salvato"}</p>
+              <button type="button" className="btn blu" onClick={() => esci("salva")}><Save size={15} /> Salva ed esci</button>
+              {(modificato || !id) && <button type="button" className="btn grigio" onClick={() => esci("senza")}>{id ? "Esci senza salvare le modifiche" : "Esci senza salvare"}</button>}
+              {id && !modificato && <button type="button" className="btn grigio" onClick={() => esci("senza")}>Esci</button>}
+              <button type="button" className="btn rosso" onClick={() => esci("elimina")}><Trash2 size={15} /> {id ? "Elimina il preventivo" : "Butta via"}</button>
+              <button type="button" className="btn grigio" onClick={() => setChiediEsci(false)}>Annulla, resto qui</button>
+              <span className="piccolo">Se vai in un'altra sezione senza uscire, il preventivo resta aperto e lo riprendi da dove eri.</span>
+            </div>
+          </div>
+        </div>
+      )}
       {chiediSerie && (
         <div className="velo" onMouseDown={() => setChiediSerie(false)}>
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
