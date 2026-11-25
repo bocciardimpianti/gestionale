@@ -150,16 +150,16 @@ export default function PreventivoGuidato() {
   const vaiSoluzione = (i: number) => { const t = tutte(); setSoluzioni(t); setFoglio(t[i].foglio); setAttiva(i); };
   // Nuova soluzione: vuota (si riempie da capo), con la stessa tariffa; per l'elettrico si chiede prima la serie civile
   const [chiediSerie, setChiediSerie] = useState(false);
-  const aggiungiSoluzione = () => {
-    if (foglio?.tipo === "elettrico") return setChiediSerie(true);
-    creaSoluzione(undefined);
-  };
+  // Nella finestra: copiare le stanze (con punti e ore) della soluzione attuale invece di partire vuota
+  const [mantieniStanze, setMantieniStanze] = useState(false);
+  const aggiungiSoluzione = () => { setMantieniStanze(false); setChiediSerie(true); };
   const creaSoluzione = (serie: Foglio["serie"] | undefined) => {
     if (!foglio) return;
     setChiediSerie(false);
     const t = tutte();
+    const copia = mantieniStanze ? JSON.parse(JSON.stringify({ ambienti: foglio.ambienti, lavori: foglio.lavori ?? [] })) as Pick<Foglio, "ambienti" | "lavori"> : null;
     const nuova: Alternativa = { nome: `Soluzione ${t.length + 1}`, foglio: {
-      tipo: foglio.tipo, ambienti: [], lavori: [], tariffa_oraria: foglio.tariffa_oraria, tariffa_nome: foglio.tariffa_nome,
+      tipo: foglio.tipo, ambienti: copia?.ambienti ?? [], lavori: copia?.lavori ?? [], tariffa_oraria: foglio.tariffa_oraria, tariffa_nome: foglio.tariffa_nome,
       ...(foglio.tipo === "elettrico" ? { serie: serie === undefined ? foglio.serie ?? null : serie } : {}),
     } };
     setSoluzioni([...t, nuova]); setFoglio(nuova.foglio); setAttiva(t.length); setModificato(true);
@@ -548,15 +548,23 @@ export default function PreventivoGuidato() {
       {chiediSerie && (
         <div className="velo" onMouseDown={() => setChiediSerie(false)}>
           <div className="finestra stretta" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="finestra-titolo">Nuova soluzione: serie civile<button className="chiudi" onClick={() => setChiediSerie(false)}>×</button></div>
+            <div className="finestra-titolo">Nuova soluzione alternativa<button className="chiudi" onClick={() => setChiediSerie(false)}>×</button></div>
             <div className="finestra-corpo scelta-serie-soluzione">
-              <p>La nuova soluzione parte vuota. Che serie civile usa?</p>
-              <button type="button" className="btn blu" onClick={() => creaSoluzione(foglio.serie ?? null)}>Mantieni la stessa{foglio.serie ? `: ${foglio.serie.nome}` : " (nessuna)"}</button>
-              <div className="piccolo">oppure cambiala:</div>
-              {serieCivili?.filter((x) => x.attiva && x.id !== foglio.serie?.id).map((x) => (
-                <button type="button" key={x.id} className="btn grigio" onClick={() => creaSoluzione(serieFoglio(x))}>{x.nome}</button>
-              ))}
-              <button type="button" className="btn grigio" onClick={() => creaSoluzione(null)}>Nessuna serie</button>
+              <div className="scelta-stanze">
+                <button type="button" className={mantieniStanze ? "" : "attiva"} onClick={() => setMantieniStanze(false)}>Parti vuota</button>
+                <button type="button" className={mantieniStanze ? "attiva" : ""} onClick={() => setMantieniStanze(true)} disabled={!foglio.ambienti.length}>
+                  Mantieni le stanze{foglio.ambienti.length ? ` (${foglio.ambienti.length})` : ""}</button>
+              </div>
+              <span className="piccolo">{mantieniStanze ? "Le stanze con i loro punti e le ore vengono copiate: poi le modifichi solo nella nuova soluzione." : "La nuova soluzione non ha stanze: la riempi da capo."}</span>
+              {foglio.tipo === "elettrico" ? <>
+                <p>Che serie civile usa?</p>
+                <button type="button" className="btn blu" onClick={() => creaSoluzione(foglio.serie ?? null)}>Mantieni la stessa{foglio.serie ? `: ${foglio.serie.nome}` : " (nessuna)"}</button>
+                <div className="piccolo">oppure cambiala{mantieniStanze ? " (frutti, placche e supporti si ricalcolano con la nuova serie)" : ""}:</div>
+                {serieCivili?.filter((x) => x.attiva && x.id !== foglio.serie?.id).map((x) => (
+                  <button type="button" key={x.id} className="btn grigio" onClick={() => creaSoluzione(serieFoglio(x))}>{x.nome}</button>
+                ))}
+                <button type="button" className="btn grigio" onClick={() => creaSoluzione(null)}>Nessuna serie</button>
+              </> : <button type="button" className="btn blu" onClick={() => creaSoluzione(undefined)}>Crea la soluzione</button>}
             </div>
           </div>
         </div>

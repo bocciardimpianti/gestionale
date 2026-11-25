@@ -2278,3 +2278,8 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .linguetta-soluzione .togli-soluzione { color: #b3261e; font-size: 17px; padding: 4px 10px; }
 .aggiungi-soluzione { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed #8a9599; border-radius: 8px; background: none; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
 .scelta-serie-soluzione { display: grid; gap: 8px; } .scelta-serie-soluzione p { margin: 0; }
+.scelta-stanze { display: flex; gap: 0; border: 1px solid #c3c2b7; border-radius: 8px; overflow: hidden; }
+.scelta-stanze button { flex: 1; border: 0; background: #fff; padding: 9px 8px; font: inherit; font-size: 14px; cursor: pointer; }
+.scelta-stanze button + button { border-left: 1px solid #c3c2b7; }
+.scelta-stanze button.attiva { background: var(--ottanio, #0f6b73); color: #fff; font-weight: 600; }
+.scelta-stanze button:disabled { opacity: .5; cursor: default; }
