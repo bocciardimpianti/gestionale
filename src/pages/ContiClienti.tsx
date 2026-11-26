@@ -1,18 +1,22 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Banknote, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, Banknote, Printer, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search } from "lucide-react";
 import Scheda from "../components/Scheda";
 import { ARCHIVI } from "../archivi";
 import { dataIt, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { controllaConti } from "../notifiche";
+import { stampaConto, type OpzioniConto, type PiedePreventivo } from "../stampe";
+import { serviziRapporto } from "../dividiRapportino";
 
 // Conti Clienti: per ogni cliente il totale dei rapportini eseguiti e non ancora riscossi (casella "Pagata"),
 // dal più alto. Soglia di avviso (2500 € per tutti, modificabile anche per singolo cliente): oltre la soglia
 // il cliente è in rosso, nel menu compare il numero di clienti oltre soglia e arriva una notifica.
 
-type Conto = { cliente_id: number; cliente: string; telefono: string | null; rapporti: number; totale: number; dal: string; al: string;
+// non_approvato: preventivi non approvati dei rapportini divisi (script 0061). Si vedono a parte, in arancione:
+// non entrano nel "Da riscuotere" né nella soglia, ma il cliente li ha in sospeso.
+type Conto = { cliente_id: number; cliente: string; telefono: string | null; rapporti: number; totale: number; non_approvato: number; conteggiato: number; dal: string; al: string;
   soglia: number; soglia_personale: boolean; oltre: boolean };
-type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; fatto_conto: string | null };
+type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; non_approvato: number; fatto_conto: string | null };
 
 const euro = (v: number) => Number(v ?? 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const numero = (s: string) => Number(s.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, ""));
@@ -37,7 +41,7 @@ export default function ContiClienti() {
     await carica();
     if (clienteAperto) {
       const { data } = await supabase.rpc("rapporti_da_riscuotere_cliente", { p_cliente: clienteAperto.cliente_id });
-      setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo) })));
+      setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo), non_approvato: Number(r.non_approvato ?? 0) })));
     }
   };
   const [conti, setConti] = useState<Conto[] | null>(null);
@@ -59,7 +63,7 @@ export default function ContiClienti() {
         : /conti_clienti|function/i.test(error.message) ? "Esegui su Supabase lo script 0040_conti_clienti.sql" : error.message);
     }
     setErrore("");
-    setConti(((data ?? []) as Conto[]).map((c) => ({ ...c, totale: Number(c.totale), soglia: Number(c.soglia) })));
+    setConti(((data ?? []) as Conto[]).map((c) => ({ ...c, totale: Number(c.totale), non_approvato: Number(c.non_approvato ?? 0), conteggiato: Number(c.conteggiato ?? 0), soglia: Number(c.soglia) })));
     const { data: s } = await supabase.rpc("soglia_conto_predefinita");
     if (s != null) setSogliaGenerale(String(s).replace(".", ","));
     controllaConti();
@@ -71,7 +75,7 @@ export default function ContiClienti() {
     setAperto(c.cliente_id); setRapporti(null); setScelti(new Set());
     const { data, error } = await supabase.rpc("rapporti_da_riscuotere_cliente", { p_cliente: c.cliente_id });
     if (error) return setStato("Errore: " + error.message);
-    setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo) })));
+    setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo), non_approvato: Number(r.non_approvato ?? 0) })));
   };
 
   const riscuoti = async (ids: number[], cliente: string) => {
@@ -83,6 +87,51 @@ export default function ContiClienti() {
     setStato(`${data} ${data === 1 ? "rapportino segnato" : "rapportini segnati"} come riscossi (${euro(tot)})`);
     setAperto(null);
     carica();
+  };
+
+  // "Già conteggiato" (Fatto conto = Si): il rapportino resta da riscuotere, ma si sa che è già nel conto fatto al cliente
+  const conteggiato = (r: Rapporto) => /^s/i.test(r.fatto_conto ?? "");
+  const segnaConteggiati = async (ids: number[], si: boolean) => {
+    if (!ids.length) return;
+    const { data, error } = await supabase.rpc("segna_conteggiati", { p_rapporti: ids, p_conteggiati: si });
+    if (error) return setStato(/segna_conteggiati|function/i.test(error.message) ? "Esegui su Supabase lo script 0061" : "Errore: " + error.message);
+    setStato(`${data} ${data === 1 ? "rapportino segnato" : "rapportini segnati"} ${si ? "già conteggiati" : "da conteggiare"}`);
+    setScelti(new Set());
+    await ricarica();
+  };
+
+  // Stampa del conto per il cliente: si scelgono i rapportini (di partenza i già conteggiati) e cosa mettere
+  const [sceltaStampa, setSceltaStampa] = useState<{ c: Conto; ids: Set<number> } & OpzioniConto | null>(null);
+  const apriStampa = (c: Conto) => {
+    const lista = rapporti ?? [];
+    const cont = lista.filter(conteggiato);
+    setSceltaStampa({ c, ids: new Set((cont.length ? cont : lista).map((r) => r.id)), materiali: true, prezzi: false, nonApprovati: lista.some((r) => r.non_approvato > 0) });
+  };
+  const stampa = async () => {
+    if (!sceltaStampa) return;
+    const { c, ids, ...opzioni } = sceltaStampa;
+    const lista = (rapporti ?? []).filter((r) => ids.has(r.id));
+    if (!lista.length) return;
+    const finestra = window.open("", "_blank");
+    if (!finestra) return setStato("Il browser ha bloccato la finestra di stampa: consenti i popup per il gestionale");
+    finestra.document.write("<p style='font-family: sans-serif'>Preparazione della stampa…</p>");
+    const [{ data: righe }, { data: dati }, { data: imp }] = await Promise.all([
+      supabase.from("righe_rapporto").select("rapporto_id, descrizione, nome_articolo, quantita, unita_misura, totale, non_approvato, ordine")
+        .in("rapporto_id", lista.map((r) => r.id)).order("ordine"),
+      supabase.from("rapporti").select("id, totale_ore, tariffa_oraria, km_percorsi, tariffa_km, diritto_chiamata, tariffa_fissa, servizi_non_approvati").in("id", lista.map((r) => r.id)),
+      supabase.from("impostazioni").select("valore").eq("chiave", "preventivo_piede").maybeSingle(),
+    ]);
+    const voci = (id: number, no: boolean) => ((righe ?? []) as Record<string, unknown>[])
+      .filter((x) => x.rapporto_id === id && !!x.non_approvato === no && String(x.descrizione || x.nome_articolo || "").trim())
+      .map((x) => ({ descrizione: String(x.descrizione || x.nome_articolo), quantita: x.quantita as number | null, unita_misura: x.unita_misura as string | null, totale: x.totale as number | null }));
+    const html = stampaConto(c.cliente, lista.map((r) => {
+      const d = ((dati ?? []) as Record<string, unknown>[]).find((x) => x.id === r.id) ?? {};
+      const servizi = serviziRapporto(d).filter((x) => x.nonApprovato)
+        .map((x) => ({ descrizione: x.nome + (x.dettaglio ? ` (${x.dettaglio})` : ""), quantita: null, unita_misura: null, totale: x.importo }));
+      return { numero: r.numero, data: r.data, attivita: r.attivita, importo: r.importo, materiali: voci(r.id, false), nonApprovati: [...voci(r.id, true), ...servizi] };
+    }), (imp?.valore as PiedePreventivo | undefined) ?? null, opzioni);
+    finestra.document.open(); finestra.document.write(html); finestra.document.close();
+    setSceltaStampa(null);
   };
 
   const cambiaSoglia = async (c: Conto, testo: string) => {
@@ -110,6 +159,8 @@ export default function ContiClienti() {
     return (conti ?? []).filter((c) => (!soloOltre || c.oltre) && (!q || c.cliente.toLowerCase().includes(q)));
   }, [conti, cerca, soloOltre]);
   const totale = (conti ?? []).reduce((s, c) => s + c.totale, 0);
+  const totaleNo = (conti ?? []).reduce((s, c) => s + c.non_approvato, 0);
+  const conPrev = (conti ?? []).filter((c) => c.non_approvato > 0).length;
   const oltre = (conti ?? []).filter((c) => c.oltre);
 
   return (
@@ -129,6 +180,7 @@ export default function ContiClienti() {
 
       <div className="riepilogo-conti">
         <div className="carta-conto"><span>Da riscuotere in totale</span><b>{euro(totale)}</b><small>{conti?.length ?? 0} clienti</small></div>
+        <div className="carta-conto prev-na"><span>Preventivi non approvati</span><b>{euro(totaleNo)}</b><small>{conPrev ? `${conPrev} ${conPrev === 1 ? "cliente" : "clienti"} · non compresi nel da riscuotere` : "nessuno"}</small></div>
         <button className={`carta-conto${oltre.length ? " allarme" : ""}${soloOltre ? " attiva" : ""}`} onClick={() => setSoloOltre(!soloOltre)}
           title={soloOltre ? "Mostra tutti i clienti" : "Mostra solo i clienti oltre la soglia"}>
           <span>{oltre.length ? <><AlertTriangle size={15} /> Oltre la soglia</> : "Oltre la soglia"}</span>
@@ -149,7 +201,7 @@ export default function ContiClienti() {
 
       {visibili.length > 0 && (
         <table className="griglia tabella-conti">
-          <thead><tr><th /><th>Cliente</th><th className="destra">Rapportini</th><th>Dal</th><th className="destra">Da riscuotere</th><th>Soglia</th></tr></thead>
+          <thead><tr><th /><th>Cliente</th><th className="destra">Rapportini</th><th>Dal</th><th className="destra">Da riscuotere</th><th className="destra">Prev. non approvati</th><th>Soglia</th></tr></thead>
           <tbody>
             {visibili.map((c) => (
               <Fragment key={c.cliente_id}>
@@ -164,7 +216,9 @@ export default function ContiClienti() {
                   <td className="destra importo-conto">
                     <b>{euro(c.totale)}</b>
                     <span className="barra-soglia"><span style={{ width: `${Math.min(100, (c.totale / Math.max(c.soglia, 1)) * 100)}%` }} /></span>
+                    {c.conteggiato > 0 && <small className="gia-conteggiato">di cui già conteggiati {euro(c.conteggiato)}</small>}
                   </td>
+                  <td className="destra importo-na">{c.non_approvato > 0 ? <span className="bollino-na">{euro(c.non_approvato)}</span> : ""}</td>
                   <td onClick={(e) => e.stopPropagation()}>
                     {puoModificare ? (
                       <span className="campo-soglia">
@@ -177,7 +231,7 @@ export default function ContiClienti() {
                   </td>
                 </tr>
                 {aperto === c.cliente_id && (
-                  <tr className="dettaglio-conto"><td colSpan={6}>
+                  <tr className="dettaglio-conto"><td colSpan={7}>
                     {!rapporti && <p className="piccolo">Caricamento…</p>}
                     {rapporti && (
                       <>
@@ -185,19 +239,20 @@ export default function ContiClienti() {
                           <thead><tr>
                             {puoModificare && <th><input type="checkbox" aria-label="Tutti" checked={scelti.size === rapporti.length && rapporti.length > 0}
                               onChange={(e) => setScelti(e.target.checked ? new Set(rapporti.map((r) => r.id)) : new Set())} /></th>}
-                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Fatto conto</th><th className="destra">Importo</th><th />
+                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Conteggiato</th><th className="destra">Importo</th><th className="destra">Prev. non appr.</th><th />
                           </tr></thead>
                           <tbody>
                             {rapporti.map((r) => (
-                              <tr key={r.id}>
+                              <tr key={r.id} className={conteggiato(r) ? "conteggiato" : ""}>
                                 {puoModificare && <td className="sel"><input type="checkbox" checked={scelti.has(r.id)} aria-label={`Rapportino ${r.numero}`}
                                   onChange={(e) => setScelti((s) => { const n = new Set(s); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; })} /></td>}
                                 <td className="num">n. {r.numero}</td>
                                 <td className="data">{dataIt(r.data)}</td>
                                 <td className="cella-tecnico tec">{r.tecnico}</td>
                                 <td className="attivita-conto" title={r.attivita ?? ""}>{r.attivita}</td>
-                                <td className="fatto">{r.fatto_conto}</td>
-                                <td className="destra imp">{euro(r.importo)}</td>
+                                <td className="fatto">{conteggiato(r) ? <span className="bollino-conteggiato">✓ già conteggiato</span> : ""}</td>
+                                <td className="destra imp">{r.importo ? euro(r.importo) : ""}</td>
+                                <td className="destra imp-na">{r.non_approvato > 0 ? <span className="bollino-na">{euro(r.non_approvato)}</span> : ""}</td>
                                 <td className="apri"><button className="link" title="Apri il rapportino" onClick={() => apriRapporto(r.id)}><ExternalLink size={15} /></button></td>
                               </tr>
                             ))}
@@ -209,6 +264,22 @@ export default function ContiClienti() {
                               Segna riscossi {scelti.size ? `(${scelti.size} · ${euro(rapporti.filter((r) => scelti.has(r.id)).reduce((s, r) => s + r.importo, 0))})` : ""}
                             </button>
                             <button className="btn grigio" onClick={() => riscuoti(rapporti.map((r) => r.id), c.cliente)}>Riscosso tutto ({euro(c.totale)})</button>
+                            <span className="separa-azioni" />
+                            {/* Già conteggiati e stampa del conto: solo amministratori */}
+                            {admin && (() => {
+                              const sel = rapporti.filter((r) => scelti.has(r.id));
+                              const daSegnare = sel.filter((r) => !conteggiato(r)).map((r) => r.id);
+                              const daTogliere = sel.filter(conteggiato).map((r) => r.id);
+                              return <>
+                                <button className="btn verde-conteggio" disabled={!daSegnare.length} onClick={() => segnaConteggiati(daSegnare, true)}>
+                                  ✓ Segna già conteggiati{daSegnare.length ? ` (${daSegnare.length})` : ""}
+                                </button>
+                                {daTogliere.length > 0 && <button className="btn grigio" onClick={() => segnaConteggiati(daTogliere, false)}>Togli conteggiato ({daTogliere.length})</button>}
+                                <button className="btn blu" title="Stampa il conto per il cliente: scegli i rapportini e cosa mettere" onClick={() => apriStampa(c)}>
+                                  <Printer size={15} /> Stampa conto…
+                                </button>
+                              </>;
+                            })()}
                           </div>
                         )}
                       </>
@@ -221,6 +292,50 @@ export default function ContiClienti() {
         </table>
       )}
 
+      {sceltaStampa && (() => {
+        const s = sceltaStampa;
+        const lista = rapporti ?? [];
+        const scelti2 = lista.filter((r) => s.ids.has(r.id));
+        const cambia = (v: Partial<typeof s>) => setSceltaStampa({ ...s, ...v });
+        const tocca = (id: number) => { const n = new Set(s.ids); if (n.has(id)) n.delete(id); else n.add(id); cambia({ ids: n }); };
+        return (
+          <div className="velo" onMouseDown={() => setSceltaStampa(null)}>
+            <div className="finestra finestra-stampa-conto" onMouseDown={(e) => e.stopPropagation()}>
+              <div className="finestra-titolo">Stampa conto – {s.c.cliente}</div>
+              <div className="finestra-corpo">
+                <div className="sc-rapidi">
+                  <b>Rapportini da stampare</b>
+                  <span style={{ flex: 1 }} />
+                  <button className="link" onClick={() => cambia({ ids: new Set(lista.filter(conteggiato).map((r) => r.id)) })}>Solo già conteggiati</button>
+                  <button className="link" onClick={() => cambia({ ids: new Set(lista.map((r) => r.id)) })}>Tutti</button>
+                  <button className="link" onClick={() => cambia({ ids: new Set() })}>Nessuno</button>
+                </div>
+                {lista.map((r) => (
+                  <label key={r.id} className={`sc-voce${s.ids.has(r.id) ? " scelta" : ""}`}>
+                    <input type="checkbox" checked={s.ids.has(r.id)} onChange={() => tocca(r.id)} />
+                    <span className="sc-testi"><b>n. {r.numero} · {dataIt(r.data)}</b>{conteggiato(r) && <span className="bollino-conteggiato">✓ già conteggiato</span>}
+                      <span className="piccolo">{r.attivita}</span></span>
+                    <span className="sc-importi"><b>{r.importo ? euro(r.importo) : ""}</b>{r.non_approvato > 0 && <span className="bollino-na">{euro(r.non_approvato)}</span>}</span>
+                  </label>
+                ))}
+                <div className="sc-opzioni">
+                  <b>Cosa mettere in stampa</b>
+                  <label><input type="checkbox" checked={s.materiali} onChange={(e) => cambia({ materiali: e.target.checked })} /> Elenco dei materiali di ogni rapportino</label>
+                  <label className={s.materiali ? "" : "spento"}><input type="checkbox" disabled={!s.materiali} checked={s.prezzi && s.materiali} onChange={(e) => cambia({ prezzi: e.target.checked })} /> Prezzi dei materiali</label>
+                  <label><input type="checkbox" checked={s.nonApprovati} onChange={(e) => cambia({ nonApprovati: e.target.checked })} /> Preventivi non approvati <span className="piccolo">(a parte, fuori dal totale)</span></label>
+                </div>
+              </div>
+              <div className="finestra-piede">
+                <span className="piccolo">{scelti2.length} rapportini · totale {euro(scelti2.reduce((t, r) => t + r.importo, 0))}
+                  {s.nonApprovati && scelti2.some((r) => r.non_approvato > 0) ? ` · non approvati ${euro(scelti2.reduce((t, r) => t + r.non_approvato, 0))}` : ""}</span>
+                <span style={{ flex: 1 }} />
+                <button className="btn grigio" onClick={() => setSceltaStampa(null)}>Annulla</button>
+                <button className="btn blu" disabled={!scelti2.length} onClick={stampa}><Printer size={15} /> Stampa</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {scheda && (
         <Scheda
           cfg={ARCHIVI.rapporti}
