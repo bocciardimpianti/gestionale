@@ -5,7 +5,8 @@ import { ARCHIVI } from "../archivi";
 import { dataIt, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { controllaConti } from "../notifiche";
-import { stampaConto, type PiedePreventivo } from "../stampe";
+import { stampaConto, type OpzioniConto, type PiedePreventivo } from "../stampe";
+import { serviziRapporto } from "../dividiRapportino";
 
 // Conti Clienti: per ogni cliente il totale dei rapportini eseguiti e non ancora riscossi (casella "Pagata"),
 // dal più alto. Soglia di avviso (2500 € per tutti, modificabile anche per singolo cliente): oltre la soglia
@@ -99,22 +100,38 @@ export default function ContiClienti() {
     await ricarica();
   };
 
-  // Stampa per il cliente dei rapportini già conteggiati, con i materiali da fatturare di ciascuno
-  const stampaConteggiati = async (c: Conto) => {
-    const lista = (rapporti ?? []).filter(conteggiato);
+  // Stampa del conto per il cliente: si scelgono i rapportini (di partenza i già conteggiati) e cosa mettere
+  const [sceltaStampa, setSceltaStampa] = useState<{ c: Conto; ids: Set<number> } & OpzioniConto | null>(null);
+  const apriStampa = (c: Conto) => {
+    const lista = rapporti ?? [];
+    const cont = lista.filter(conteggiato);
+    setSceltaStampa({ c, ids: new Set((cont.length ? cont : lista).map((r) => r.id)), materiali: true, prezzi: false, nonApprovati: lista.some((r) => r.non_approvato > 0) });
+  };
+  const stampa = async () => {
+    if (!sceltaStampa) return;
+    const { c, ids, ...opzioni } = sceltaStampa;
+    const lista = (rapporti ?? []).filter((r) => ids.has(r.id));
     if (!lista.length) return;
     const finestra = window.open("", "_blank");
     if (!finestra) return setStato("Il browser ha bloccato la finestra di stampa: consenti i popup per il gestionale");
     finestra.document.write("<p style='font-family: sans-serif'>Preparazione della stampa…</p>");
-    const { data: righe } = await supabase.from("righe_rapporto").select("rapporto_id, descrizione, nome_articolo, quantita, unita_misura, non_approvato, ordine")
-      .in("rapporto_id", lista.map((r) => r.id)).order("ordine");
-    const { data: imp } = await supabase.from("impostazioni").select("valore").eq("chiave", "preventivo_piede").maybeSingle();
-    const html = stampaConto(c.cliente, lista.map((r) => ({
-      numero: r.numero, data: r.data, attivita: r.attivita, importo: r.importo,
-      materiali: ((righe ?? []) as Record<string, unknown>[]).filter((x) => x.rapporto_id === r.id && !x.non_approvato && String(x.descrizione || x.nome_articolo || "").trim())
-        .map((x) => ({ descrizione: String(x.descrizione || x.nome_articolo), quantita: x.quantita as number | null, unita_misura: x.unita_misura as string | null })),
-    })), (imp?.valore as PiedePreventivo | undefined) ?? null);
+    const [{ data: righe }, { data: dati }, { data: imp }] = await Promise.all([
+      supabase.from("righe_rapporto").select("rapporto_id, descrizione, nome_articolo, quantita, unita_misura, totale, non_approvato, ordine")
+        .in("rapporto_id", lista.map((r) => r.id)).order("ordine"),
+      supabase.from("rapporti").select("id, totale_ore, tariffa_oraria, km_percorsi, tariffa_km, diritto_chiamata, tariffa_fissa, servizi_non_approvati").in("id", lista.map((r) => r.id)),
+      supabase.from("impostazioni").select("valore").eq("chiave", "preventivo_piede").maybeSingle(),
+    ]);
+    const voci = (id: number, no: boolean) => ((righe ?? []) as Record<string, unknown>[])
+      .filter((x) => x.rapporto_id === id && !!x.non_approvato === no && String(x.descrizione || x.nome_articolo || "").trim())
+      .map((x) => ({ descrizione: String(x.descrizione || x.nome_articolo), quantita: x.quantita as number | null, unita_misura: x.unita_misura as string | null, totale: x.totale as number | null }));
+    const html = stampaConto(c.cliente, lista.map((r) => {
+      const d = ((dati ?? []) as Record<string, unknown>[]).find((x) => x.id === r.id) ?? {};
+      const servizi = serviziRapporto(d).filter((x) => x.nonApprovato)
+        .map((x) => ({ descrizione: x.nome + (x.dettaglio ? ` (${x.dettaglio})` : ""), quantita: null, unita_misura: null, totale: x.importo }));
+      return { numero: r.numero, data: r.data, attivita: r.attivita, importo: r.importo, materiali: voci(r.id, false), nonApprovati: [...voci(r.id, true), ...servizi] };
+    }), (imp?.valore as PiedePreventivo | undefined) ?? null, opzioni);
     finestra.document.open(); finestra.document.write(html); finestra.document.close();
+    setSceltaStampa(null);
   };
 
   const cambiaSoglia = async (c: Conto, testo: string) => {
@@ -258,9 +275,9 @@ export default function ContiClienti() {
                                   ✓ Segna già conteggiati{daSegnare.length ? ` (${daSegnare.length})` : ""}
                                 </button>
                                 {daTogliere.length > 0 && <button className="btn grigio" onClick={() => segnaConteggiati(daTogliere, false)}>Togli conteggiato ({daTogliere.length})</button>}
-                                {rapporti.some(conteggiato) && <button className="btn blu" title="Stampa per il cliente i rapportini già conteggiati" onClick={() => stampaConteggiati(c)}>
-                                  <Printer size={15} /> Stampa conteggiati ({rapporti.filter(conteggiato).length} · {euro(rapporti.filter(conteggiato).reduce((t, r) => t + r.importo, 0))})
-                                </button>}
+                                <button className="btn blu" title="Stampa il conto per il cliente: scegli i rapportini e cosa mettere" onClick={() => apriStampa(c)}>
+                                  <Printer size={15} /> Stampa conto…
+                                </button>
                               </>;
                             })()}
                           </div>
@@ -275,6 +292,50 @@ export default function ContiClienti() {
         </table>
       )}
 
+      {sceltaStampa && (() => {
+        const s = sceltaStampa;
+        const lista = rapporti ?? [];
+        const scelti2 = lista.filter((r) => s.ids.has(r.id));
+        const cambia = (v: Partial<typeof s>) => setSceltaStampa({ ...s, ...v });
+        const tocca = (id: number) => { const n = new Set(s.ids); if (n.has(id)) n.delete(id); else n.add(id); cambia({ ids: n }); };
+        return (
+          <div className="velo" onMouseDown={() => setSceltaStampa(null)}>
+            <div className="finestra finestra-stampa-conto" onMouseDown={(e) => e.stopPropagation()}>
+              <div className="finestra-titolo">Stampa conto – {s.c.cliente}</div>
+              <div className="finestra-corpo">
+                <div className="sc-rapidi">
+                  <b>Rapportini da stampare</b>
+                  <span style={{ flex: 1 }} />
+                  <button className="link" onClick={() => cambia({ ids: new Set(lista.filter(conteggiato).map((r) => r.id)) })}>Solo già conteggiati</button>
+                  <button className="link" onClick={() => cambia({ ids: new Set(lista.map((r) => r.id)) })}>Tutti</button>
+                  <button className="link" onClick={() => cambia({ ids: new Set() })}>Nessuno</button>
+                </div>
+                {lista.map((r) => (
+                  <label key={r.id} className={`sc-voce${s.ids.has(r.id) ? " scelta" : ""}`}>
+                    <input type="checkbox" checked={s.ids.has(r.id)} onChange={() => tocca(r.id)} />
+                    <span className="sc-testi"><b>n. {r.numero} · {dataIt(r.data)}</b>{conteggiato(r) && <span className="bollino-conteggiato">✓ già conteggiato</span>}
+                      <span className="piccolo">{r.attivita}</span></span>
+                    <span className="sc-importi"><b>{r.importo ? euro(r.importo) : ""}</b>{r.non_approvato > 0 && <span className="bollino-na">{euro(r.non_approvato)}</span>}</span>
+                  </label>
+                ))}
+                <div className="sc-opzioni">
+                  <b>Cosa mettere in stampa</b>
+                  <label><input type="checkbox" checked={s.materiali} onChange={(e) => cambia({ materiali: e.target.checked })} /> Elenco dei materiali di ogni rapportino</label>
+                  <label className={s.materiali ? "" : "spento"}><input type="checkbox" disabled={!s.materiali} checked={s.prezzi && s.materiali} onChange={(e) => cambia({ prezzi: e.target.checked })} /> Prezzi dei materiali</label>
+                  <label><input type="checkbox" checked={s.nonApprovati} onChange={(e) => cambia({ nonApprovati: e.target.checked })} /> Preventivi non approvati <span className="piccolo">(a parte, fuori dal totale)</span></label>
+                </div>
+              </div>
+              <div className="finestra-piede">
+                <span className="piccolo">{scelti2.length} rapportini · totale {euro(scelti2.reduce((t, r) => t + r.importo, 0))}
+                  {s.nonApprovati && scelti2.some((r) => r.non_approvato > 0) ? ` · non approvati ${euro(scelti2.reduce((t, r) => t + r.non_approvato, 0))}` : ""}</span>
+                <span style={{ flex: 1 }} />
+                <button className="btn grigio" onClick={() => setSceltaStampa(null)}>Annulla</button>
+                <button className="btn blu" disabled={!scelti2.length} onClick={stampa}><Printer size={15} /> Stampa</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {scheda && (
         <Scheda
           cfg={ARCHIVI.rapporti}

@@ -412,15 +412,23 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
 </body></html>`;
 }
 
-// Conto per il cliente: i rapportini già conteggiati (Conti Clienti), con i materiali di ciascuno e il totale.
-// Senza i preventivi non approvati. In fondo il piè di pagina dei preventivi (es. IBAN), se impostato.
+// Conto per il cliente (Conti Clienti → Stampa conto): i rapportini scelti, con i loro materiali e il totale.
+// A scelta anche i prezzi dei materiali e i preventivi non approvati (a parte, in arancione, fuori dal totale).
+// In fondo il piè di pagina dei preventivi (es. IBAN), se impostato.
+export type VoceConto = { descrizione: string; quantita: number | null; unita_misura: string | null; totale: number | null };
 export type RapportoConto = { numero: number | null; data: string; attivita: string | null; importo: number;
-  materiali: { descrizione: string; quantita: number | null; unita_misura: string | null }[] };
-export function stampaConto(cliente: string, rapporti: RapportoConto[], piede: PiedePreventivo | null) {
-  const totale = Math.round(rapporti.reduce((t, r) => t + Number(r.importo || 0), 0) * 100) / 100;
+  materiali: VoceConto[]; nonApprovati: VoceConto[] };
+export type OpzioniConto = { materiali: boolean; prezzi: boolean; nonApprovati: boolean };
+export function stampaConto(cliente: string, rapporti: RapportoConto[], piede: PiedePreventivo | null, o: OpzioniConto) {
+  const r2 = (x: number) => Math.round(x * 100) / 100;
+  const totale = r2(rapporti.reduce((t, r) => t + Number(r.importo || 0), 0));
+  const conNo = o.nonApprovati ? rapporti.filter((r) => r.nonApprovati.length) : [];
+  const totaleNo = r2(conNo.reduce((t, r) => t + r.nonApprovati.reduce((u, v) => u + Number(v.totale || 0), 0), 0));
   const oggi = new Date().toLocaleDateString("it-IT");
   const titolo = `Riepilogo interventi – ${cliente}`;
   const qta = (v: unknown) => (v == null || v === "" ? "" : Number(v).toLocaleString("it-IT", { maximumFractionDigits: 2 }));
+  const voce = (m: VoceConto, prezzo: boolean) => `<tr class="materiale"><td></td><td>${esc(m.descrizione)}</td><td class="q">${qta(m.quantita)} ${esc(m.unita_misura ?? "")}</td><td class="importo">${prezzo ? euro(m.totale) : ""}</td></tr>`;
+  const testa = `<thead><tr><th style="width: 95px">Data</th><th>Intervento</th><th class="q"></th><th class="importo">Importo</th></tr></thead>`;
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(titolo)}</title>
 <style>
   @page { size: A4; margin: 14mm 12mm; }
@@ -437,16 +445,42 @@ export function stampaConto(cliente: string, rapporti: RapportoConto[], piede: P
   .sotto { color: #555; margin-bottom: 10px; }
   table { width: 100%; border-collapse: collapse; }
   th { background: #a9d1f5; font-size: 10.5px; text-align: left; padding: 4px 6px; }
-  th.importo, td.importo { text-align: right; width: 95px; white-space: nowrap; }
+  th.importo, td.importo { text-align: right; width: 90px; white-space: nowrap; }
+  th.q, td.q { width: 70px; text-align: right; white-space: nowrap; }
   tr.rapporto td { background: #dcecfb; padding: 5px 6px; font-weight: 600; vertical-align: top; border-top: 4px solid #fff; }
-  tr.materiale td { padding: 2px 6px 2px 22px; font-size: 10.5px; color: #444; }
-  tr.materiale td.q { padding-left: 6px; width: 70px; text-align: right; white-space: nowrap; }
+  tr.materiale td { padding: 2px 6px; font-size: 10.5px; color: #444; }
+  tr.materiale td:nth-child(2) { padding-left: 22px; }
   tr { break-inside: avoid; }
   .totale { margin: 12px 0 0 auto; width: 45%; background: #1e88e5; color: #fff; padding: 8px 12px; display: flex; justify-content: space-between; align-items: baseline; break-inside: avoid; }
   .totale b { font-size: 18px; }
   .nota { font-size: 10px; color: #555; margin-top: 6px; text-align: right; }
+  .na { margin-top: 22px; border: 1.5px dashed #c2611a; padding: 6px 8px; }
+  .na h3 { color: #c2611a; font-size: 14px; margin: 0 0 2px; }
+  .na .sotto { margin-bottom: 6px; }
+  .na th { background: #f6c9a4; }
+  .na tr.rapporto td { background: #fdeee2; }
+  .na .totale { background: #c2611a; width: 55%; }
   .piede { margin-top: 22px; border-top: 1px solid #1e88e5; padding-top: 6px; font-size: 10.5px; text-align: center; color: #333; break-inside: avoid; }
+  /* Modifica prima di stampare: barra in alto e ✕ per togliere le righe (non escono in stampa) */
+  .barra-modifica { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: #123b45; color: #fff; padding: 8px 12px; margin: 0 0 12px; font: 13px system-ui, sans-serif; }
+  .barra-modifica button { font: inherit; border: 0; border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+  .barra-modifica .stampa { background: #1e88e5; color: #fff; font-weight: 700; }
+  .barra-modifica .rifai { background: #fff; color: #123b45; }
+  .barra-modifica span { flex: 1; min-width: 200px; opacity: .9; }
+  .foglio { max-width: 190mm; margin: 0 auto; padding: 0 6px; }
+  .foglio [contenteditable="true"]:hover { outline: 1px dashed #9cc7ee; }
+  .foglio [contenteditable="true"]:focus { outline: 2px solid #1e88e5; background: #fffbe6; }
+  td { position: relative; }
+  .togli { position: absolute; left: -22px; top: 3px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: #e5e7eb; color: #b42318; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; padding: 0; }
+  .togli:hover { background: #b42318; color: #fff; }
+  @media print { .barra-modifica, .togli { display: none !important; } .foglio { max-width: none; padding: 0; } [contenteditable] { outline: none !important; background: none !important; } }
 </style></head><body>
+<div class="barra-modifica">
+  <button class="stampa" onclick="window.print()">🖨 Stampa</button>
+  <button class="rifai" onclick="rifai()" title="Torna alla versione di partenza">Annulla le modifiche</button>
+  <span>Tocca un testo o un importo per cambiarlo · ✕ toglie la riga · i totali si ricalcolano da soli</span>
+</div>
+<div class="foglio">
 <div class="testa">
   <div class="azienda">
     <img src="${logo()}" alt="">
@@ -455,22 +489,65 @@ export function stampaConto(cliente: string, rapporti: RapportoConto[], piede: P
   </div>
   <div>
     <div class="dest"><div class="etichetta">Spett.le</div><div class="nome">${esc(cliente)}</div></div>
-    <div style="text-align: right; margin-top: 8px">Staffoli, ${oggi}</div>
+    <div class="data-luogo" style="text-align: right; margin-top: 8px">Staffoli, ${oggi}</div>
   </div>
 </div>
 <h2>Riepilogo interventi</h2>
 <div class="sotto">${rapporti.length} ${rapporti.length === 1 ? "intervento" : "interventi"}${rapporti.length ? ` dal ${dataIt(rapporti[0].data)} al ${dataIt(rapporti[rapporti.length - 1].data)}` : ""}</div>
+<div data-totale>
 <table>
-  <thead><tr><th style="width: 95px">Data</th><th>Intervento</th><th class="importo">Importo</th></tr></thead>
+  ${testa}
   <tbody>
     ${rapporti.map((r) => `
-    <tr class="rapporto"><td>${dataIt(r.data)}<br><span style="font-weight: 400; font-size: 10px">n. ${esc(r.numero)}</span></td><td>${esc(r.attivita || "Intervento tecnico").replace(/\n/g, "<br>")}</td><td class="importo">${euro(r.importo) || "0,00 €"}</td></tr>
-    ${r.materiali.map((m) => `<tr class="materiale"><td></td><td>${esc(m.descrizione)}</td><td class="q">${qta(m.quantita)} ${esc(m.unita_misura ?? "")}</td></tr>`).join("")}`).join("")}
+    <tr class="rapporto"><td>${dataIt(r.data)}<br><span style="font-weight: 400; font-size: 10px">n. ${esc(r.numero)}</span></td><td colspan="2">${esc(r.attivita || "Intervento tecnico").replace(/\n/g, "<br>")}</td><td class="importo">${euro(r.importo) || "0,00 €"}</td></tr>
+    ${o.materiali ? r.materiali.map((m) => voce(m, o.prezzi)).join("") : ""}`).join("")}
   </tbody>
 </table>
 <div class="totale"><span>Totale</span><b>${euro(totale) || "0,00 €"}</b></div>
+</div>
 <div class="nota">Importi IVA esclusa</div>
+${conNo.length ? `<div class="na" data-totale>
+  <h3>Preventivi non approvati</h3>
+  <div class="sotto">Lavori e materiali proposti durante gli interventi, non ancora approvati: non compresi nel totale qui sopra.</div>
+  <table>
+    ${testa}
+    <tbody>
+      ${conNo.map((r) => `
+      <tr class="rapporto"><td>${dataIt(r.data)}<br><span style="font-weight: 400; font-size: 10px">n. ${esc(r.numero)}</span></td><td colspan="2">${esc(r.attivita || "Intervento tecnico").replace(/\n/g, "<br>")}</td><td class="importo">${euro(r.nonApprovati.reduce((u, v) => u + Number(v.totale || 0), 0))}</td></tr>
+      ${r.nonApprovati.map((m) => voce(m, true)).join("")}`).join("")}
+    </tbody>
+  </table>
+  <div class="totale"><span>Totale preventivi non approvati</span><b>${euro(totaleNo) || "0,00 €"}</b></div>
+</div>` : ""}
 ${piede && (piede.riga1 || piede.riga2) ? `<div class="piede">${esc(piede.riga1)}${piede.riga2 ? `<br>${esc(piede.riga2)}` : ""}</div>` : ""}
-<script>window.onload = () => window.print()</script>
+</div>
+<script>
+(() => {
+  // Testi modificabili; ✕ su ogni riga; totali ricalcolati dagli importi delle righe dei rapportini
+  // Versione di partenza (la pagina è scritta dal gestionale: ricaricarla la lascerebbe vuota)
+  window.ORIGINALE = window.ORIGINALE || "<!doctype html>" + document.documentElement.outerHTML;
+  window.rifai = () => { const o = window.ORIGINALE; document.open(); document.write(o); document.close(); };
+  const numero = (t) => { const v = parseFloat(String(t).replace(/[^0-9,.-]/g, "").replace(/\\./g, "").replace(",", ".")); return isNaN(v) ? 0 : v; };
+  const euro = (v) => v.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  const ricalcola = () => {
+    for (const blocco of document.querySelectorAll("[data-totale]")) {
+      const somma = [...blocco.querySelectorAll("tr.rapporto td.importo")].reduce((t, c) => t + numero(c.textContent), 0);
+      const dove = blocco.querySelector(".totale b"); if (dove) dove.textContent = euro(Math.round(somma * 100) / 100);
+    }
+  };
+  for (const el of document.querySelectorAll(".foglio td, .foglio h2, .foglio h3, .foglio .sotto, .foglio .nota, .foglio .piede, .foglio .dest .nome, .foglio .data-luogo, .foglio .totale span"))
+    el.setAttribute("contenteditable", "true");
+  for (const tr of document.querySelectorAll(".foglio tbody tr")) {
+    const b = document.createElement("button"); b.className = "togli"; b.textContent = "✕"; b.title = "Togli questa riga"; b.contentEditable = "false";
+    b.onclick = () => {
+      // Togliendo un rapportino si tolgono anche i suoi materiali
+      if (tr.classList.contains("rapporto")) { let n = tr.nextElementSibling; while (n && n.classList.contains("materiale")) { const x = n.nextElementSibling; n.remove(); n = x; } }
+      tr.remove(); ricalcola();
+    };
+    tr.firstElementChild.appendChild(b);
+  }
+  document.addEventListener("input", ricalcola);
+})();
+</script>
 </body></html>`;
 }

@@ -2372,3 +2372,19 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
   .rapporti-conto td.fatto { grid-area: c; }
   .azioni-conto .separa-azioni { display: none; }
 }
+/* Conti clienti: finestra "Stampa conto" */
+.finestra-stampa-conto { width: min(680px, 100%); max-height: 92vh; display: flex; flex-direction: column; }
+.finestra-stampa-conto .finestra-corpo { overflow: auto; }
+.sc-rapidi { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.sc-voce { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--bordo); border-radius: 8px; margin-bottom: 6px; cursor: pointer; }
+.sc-voce.scelta { border-color: #1e88e5; background: #f2f8fe; }
+.sc-voce input { width: 18px; height: 18px; }
+.sc-testi { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sc-testi .piccolo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-testi .bollino-conteggiato { align-self: flex-start; }
+.sc-importi { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; white-space: nowrap; }
+.sc-opzioni { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--bordo); }
+.sc-opzioni label { display: flex; align-items: center; gap: 8px; }
+.sc-opzioni label input { width: 18px; height: 18px; }
+.sc-opzioni label.spento { color: var(--tenue); }
+.finestra-stampa-conto .finestra-piede { flex-wrap: wrap; gap: 8px; }
