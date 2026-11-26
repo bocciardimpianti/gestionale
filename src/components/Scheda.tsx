@@ -950,6 +950,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                       </div>
                     ))}
                   </>
+                ) : linguetta === "Preventivi da fornitori" ? (
+                  <ProgettiCliente clienteId={valori.id as number | undefined} modificabile={modificabile} soloPreventivi />
                 ) : linguetta === "Progetti e schede" ? (
                   <ProgettiCliente clienteId={valori.id as number | undefined} modificabile={modificabile} />
                 ) : linguetta === "Log Cloud" ? (

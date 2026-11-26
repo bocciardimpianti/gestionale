@@ -28,9 +28,13 @@ export const CATEGORIE_PROGETTO: { nome: string; icona: string; parole: RegExp }
   { nome: "Documenti", icona: "📄", parole: /dichiarazione di conformit|\bdico\b|librett|certificat|collaud|garanzi|contratt|\bfattur|preventiv|offerta/g },
 ];
 export const ALTRO = { nome: "Altro", icona: "📁" };
+// Preventivi mandati dai fornitori (Palagini, CLLAT, MEF…): lo script di Gmail li mette nella sottocartella
+// "Preventivi fornitori" di "Progetti clienti"; nella scheda del cliente hanno una linguetta tutta loro.
+export const PREVENTIVI_FORNITORI = { nome: "Preventivi da fornitori", icona: "🧾" };
+export const CARTELLA_PREVENTIVI_FORNITORI = /preventivi (da )?fornitori/;
 export const FOTO = { nome: "Foto", icona: "📷" };
 export const iconaCategoria = (nome: string | null) =>
-  [...CATEGORIE_PROGETTO, ALTRO, FOTO].find((c) => c.nome === nome)?.icona ?? "📁";
+  [...CATEGORIE_PROGETTO, ALTRO, FOTO, PREVENTIVI_FORNITORI].find((c) => c.nome === nome)?.icona ?? "📁";
 
 export const normalizza = (s: unknown) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
   .replace(/[_\-.,;:()/\\'"’]+/g, " ").replace(/\s+/g, " ").trim();
@@ -41,6 +45,7 @@ const GENERICHE = new Set(["Planimetrie e progetti", "Documenti"]);
 
 /** Argomento del file: la categoria con più parole trovate (nome del file e cartella valgono 4 volte il testo) */
 export function categoriaDi(nome: string, cartella: string, testo: string, tipo: string | null): { categoria: string; parole: string[] } {
+  if (CARTELLA_PREVENTIVI_FORNITORI.test(normalizza(cartella))) return { categoria: PREVENTIVI_FORNITORI.nome, parole: [] };
   const testa = normalizza(`${cartella} ${nome}`), corpo = normalizza(testo).slice(0, 60000);
   let migliore = { categoria: "", punti: 0, parole: [] as string[] };
   for (const c of [...CATEGORIE_PROGETTO.filter((x) => !GENERICHE.has(x.nome)), ...CATEGORIE_PROGETTO.filter((x) => GENERICHE.has(x.nome))]) {
@@ -124,6 +129,7 @@ export async function smistaProgetti(avanzamento: (s: string) => void = () => {}
   inCorso = new Promise((ok) => { finito = () => ok(null); });
   try {
     let clienti: { id: number; nome: string }[] | null = null;
+    let fornitori: string[] | null = null;
     for (let giro = 0; giro < 60; giro++) {
       const { data, error } = await supabase.rpc("prendi_progetto_da_leggere");
       if (error || !data?.length) break;
@@ -137,7 +143,11 @@ export async function smistaProgetti(avanzamento: (s: string) => void = () => {}
           if (file) testo = await scritteDaPdf(file).then((s) => s.map((y) => y.s).join(" ")).catch(() => "");
         }
         const { categoria, parole } = categoriaDi(x.nome_file, x.cartella ?? "", testo, x.tipo);
-        const { cliente, candidati } = clienteDi(x.nome_file, x.cartella ?? "", testo, clienti);
+        // Nei preventivi dei fornitori il nome del fornitore e quello dell'azienda non sono il cliente
+        const daFornitore = categoria === PREVENTIVI_FORNITORI.nome;
+        if (daFornitore) fornitori ??= await leggiTutto("fornitori", "nome", true).then((f) => (f as unknown as { nome: string }[]).map((y) => normalizza(y.nome))).catch(() => []);
+        const ammessi = daFornitore ? clienti.filter((c) => { const n = normalizza(c.nome); return !/bocciardi/.test(n) && !fornitori!.includes(n); }) : clienti;
+        const { cliente, candidati } = clienteDi(daFornitore ? x.nome_file.replace(/^[^-]+ - /, "") : x.nome_file, daFornitore ? "" : x.cartella ?? "", testo, ammessi);
         const motivo = cliente
           ? `cliente "${cliente.nome}" trovato ${normalizza(`${x.cartella ?? ""} ${x.nome_file}`).includes(normalizza(cliente.nome).split(" ")[0]) ? "nel nome del file o della cartella" : "nel testo"}${parole.length ? ` · argomento da: ${parole.join(", ")}` : ""}`
           : candidati.length ? `più clienti possibili: ${candidati.map((c) => c.nome).join(", ")}` : "nessun cliente dell'anagrafica trovato nel file";

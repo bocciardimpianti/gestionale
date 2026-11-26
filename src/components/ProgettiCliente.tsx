@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Upload } from "lucide-react";
 import { registra, supabase } from "../supabase";
-import { apriProgetto, ALTRO, CATEGORIE_PROGETTO, categoriaDi, EVENTO_PROGETTI, FOTO, iconaCategoria, type ProgettoFile } from "../progettiClienti";
+import { apriProgetto, ALTRO, PREVENTIVI_FORNITORI, CATEGORIE_PROGETTO, categoriaDi, EVENTO_PROGETTI, FOTO, iconaCategoria, type ProgettoFile } from "../progettiClienti";
 import { scritteDaPdf } from "../ddtPdf";
 
 // Scheda del cliente → "Progetti e schede": i suoi file divisi in cartelle per argomento (Bagni, Caldaia, Clima…).
 // Ogni file si apre, si sposta in un'altra cartella o si toglie dal cliente (torna "da smistare").
 
-export const NOMI_CATEGORIE = [...CATEGORIE_PROGETTO.map((c) => c.nome), FOTO.nome, ALTRO.nome];
+export const NOMI_CATEGORIE = [...CATEGORIE_PROGETTO.map((c) => c.nome), FOTO.nome, ALTRO.nome, PREVENTIVI_FORNITORI.nome];
 const dimensione = (b: number | null) => (!b ? "" : b > 1048576 ? `${(b / 1048576).toLocaleString("it-IT", { maximumFractionDigits: 1 })} MB` : `${Math.ceil(b / 1024)} kB`);
 
-export default function ProgettiCliente({ clienteId, modificabile }: { clienteId?: number; modificabile: boolean }) {
+// soloPreventivi: linguetta "Preventivi da fornitori" (solo quei file); senza: "Progetti e schede" (tutto il resto)
+export default function ProgettiCliente({ clienteId, modificabile, soloPreventivi = false }: { clienteId?: number; modificabile: boolean; soloPreventivi?: boolean }) {
   const [file, setFile] = useState<ProgettoFile[] | null>(null);
   const [errore, setErrore] = useState("");
   const [chiuse, setChiuse] = useState<Set<string>>(new Set());
@@ -21,13 +22,13 @@ export default function ProgettiCliente({ clienteId, modificabile }: { clienteId
     if (!clienteId) return;
     const { data, error } = await supabase.from("progetti_file").select("*").eq("cliente_id", clienteId).neq("stato", "scartato").order("creato_il", { ascending: false });
     if (error) return setErrore(/progetti_file/.test(error.message) ? "Esegui su Supabase lo script 0059_progetti_clienti.sql" : error.message);
-    setFile(data as ProgettoFile[]);
+    setFile((data as ProgettoFile[]).filter((x) => (x.categoria === PREVENTIVI_FORNITORI.nome) === soloPreventivi));
   };
   useEffect(() => {
     carica();
     window.addEventListener(EVENTO_PROGETTI, carica);
     return () => window.removeEventListener(EVENTO_PROGETTI, carica);
-  }, [clienteId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clienteId, soloPreventivi]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cambia = async (x: ProgettoFile, v: Partial<ProgettoFile>) => {
     const { error } = await supabase.from("progetti_file").update({ ...v, a_mano: true, aggiornato_il: new Date().toISOString() }).eq("id", x.id);
@@ -45,7 +46,7 @@ export default function ProgettiCliente({ clienteId, modificabile }: { clienteId
       const up = await supabase.storage.from("progetti").upload(percorso, f, { contentType: f.type || undefined });
       if (up.error) { setErrore(`${f.name}: ${up.error.message}`); continue; }
       const testo = f.type.includes("pdf") ? await scritteDaPdf(f).then((s) => s.map((y) => y.s).join(" ")).catch(() => "") : "";
-      const { categoria } = categoriaDi(f.name, "", testo, f.type);
+      const categoria = soloPreventivi ? PREVENTIVI_FORNITORI.nome : categoriaDi(f.name, "", testo, f.type).categoria;
       const { error } = await supabase.from("progetti_file").insert({ nome_file: f.name, percorso, tipo: f.type || null, dimensione: f.size, stato: "smistato", cliente_id: clienteId, categoria, motivo: "caricato dalla scheda del cliente", a_mano: true });
       if (error) setErrore(`${f.name}: ${error.message}`);
     }
@@ -61,7 +62,7 @@ export default function ProgettiCliente({ clienteId, modificabile }: { clienteId
   return (
     <div className="progetti-cliente">
       <div className="pc-barra">
-        <span className="piccolo">{file.length ? `${file.length} file in ${cartelle.length} ${cartelle.length === 1 ? "cartella" : "cartelle"}` : "Nessun file."} I file messi in Drive → <b>Progetti clienti</b> arrivano qui da soli.</span>
+        <span className="piccolo">{file.length ? `${file.length} file in ${cartelle.length} ${cartelle.length === 1 ? "cartella" : "cartelle"}` : "Nessun file."} {soloPreventivi ? <>I preventivi di Palagini, CLLAT, MEF… inoltrati da Aruba arrivano qui da soli.</> : <>I file messi in Drive → <b>Progetti clienti</b> arrivano qui da soli.</>}</span>
         <span style={{ flex: 1 }} />
         {modificabile && <button type="button" className="btn grigio piccolo-btn" onClick={() => scegli.current?.click()}><Upload size={14} /> Aggiungi file</button>}
         <input ref={scegli} type="file" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; if (f.length) carica_file(f); }} />
