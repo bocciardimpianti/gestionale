@@ -12,7 +12,7 @@ import { controllaConti } from "../notifiche";
 
 // non_approvato: preventivi non approvati dei rapportini divisi (script 0061). Si vedono a parte, in arancione:
 // non entrano nel "Da riscuotere" né nella soglia, ma il cliente li ha in sospeso.
-type Conto = { cliente_id: number; cliente: string; telefono: string | null; rapporti: number; totale: number; non_approvato: number; dal: string; al: string;
+type Conto = { cliente_id: number; cliente: string; telefono: string | null; rapporti: number; totale: number; non_approvato: number; conteggiato: number; dal: string; al: string;
   soglia: number; soglia_personale: boolean; oltre: boolean };
 type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; non_approvato: number; fatto_conto: string | null };
 
@@ -61,7 +61,7 @@ export default function ContiClienti() {
         : /conti_clienti|function/i.test(error.message) ? "Esegui su Supabase lo script 0040_conti_clienti.sql" : error.message);
     }
     setErrore("");
-    setConti(((data ?? []) as Conto[]).map((c) => ({ ...c, totale: Number(c.totale), non_approvato: Number(c.non_approvato ?? 0), soglia: Number(c.soglia) })));
+    setConti(((data ?? []) as Conto[]).map((c) => ({ ...c, totale: Number(c.totale), non_approvato: Number(c.non_approvato ?? 0), conteggiato: Number(c.conteggiato ?? 0), soglia: Number(c.soglia) })));
     const { data: s } = await supabase.rpc("soglia_conto_predefinita");
     if (s != null) setSogliaGenerale(String(s).replace(".", ","));
     controllaConti();
@@ -85,6 +85,17 @@ export default function ContiClienti() {
     setStato(`${data} ${data === 1 ? "rapportino segnato" : "rapportini segnati"} come riscossi (${euro(tot)})`);
     setAperto(null);
     carica();
+  };
+
+  // "Già conteggiato" (Fatto conto = Si): il rapportino resta da riscuotere, ma si sa che è già nel conto fatto al cliente
+  const conteggiato = (r: Rapporto) => /^s/i.test(r.fatto_conto ?? "");
+  const segnaConteggiati = async (ids: number[], si: boolean) => {
+    if (!ids.length) return;
+    const { data, error } = await supabase.rpc("segna_conteggiati", { p_rapporti: ids, p_conteggiati: si });
+    if (error) return setStato(/segna_conteggiati|function/i.test(error.message) ? "Esegui su Supabase lo script 0061" : "Errore: " + error.message);
+    setStato(`${data} ${data === 1 ? "rapportino segnato" : "rapportini segnati"} ${si ? "già conteggiati" : "da conteggiare"}`);
+    setScelti(new Set());
+    await ricarica();
   };
 
   const cambiaSoglia = async (c: Conto, testo: string) => {
@@ -169,6 +180,7 @@ export default function ContiClienti() {
                   <td className="destra importo-conto">
                     <b>{euro(c.totale)}</b>
                     <span className="barra-soglia"><span style={{ width: `${Math.min(100, (c.totale / Math.max(c.soglia, 1)) * 100)}%` }} /></span>
+                    {c.conteggiato > 0 && <small className="gia-conteggiato">di cui già conteggiati {euro(c.conteggiato)}</small>}
                   </td>
                   <td className="destra importo-na">{c.non_approvato > 0 ? <span className="bollino-na">{euro(c.non_approvato)}</span> : ""}</td>
                   <td onClick={(e) => e.stopPropagation()}>
@@ -191,18 +203,18 @@ export default function ContiClienti() {
                           <thead><tr>
                             {puoModificare && <th><input type="checkbox" aria-label="Tutti" checked={scelti.size === rapporti.length && rapporti.length > 0}
                               onChange={(e) => setScelti(e.target.checked ? new Set(rapporti.map((r) => r.id)) : new Set())} /></th>}
-                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Fatto conto</th><th className="destra">Importo</th><th className="destra">Prev. non appr.</th><th />
+                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Conteggiato</th><th className="destra">Importo</th><th className="destra">Prev. non appr.</th><th />
                           </tr></thead>
                           <tbody>
                             {rapporti.map((r) => (
-                              <tr key={r.id}>
+                              <tr key={r.id} className={conteggiato(r) ? "conteggiato" : ""}>
                                 {puoModificare && <td className="sel"><input type="checkbox" checked={scelti.has(r.id)} aria-label={`Rapportino ${r.numero}`}
                                   onChange={(e) => setScelti((s) => { const n = new Set(s); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; })} /></td>}
                                 <td className="num">n. {r.numero}</td>
                                 <td className="data">{dataIt(r.data)}</td>
                                 <td className="cella-tecnico tec">{r.tecnico}</td>
                                 <td className="attivita-conto" title={r.attivita ?? ""}>{r.attivita}</td>
-                                <td className="fatto">{r.fatto_conto}</td>
+                                <td className="fatto">{conteggiato(r) ? <span className="bollino-conteggiato">✓ già conteggiato</span> : ""}</td>
                                 <td className="destra imp">{r.importo ? euro(r.importo) : ""}</td>
                                 <td className="destra imp-na">{r.non_approvato > 0 ? <span className="bollino-na">{euro(r.non_approvato)}</span> : ""}</td>
                                 <td className="apri"><button className="link" title="Apri il rapportino" onClick={() => apriRapporto(r.id)}><ExternalLink size={15} /></button></td>
@@ -216,6 +228,18 @@ export default function ContiClienti() {
                               Segna riscossi {scelti.size ? `(${scelti.size} · ${euro(rapporti.filter((r) => scelti.has(r.id)).reduce((s, r) => s + r.importo, 0))})` : ""}
                             </button>
                             <button className="btn grigio" onClick={() => riscuoti(rapporti.map((r) => r.id), c.cliente)}>Riscosso tutto ({euro(c.totale)})</button>
+                            <span className="separa-azioni" />
+                            {(() => {
+                              const sel = rapporti.filter((r) => scelti.has(r.id));
+                              const daSegnare = sel.filter((r) => !conteggiato(r)).map((r) => r.id);
+                              const daTogliere = sel.filter(conteggiato).map((r) => r.id);
+                              return <>
+                                <button className="btn verde-conteggio" disabled={!daSegnare.length} onClick={() => segnaConteggiati(daSegnare, true)}>
+                                  ✓ Segna già conteggiati{daSegnare.length ? ` (${daSegnare.length})` : ""}
+                                </button>
+                                {daTogliere.length > 0 && <button className="btn grigio" onClick={() => segnaConteggiati(daTogliere, false)}>Togli conteggiato ({daTogliere.length})</button>}
+                              </>;
+                            })()}
                           </div>
                         )}
                       </>

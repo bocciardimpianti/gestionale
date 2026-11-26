@@ -2358,3 +2358,17 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .carta-conto.prev-na { background: #fff4ea; border-color: #f0c39d; }
 .carta-conto.prev-na b { color: #b5531a; }
 .bollino-na { display: inline-block; color: #b5531a; background: #fde9d9; border-radius: 10px; padding: 1px 8px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Conti clienti: rapportini già conteggiati (Fatto conto = Si) */
+.rapporti-conto tr.conteggiato td { color: var(--tenue); background: #f3f8f4; }
+.bollino-conteggiato { display: inline-block; color: #1d7a3a; background: #e3f3e6; border-radius: 10px; padding: 1px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.gia-conteggiato { display: block; color: #1d7a3a; font-size: 11.5px; margin-top: 2px; }
+.btn.verde-conteggio { background: #1d7a3a; color: #fff; }
+.btn.verde-conteggio:hover:not(:disabled) { background: #17652f; }
+.btn.verde-conteggio:disabled { opacity: .5; }
+.azioni-conto .separa-azioni { flex: 1; }
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .rapporti-conto td.fatto { display: block; grid-area: a; justify-self: start; }
+  .rapporti-conto tr { grid-template-areas: "s n d i l" "s t t m m" "s a a a a" "s c c c c"; }
+  .rapporti-conto td.fatto { grid-area: c; }
+  .azioni-conto .separa-azioni { display: none; }
+}
