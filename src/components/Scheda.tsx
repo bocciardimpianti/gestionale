@@ -88,6 +88,8 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const segna = () => { modificata.current = true; };
   // Rapportino: finestra "Dividi rapportino" (da fatturare / preventivi non approvati)
   const [dividi, setDividi] = useState(false);
+  // Dividere il rapportino (preventivi non approvati) è riservato agli amministratori
+  const admin = profilo?.ruolo === "admin";
   // "Fattura tutto": nessuna voce nei preventivi non approvati
   const fatturaTutto = () => {
     const gia = !righe.some((r) => r.non_approvato) && !String(dati.servizi_non_approvati ?? "").trim();
@@ -715,7 +717,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <button type="button" className="btn grigio" onClick={() => aggiungiRiga()}><PencilLine size={17} /> Riga libera</button>
             {cfg.sezione === "rapporti" && <button type="button" className="btn verde consigliati" onClick={() => setConsigliati(true)}><Sparkles size={17} /> Materiali consigliati</button>}
             {cfg.sezione === "rapporti" && <button type="button" className="btn fattura-tutto" onClick={fatturaTutto}><Receipt size={17} /> Fattura tutto</button>}
-            {cfg.sezione === "rapporti" && <button type="button" className="btn arancio dividi" onClick={() => setDividi(true)}><Split size={17} /> Dividi rapportino</button>}
+            {cfg.sezione === "rapporti" && admin && <button type="button" className="btn arancio dividi" onClick={() => setDividi(true)}><Split size={17} /> Dividi rapportino</button>}
           </div>
         )}
         {telefono && (
@@ -784,7 +786,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             {cfg.sezione === "rapporti" && <button type="button" className="btn blu da-ddt" title="Aggiungi i materiali di un DDT di acquisto" onClick={() => setDaDdt(true)}>Aggiungi da DDT</button>}
             {cfg.sezione === "rapporti" && <button type="button" className="btn verde consigliati" title="Materiali usati di solito insieme a quelli inseriti" onClick={() => setConsigliati(true)}><Sparkles size={16} /> Materiali consigliati</button>}
             {cfg.sezione === "rapporti" && <button type="button" className="btn fattura-tutto" title="Tutte le voci del rapportino da fatturare" onClick={fatturaTutto}><Receipt size={16} /> Fattura tutto</button>}
-            {cfg.sezione === "rapporti" && <button type="button" className="btn arancio dividi" title="Scegli cosa fatturare e cosa resta nei preventivi non approvati" onClick={() => setDividi(true)}><Split size={16} /> Dividi rapportino</button>}
+            {cfg.sezione === "rapporti" && admin && <button type="button" className="btn arancio dividi" title="Scegli cosa fatturare e cosa resta nei preventivi non approvati" onClick={() => setDividi(true)}><Split size={16} /> Dividi rapportino</button>}
           </div>
         )}
         {!telefono && <div className="tabella-righe">
@@ -797,7 +799,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                 <tr key={i} className={`${i === rigaSel ? "attiva" : ""}${r.non_approvato ? " non-approvata" : ""}`} onClick={() => setRigaSel(i)}>
                   <td className="indicatore-riga">{i === rigaSel ? "▸" : ""}</td>
                   {divisione?.diviso && <td className="cella-fattura">
-                    <button type="button" disabled={!modificabile} className={r.non_approvato ? "prev" : "fattura"}
+                    <button type="button" disabled={!modificabile || !admin} className={r.non_approvato ? "prev" : "fattura"}
                       title={r.non_approvato ? "Preventivo non approvato (tocca per fatturarlo)" : "Da fatturare (tocca per metterlo nei preventivi non approvati)"}
                       onClick={(e) => { e.stopPropagation(); segna(); setRighe((rr) => rr.map((x, j) => (j === i ? { ...x, non_approvato: !x.non_approvato } : x))); }}>
                       {r.non_approvato ? <FileClock size={16} /> : <Receipt size={16} />}
@@ -827,7 +829,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
           <div className="riepilogo-diviso">
             <span className="fattura"><Receipt size={15} /> Da fatturare <b>{euro(divisione.daFatturare) || "0,00 €"}</b></span>
             <span className="prev"><FileClock size={15} /> Preventivi non approvati <b>{euro(divisione.nonApprovato) || "0,00 €"}</b></span>
-            {modificabile && <button type="button" className="link" onClick={() => setDividi(true)}>Cambia</button>}
+            {modificabile && admin && <button type="button" className="link" onClick={() => setDividi(true)}>Cambia</button>}
           </div>
         )}
         {modificabile && telefono && (
