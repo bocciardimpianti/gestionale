@@ -113,10 +113,22 @@ export default function ContiClienti() {
 
   // "Già conteggiato" (Fatto conto = Si): il rapportino resta da riscuotere, ma si sa che è già nel conto fatto al cliente
   const conteggiato = (r: Rapporto) => /^s/i.test(r.fatto_conto ?? "");
-  const segnaConteggiati = async (ids: number[], si: boolean) => {
+  // Data del conto: oggi, oppure quella di un conto già fatto per il cliente (rapportino dimenticato)
+  const [chiediData, setChiediData] = useState<{ ids: number[]; conti: { data: string; n: number; tot: number }[] } | null>(null);
+  const chiediConto = (ids: number[]) => {
+    const conti = new Map<string, { data: string; n: number; tot: number }>();
+    for (const r of (rapporti ?? []).filter((r) => conteggiato(r) && r.conteggiato_il && !pagatiOra.has(r.id))) {
+      const c = conti.get(r.conteggiato_il!) ?? { data: r.conteggiato_il!, n: 0, tot: 0 };
+      c.n++; c.tot += r.importo; conti.set(c.data, c);
+    }
+    if (!conti.size) return segnaConteggiati(ids, true);
+    setChiediData({ ids, conti: [...conti.values()].sort((a, b) => b.data.localeCompare(a.data)) });
+  };
+  const segnaConteggiati = async (ids: number[], si: boolean, dataConto?: string) => {
     if (!ids.length) return;
-    const { data, error } = await supabase.rpc("segna_conteggiati", { p_rapporti: ids, p_conteggiati: si });
-    if (error) return setStato(/segna_conteggiati|function/i.test(error.message) ? "Esegui su Supabase lo script 0061" : "Errore: " + error.message);
+    setChiediData(null);
+    const { data, error } = await supabase.rpc("segna_conteggiati", { p_rapporti: ids, p_conteggiati: si, ...(dataConto ? { p_data: dataConto } : {}) });
+    if (error) return setStato(/segna_conteggiati|function/i.test(error.message) ? `Esegui su Supabase lo script ${dataConto ? "0063" : "0061"}` : "Errore: " + error.message);
     setStato(`${data} ${data === 1 ? "rapportino segnato" : "rapportini segnati"} ${si ? "già conteggiati" : "da conteggiare"}`);
     setScelti(new Set());
     await ricarica();
@@ -302,7 +314,7 @@ export default function ContiClienti() {
                               const daSegnare = sel.filter((r) => !conteggiato(r)).map((r) => r.id);
                               const daTogliere = sel.filter(conteggiato).map((r) => r.id);
                               return <>
-                                <button className="btn verde-conteggio" disabled={!daSegnare.length} onClick={() => segnaConteggiati(daSegnare, true)}>
+                                <button className="btn verde-conteggio" disabled={!daSegnare.length} onClick={() => chiediConto(daSegnare)}>
                                   ✓ Segna già conteggiati{daSegnare.length ? ` (${daSegnare.length})` : ""}
                                 </button>
                                 {daTogliere.length > 0 && <button className="btn grigio" onClick={() => segnaConteggiati(daTogliere, false)}>Togli conteggiato ({daTogliere.length})</button>}
@@ -323,6 +335,25 @@ export default function ContiClienti() {
         </table>
       )}
 
+      {chiediData && (
+        <div className="velo" onMouseDown={() => setChiediData(null)}>
+          <div className="finestra finestra-data-conto" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo">In quale conto metti {chiediData.ids.length === 1 ? "il rapportino" : `i ${chiediData.ids.length} rapportini`}?</div>
+            <div className="finestra-corpo">
+              <button className="dc-scelta oggi" onClick={() => segnaConteggiati(chiediData.ids, true)}>
+                <b>Conto di oggi</b><span>{new Date().toLocaleDateString("it-IT")} · i giorni partono da oggi</span>
+              </button>
+              {chiediData.conti.map((c) => (
+                <button key={c.data} className="dc-scelta" onClick={() => segnaConteggiati(chiediData.ids, true, c.data)}>
+                  <b>Aggiungi al conto del {dataIt(c.data)}</b>
+                  <span>{c.n} {c.n === 1 ? "rapportino" : "rapportini"} · {euro(c.tot)} · {giorniDa(c.data)} giorni fa</span>
+                </button>
+              ))}
+            </div>
+            <div className="finestra-piede"><span style={{ flex: 1 }} /><button className="btn grigio" onClick={() => setChiediData(null)}>Annulla</button></div>
+          </div>
+        </div>
+      )}
       {sceltaStampa && (() => {
         const s = sceltaStampa;
         const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));

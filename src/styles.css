@@ -2412,3 +2412,11 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .data-conteggio.giorni-verde { color: #1d7a3a; }
 .data-conteggio.giorni-arancio { color: #9a4a0c; }
 .data-conteggio.giorni-rosso { color: #b42318; font-weight: 600; }
+/* Conti clienti: scelta del conto (oggi o uno già fatto) */
+.finestra-data-conto { width: min(460px, 100%); }
+.finestra-data-conto .finestra-corpo { display: flex; flex-direction: column; gap: 8px; }
+.dc-scelta { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 14px; border: 1px solid var(--bordo); border-radius: 10px; background: var(--carta); color: var(--testo); font: inherit; cursor: pointer; }
+.dc-scelta:hover { border-color: #1d7a3a; background: #f3f8f4; }
+.dc-scelta span { font-size: 12.5px; color: var(--tenue); }
+.dc-scelta.oggi { border-color: #1d7a3a; }
+.dc-scelta.oggi b { color: #1d7a3a; }
