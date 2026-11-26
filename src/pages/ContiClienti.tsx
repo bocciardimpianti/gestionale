@@ -307,6 +307,7 @@ export default function ContiClienti() {
                   <b>Rapportini da stampare</b>
                   <span style={{ flex: 1 }} />
                   <button className="link" onClick={() => cambia({ ids: new Set(lista.filter(conteggiato).map((r) => r.id)) })}>Solo già conteggiati</button>
+                  <button className="link" onClick={() => cambia({ ids: new Set(lista.filter((r) => !conteggiato(r)).map((r) => r.id)) })}>Solo non conteggiati</button>
                   <button className="link" onClick={() => cambia({ ids: new Set(lista.map((r) => r.id)) })}>Tutti</button>
                   <button className="link" onClick={() => cambia({ ids: new Set() })}>Nessuno</button>
                 </div>
