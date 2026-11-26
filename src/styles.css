@@ -2347,3 +2347,8 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
   .dr-scelta button { flex: 1; justify-content: center; }
   .dr-tot b { font-size: 17px; }
 }
+.barra-righe .btn.fattura-tutto { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; color: #fff; background: #1d7a3a; margin-left: 8px; }
+.barra-righe .btn.fattura-tutto:hover { background: #17652f; color: #fff; }
+.barra-righe-telefono .btn.fattura-tutto { display: flex; justify-content: center; align-items: center; gap: 8px; color: #fff; background: #1d7a3a; font-size: 14px; }
+.barra-righe-telefono .btn.fattura-tutto + .btn.dividi { grid-column: auto; }
+.barra-righe .btn.fattura-tutto + .btn.dividi { margin-left: 8px; }
