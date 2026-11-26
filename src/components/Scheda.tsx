@@ -778,13 +778,13 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         {!telefono && <div className="tabella-righe">
           <table>
             <thead>
-              <tr><th style={{ width: 16 }} />{divisibile && <th className="cella-fattura" title="Fatturare o preventivo non approvato">Fatt.</th>}<th className="foto-cella" aria-label="Foto" />{rc.colonne.map((c) => <th key={c.chiave} style={{ width: c.larghezza }}>{c.titolo}</th>)}</tr>
+              <tr><th style={{ width: 16 }} />{divisione?.diviso && <th className="cella-fattura" title="Fatturare o preventivo non approvato">Fatt.</th>}<th className="foto-cella" aria-label="Foto" />{rc.colonne.map((c) => <th key={c.chiave} style={{ width: c.larghezza }}>{c.titolo}</th>)}</tr>
             </thead>
             <tbody>
               {righe.map((r, i) => (
                 <tr key={i} className={`${i === rigaSel ? "attiva" : ""}${r.non_approvato ? " non-approvata" : ""}`} onClick={() => setRigaSel(i)}>
                   <td className="indicatore-riga">{i === rigaSel ? "▸" : ""}</td>
-                  {divisibile && <td className="cella-fattura">
+                  {divisione?.diviso && <td className="cella-fattura">
                     <button type="button" disabled={!modificabile} className={r.non_approvato ? "prev" : "fattura"}
                       title={r.non_approvato ? "Preventivo non approvato (tocca per fatturarlo)" : "Da fatturare (tocca per metterlo nei preventivi non approvati)"}
                       onClick={(e) => { e.stopPropagation(); segna(); setRighe((rr) => rr.map((x, j) => (j === i ? { ...x, non_approvato: !x.non_approvato } : x))); }}>
