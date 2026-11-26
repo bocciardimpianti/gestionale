@@ -1919,7 +1919,7 @@ tr.oltre .barra-soglia span { background: #e5484d; }
 .azioni-conto { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 @media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
   .tabella-conti thead { display: none; }
-  .tabella-conti > tbody > tr:not(.dettaglio-conto) { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "f c i" "f d s"; padding: 8px 4px; border-bottom: 1px solid var(--bordo); }
+  .tabella-conti > tbody > tr:not(.dettaglio-conto) { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "f c i" "f d na" "f . s"; padding: 8px 4px; border-bottom: 1px solid var(--bordo); }
   .tabella-conti > tbody > tr:not(.dettaglio-conto) > td { border: none; padding: 2px 4px; }
   .tabella-conti > tbody > tr > td.freccia { grid-area: f; }
   .tabella-conti > tbody > tr > td:nth-child(2) { grid-area: c; }
@@ -1927,16 +1927,18 @@ tr.oltre .barra-soglia span { background: #e5484d; }
   .tabella-conti > tbody > tr > td:nth-child(4) { grid-area: d; font-size: 12px; color: var(--tenue); }
   .tabella-conti > tbody > tr > td:nth-child(4)::before { content: "dal "; }
   .tabella-conti > tbody > tr > td.importo-conto { grid-area: i; min-width: 0; }
-  .tabella-conti > tbody > tr > td:nth-child(6) { grid-area: s; justify-self: end; }
+  .tabella-conti > tbody > tr > td.importo-na { grid-area: na; justify-self: end; }
+  .tabella-conti > tbody > tr > td:nth-child(7) { grid-area: s; justify-self: end; }
   .dettaglio-conto, .dettaglio-conto > td { display: block; padding: 8px !important; }
   .rapporti-conto thead { display: none; }
-  .rapporti-conto tr { display: grid; grid-template-columns: 26px auto 1fr auto 30px; grid-template-areas: "s n d i l" "s t t t t" "s a a a a"; gap: 2px 8px; padding: 7px 0; border-bottom: 1px solid #edf0f1; align-items: center; }
+  .rapporti-conto tr { display: grid; grid-template-columns: 26px auto 1fr auto 30px; grid-template-areas: "s n d i l" "s t t m m" "s a a a a"; gap: 2px 8px; padding: 7px 0; border-bottom: 1px solid #edf0f1; align-items: center; }
   .rapporti-conto td { border: none; padding: 0; }
   .rapporti-conto td.sel { grid-area: s; align-self: start; }
   .rapporti-conto td.num { grid-area: n; font-weight: 600; }
   .rapporti-conto td.data { grid-area: d; color: var(--tenue); font-size: 12.5px; }
   .rapporti-conto td.imp { grid-area: i; font-weight: 700; }
   .rapporti-conto td.apri { grid-area: l; }
+  .rapporti-conto td.imp-na { grid-area: m; justify-self: end; }
   .rapporti-conto td.tec { grid-area: t; font-size: 13px; color: #1f5fbf; }
   .dettaglio-conto > td { display: block !important; }
   .rapporti-conto td.fatto { display: none; }
@@ -2352,3 +2354,7 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .barra-righe-telefono .btn.fattura-tutto { display: flex; justify-content: center; align-items: center; gap: 8px; color: #fff; background: #1d7a3a; font-size: 14px; }
 .barra-righe-telefono .btn.fattura-tutto + .btn.dividi { grid-column: auto; }
 .barra-righe .btn.fattura-tutto + .btn.dividi { margin-left: 8px; }
+/* Conti clienti: preventivi non approvati (rapportini divisi), a parte in arancione */
+.carta-conto.prev-na { background: #fff4ea; border-color: #f0c39d; }
+.carta-conto.prev-na b { color: #b5531a; }
+.bollino-na { display: inline-block; color: #b5531a; background: #fde9d9; border-radius: 10px; padding: 1px 8px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }

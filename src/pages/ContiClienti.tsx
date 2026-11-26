@@ -10,9 +10,11 @@ import { controllaConti } from "../notifiche";
 // dal più alto. Soglia di avviso (2500 € per tutti, modificabile anche per singolo cliente): oltre la soglia
 // il cliente è in rosso, nel menu compare il numero di clienti oltre soglia e arriva una notifica.
 
-type Conto = { cliente_id: number; cliente: string; telefono: string | null; rapporti: number; totale: number; dal: string; al: string;
+// non_approvato: preventivi non approvati dei rapportini divisi (script 0061). Si vedono a parte, in arancione:
+// non entrano nel "Da riscuotere" né nella soglia, ma il cliente li ha in sospeso.
+type Conto = { cliente_id: number; cliente: string; telefono: string | null; rapporti: number; totale: number; non_approvato: number; dal: string; al: string;
   soglia: number; soglia_personale: boolean; oltre: boolean };
-type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; fatto_conto: string | null };
+type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; non_approvato: number; fatto_conto: string | null };
 
 const euro = (v: number) => Number(v ?? 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const numero = (s: string) => Number(s.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, ""));
@@ -37,7 +39,7 @@ export default function ContiClienti() {
     await carica();
     if (clienteAperto) {
       const { data } = await supabase.rpc("rapporti_da_riscuotere_cliente", { p_cliente: clienteAperto.cliente_id });
-      setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo) })));
+      setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo), non_approvato: Number(r.non_approvato ?? 0) })));
     }
   };
   const [conti, setConti] = useState<Conto[] | null>(null);
@@ -59,7 +61,7 @@ export default function ContiClienti() {
         : /conti_clienti|function/i.test(error.message) ? "Esegui su Supabase lo script 0040_conti_clienti.sql" : error.message);
     }
     setErrore("");
-    setConti(((data ?? []) as Conto[]).map((c) => ({ ...c, totale: Number(c.totale), soglia: Number(c.soglia) })));
+    setConti(((data ?? []) as Conto[]).map((c) => ({ ...c, totale: Number(c.totale), non_approvato: Number(c.non_approvato ?? 0), soglia: Number(c.soglia) })));
     const { data: s } = await supabase.rpc("soglia_conto_predefinita");
     if (s != null) setSogliaGenerale(String(s).replace(".", ","));
     controllaConti();
@@ -71,7 +73,7 @@ export default function ContiClienti() {
     setAperto(c.cliente_id); setRapporti(null); setScelti(new Set());
     const { data, error } = await supabase.rpc("rapporti_da_riscuotere_cliente", { p_cliente: c.cliente_id });
     if (error) return setStato("Errore: " + error.message);
-    setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo) })));
+    setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo), non_approvato: Number(r.non_approvato ?? 0) })));
   };
 
   const riscuoti = async (ids: number[], cliente: string) => {
@@ -110,6 +112,8 @@ export default function ContiClienti() {
     return (conti ?? []).filter((c) => (!soloOltre || c.oltre) && (!q || c.cliente.toLowerCase().includes(q)));
   }, [conti, cerca, soloOltre]);
   const totale = (conti ?? []).reduce((s, c) => s + c.totale, 0);
+  const totaleNo = (conti ?? []).reduce((s, c) => s + c.non_approvato, 0);
+  const conPrev = (conti ?? []).filter((c) => c.non_approvato > 0).length;
   const oltre = (conti ?? []).filter((c) => c.oltre);
 
   return (
@@ -129,6 +133,7 @@ export default function ContiClienti() {
 
       <div className="riepilogo-conti">
         <div className="carta-conto"><span>Da riscuotere in totale</span><b>{euro(totale)}</b><small>{conti?.length ?? 0} clienti</small></div>
+        <div className="carta-conto prev-na"><span>Preventivi non approvati</span><b>{euro(totaleNo)}</b><small>{conPrev ? `${conPrev} ${conPrev === 1 ? "cliente" : "clienti"} · non compresi nel da riscuotere` : "nessuno"}</small></div>
         <button className={`carta-conto${oltre.length ? " allarme" : ""}${soloOltre ? " attiva" : ""}`} onClick={() => setSoloOltre(!soloOltre)}
           title={soloOltre ? "Mostra tutti i clienti" : "Mostra solo i clienti oltre la soglia"}>
           <span>{oltre.length ? <><AlertTriangle size={15} /> Oltre la soglia</> : "Oltre la soglia"}</span>
@@ -149,7 +154,7 @@ export default function ContiClienti() {
 
       {visibili.length > 0 && (
         <table className="griglia tabella-conti">
-          <thead><tr><th /><th>Cliente</th><th className="destra">Rapportini</th><th>Dal</th><th className="destra">Da riscuotere</th><th>Soglia</th></tr></thead>
+          <thead><tr><th /><th>Cliente</th><th className="destra">Rapportini</th><th>Dal</th><th className="destra">Da riscuotere</th><th className="destra">Prev. non approvati</th><th>Soglia</th></tr></thead>
           <tbody>
             {visibili.map((c) => (
               <Fragment key={c.cliente_id}>
@@ -165,6 +170,7 @@ export default function ContiClienti() {
                     <b>{euro(c.totale)}</b>
                     <span className="barra-soglia"><span style={{ width: `${Math.min(100, (c.totale / Math.max(c.soglia, 1)) * 100)}%` }} /></span>
                   </td>
+                  <td className="destra importo-na">{c.non_approvato > 0 ? <span className="bollino-na">{euro(c.non_approvato)}</span> : ""}</td>
                   <td onClick={(e) => e.stopPropagation()}>
                     {puoModificare ? (
                       <span className="campo-soglia">
@@ -177,7 +183,7 @@ export default function ContiClienti() {
                   </td>
                 </tr>
                 {aperto === c.cliente_id && (
-                  <tr className="dettaglio-conto"><td colSpan={6}>
+                  <tr className="dettaglio-conto"><td colSpan={7}>
                     {!rapporti && <p className="piccolo">Caricamento…</p>}
                     {rapporti && (
                       <>
@@ -185,7 +191,7 @@ export default function ContiClienti() {
                           <thead><tr>
                             {puoModificare && <th><input type="checkbox" aria-label="Tutti" checked={scelti.size === rapporti.length && rapporti.length > 0}
                               onChange={(e) => setScelti(e.target.checked ? new Set(rapporti.map((r) => r.id)) : new Set())} /></th>}
-                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Fatto conto</th><th className="destra">Importo</th><th />
+                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Fatto conto</th><th className="destra">Importo</th><th className="destra">Prev. non appr.</th><th />
                           </tr></thead>
                           <tbody>
                             {rapporti.map((r) => (
@@ -197,7 +203,8 @@ export default function ContiClienti() {
                                 <td className="cella-tecnico tec">{r.tecnico}</td>
                                 <td className="attivita-conto" title={r.attivita ?? ""}>{r.attivita}</td>
                                 <td className="fatto">{r.fatto_conto}</td>
-                                <td className="destra imp">{euro(r.importo)}</td>
+                                <td className="destra imp">{r.importo ? euro(r.importo) : ""}</td>
+                                <td className="destra imp-na">{r.non_approvato > 0 ? <span className="bollino-na">{euro(r.non_approvato)}</span> : ""}</td>
                                 <td className="apri"><button className="link" title="Apri il rapportino" onClick={() => apriRapporto(r.id)}><ExternalLink size={15} /></button></td>
                               </tr>
                             ))}
