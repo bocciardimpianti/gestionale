@@ -33,13 +33,13 @@ language sql stable security definer set search_path = public as $$
   order by r.data, r.id
 $$;
 
--- Segna (o toglie) "già conteggiato" sui rapportini scelti: campo Fatto conto = Si / vuoto
+-- Segna (o toglie) "già conteggiato" sui rapportini scelti: campo Fatto conto = Si / vuoto (solo amministratori)
 create or replace function public.segna_conteggiati(p_rapporti bigint[], p_conteggiati boolean) returns int
 language plpgsql security definer set search_path = public as $$
 declare n int;
 begin
-  if not (public.puo('conti_clienti', 'modificare') or public.puo('rapporti', 'modificare')) then
-    raise exception 'Non hai il permesso di modificare i conti';
+  if not public.is_admin() then
+    raise exception 'Solo un amministratore può segnare i rapportini come conteggiati';
   end if;
   update rapporti set fatto_conto = case when p_conteggiati then 'Si' else null end
   where id = any(p_rapporti) and eliminato_il is null;

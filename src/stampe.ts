@@ -411,3 +411,66 @@ export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; ti
 </script>
 </body></html>`;
 }
+
+// Conto per il cliente: i rapportini già conteggiati (Conti Clienti), con i materiali di ciascuno e il totale.
+// Senza i preventivi non approvati. In fondo il piè di pagina dei preventivi (es. IBAN), se impostato.
+export type RapportoConto = { numero: number | null; data: string; attivita: string | null; importo: number;
+  materiali: { descrizione: string; quantita: number | null; unita_misura: string | null }[] };
+export function stampaConto(cliente: string, rapporti: RapportoConto[], piede: PiedePreventivo | null) {
+  const totale = Math.round(rapporti.reduce((t, r) => t + Number(r.importo || 0), 0) * 100) / 100;
+  const oggi = new Date().toLocaleDateString("it-IT");
+  const titolo = `Riepilogo interventi – ${cliente}`;
+  const qta = (v: unknown) => (v == null || v === "" ? "" : Number(v).toLocaleString("it-IT", { maximumFractionDigits: 2 }));
+  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(titolo)}</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font: 11.5px Calibri, Arial, sans-serif; color: #222; margin: 0; }
+  .testa { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .azienda img { height: 80px; display: block; }
+  .azienda h1 { color: #1e88e5; font-size: 16px; margin: 8px 0 3px; }
+  .azienda div { font-size: 11px; line-height: 1.35; }
+  .dest { border: 1.5px solid #1e88e5; background: #eef6fd; padding: 8px 10px; margin-top: 12px; }
+  .dest .etichetta { font-size: 9.5px; color: #555; }
+  .dest .nome { color: #1e88e5; font-size: 16px; font-weight: 700; margin-top: 4px; }
+  h2 { font-size: 17px; margin: 18px 0 2px; }
+  .sotto { color: #555; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #a9d1f5; font-size: 10.5px; text-align: left; padding: 4px 6px; }
+  th.importo, td.importo { text-align: right; width: 95px; white-space: nowrap; }
+  tr.rapporto td { background: #dcecfb; padding: 5px 6px; font-weight: 600; vertical-align: top; border-top: 4px solid #fff; }
+  tr.materiale td { padding: 2px 6px 2px 22px; font-size: 10.5px; color: #444; }
+  tr.materiale td.q { padding-left: 6px; width: 70px; text-align: right; white-space: nowrap; }
+  tr { break-inside: avoid; }
+  .totale { margin: 12px 0 0 auto; width: 45%; background: #1e88e5; color: #fff; padding: 8px 12px; display: flex; justify-content: space-between; align-items: baseline; break-inside: avoid; }
+  .totale b { font-size: 18px; }
+  .nota { font-size: 10px; color: #555; margin-top: 6px; text-align: right; }
+  .piede { margin-top: 22px; border-top: 1px solid #1e88e5; padding-top: 6px; font-size: 10.5px; text-align: center; color: #333; break-inside: avoid; }
+</style></head><body>
+<div class="testa">
+  <div class="azienda">
+    <img src="${logo()}" alt="">
+    <h1>${esc(AZIENDA.nome)}</h1>
+    <div>${esc(AZIENDA.indirizzo)}<br>P.Iva/C.F.: ${esc(AZIENDA.piva)}<br>Tel. ${esc(AZIENDA.telefono)}<br>E-mail: ${esc(AZIENDA.email)}</div>
+  </div>
+  <div>
+    <div class="dest"><div class="etichetta">Spett.le</div><div class="nome">${esc(cliente)}</div></div>
+    <div style="text-align: right; margin-top: 8px">Staffoli, ${oggi}</div>
+  </div>
+</div>
+<h2>Riepilogo interventi</h2>
+<div class="sotto">${rapporti.length} ${rapporti.length === 1 ? "intervento" : "interventi"}${rapporti.length ? ` dal ${dataIt(rapporti[0].data)} al ${dataIt(rapporti[rapporti.length - 1].data)}` : ""}</div>
+<table>
+  <thead><tr><th style="width: 95px">Data</th><th>Intervento</th><th class="importo">Importo</th></tr></thead>
+  <tbody>
+    ${rapporti.map((r) => `
+    <tr class="rapporto"><td>${dataIt(r.data)}<br><span style="font-weight: 400; font-size: 10px">n. ${esc(r.numero)}</span></td><td>${esc(r.attivita || "Intervento tecnico").replace(/\n/g, "<br>")}</td><td class="importo">${euro(r.importo) || "0,00 €"}</td></tr>
+    ${r.materiali.map((m) => `<tr class="materiale"><td></td><td>${esc(m.descrizione)}</td><td class="q">${qta(m.quantita)} ${esc(m.unita_misura ?? "")}</td></tr>`).join("")}`).join("")}
+  </tbody>
+</table>
+<div class="totale"><span>Totale</span><b>${euro(totale) || "0,00 €"}</b></div>
+<div class="nota">Importi IVA esclusa</div>
+${piede && (piede.riga1 || piede.riga2) ? `<div class="piede">${esc(piede.riga1)}${piede.riga2 ? `<br>${esc(piede.riga2)}` : ""}</div>` : ""}
+<script>window.onload = () => window.print()</script>
+</body></html>`;
+}

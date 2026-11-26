@@ -1,10 +1,11 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Banknote, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, Banknote, Printer, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search } from "lucide-react";
 import Scheda from "../components/Scheda";
 import { ARCHIVI } from "../archivi";
 import { dataIt, supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { controllaConti } from "../notifiche";
+import { stampaConto, type PiedePreventivo } from "../stampe";
 
 // Conti Clienti: per ogni cliente il totale dei rapportini eseguiti e non ancora riscossi (casella "Pagata"),
 // dal più alto. Soglia di avviso (2500 € per tutti, modificabile anche per singolo cliente): oltre la soglia
@@ -96,6 +97,24 @@ export default function ContiClienti() {
     setStato(`${data} ${data === 1 ? "rapportino segnato" : "rapportini segnati"} ${si ? "già conteggiati" : "da conteggiare"}`);
     setScelti(new Set());
     await ricarica();
+  };
+
+  // Stampa per il cliente dei rapportini già conteggiati, con i materiali da fatturare di ciascuno
+  const stampaConteggiati = async (c: Conto) => {
+    const lista = (rapporti ?? []).filter(conteggiato);
+    if (!lista.length) return;
+    const finestra = window.open("", "_blank");
+    if (!finestra) return setStato("Il browser ha bloccato la finestra di stampa: consenti i popup per il gestionale");
+    finestra.document.write("<p style='font-family: sans-serif'>Preparazione della stampa…</p>");
+    const { data: righe } = await supabase.from("righe_rapporto").select("rapporto_id, descrizione, nome_articolo, quantita, unita_misura, non_approvato, ordine")
+      .in("rapporto_id", lista.map((r) => r.id)).order("ordine");
+    const { data: imp } = await supabase.from("impostazioni").select("valore").eq("chiave", "preventivo_piede").maybeSingle();
+    const html = stampaConto(c.cliente, lista.map((r) => ({
+      numero: r.numero, data: r.data, attivita: r.attivita, importo: r.importo,
+      materiali: ((righe ?? []) as Record<string, unknown>[]).filter((x) => x.rapporto_id === r.id && !x.non_approvato && String(x.descrizione || x.nome_articolo || "").trim())
+        .map((x) => ({ descrizione: String(x.descrizione || x.nome_articolo), quantita: x.quantita as number | null, unita_misura: x.unita_misura as string | null })),
+    })), (imp?.valore as PiedePreventivo | undefined) ?? null);
+    finestra.document.open(); finestra.document.write(html); finestra.document.close();
   };
 
   const cambiaSoglia = async (c: Conto, testo: string) => {
@@ -229,7 +248,8 @@ export default function ContiClienti() {
                             </button>
                             <button className="btn grigio" onClick={() => riscuoti(rapporti.map((r) => r.id), c.cliente)}>Riscosso tutto ({euro(c.totale)})</button>
                             <span className="separa-azioni" />
-                            {(() => {
+                            {/* Già conteggiati e stampa del conto: solo amministratori */}
+                            {admin && (() => {
                               const sel = rapporti.filter((r) => scelti.has(r.id));
                               const daSegnare = sel.filter((r) => !conteggiato(r)).map((r) => r.id);
                               const daTogliere = sel.filter(conteggiato).map((r) => r.id);
@@ -238,6 +258,9 @@ export default function ContiClienti() {
                                   ✓ Segna già conteggiati{daSegnare.length ? ` (${daSegnare.length})` : ""}
                                 </button>
                                 {daTogliere.length > 0 && <button className="btn grigio" onClick={() => segnaConteggiati(daTogliere, false)}>Togli conteggiato ({daTogliere.length})</button>}
+                                {rapporti.some(conteggiato) && <button className="btn blu" title="Stampa per il cliente i rapportini già conteggiati" onClick={() => stampaConteggiati(c)}>
+                                  <Printer size={15} /> Stampa conteggiati ({rapporti.filter(conteggiato).length} · {euro(rapporti.filter(conteggiato).reduce((t, r) => t + r.importo, 0))})
+                                </button>}
                               </>;
                             })()}
                           </div>
