@@ -19,7 +19,7 @@ type Conto = { cliente_id: number; cliente: string; telefono: string | null; rap
   soglia: number; soglia_personale: boolean; oltre: boolean };
 type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; non_approvato: number; fatto_conto: string | null; conteggiato_il?: string | null };
 
-type Filtro = "conteggiati" | "non" | "tutti";
+type Filtro = "scelti" | "conteggiati" | "non" | "tutti";
 // Giorni passati da una data (aaaa-mm-gg) a oggi
 const giorniDa = (d: string | null | undefined) => {
   if (!d) return null;
@@ -139,10 +139,17 @@ export default function ContiClienti() {
   const [sceltaStampa, setSceltaStampa] = useState<{ c: Conto; ids: Set<number>; filtro: Filtro } & OpzioniConto | null>(null);
   const apriStampa = (c: Conto) => {
     const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
-    const cont = lista.filter(conteggiato);
-    setSceltaStampa({ c, filtro: cont.length ? "conteggiati" : "tutti", ids: new Set((cont.length ? cont : lista).map((r) => r.id)), materiali: true, prezzi: false, nonApprovati: lista.some((r) => r.non_approvato > 0) });
+    setSceltaStampa({ c, ...filtroIniziale(lista), materiali: true, prezzi: false, nonApprovati: lista.some((r) => r.non_approvato > 0) });
   };
-  const passa = (r: Rapporto, f: Filtro) => f === "tutti" || (f === "conteggiati") === conteggiato(r);
+  // "scelti": i rapportini spuntati nell'elenco del cliente prima di aprire la finestra
+  const passa = (r: Rapporto, f: Filtro) => f === "tutti" || (f === "scelti" ? scelti.has(r.id) : (f === "conteggiati") === conteggiato(r));
+  // Filtro iniziale delle finestre: i rapportini spuntati, se ce ne sono; altrimenti i già conteggiati o tutti
+  const filtroIniziale = (lista: Rapporto[]): { filtro: Filtro; ids: Set<number> } => {
+    const sel = lista.filter((r) => scelti.has(r.id));
+    if (sel.length) return { filtro: "scelti", ids: new Set(sel.map((r) => r.id)) };
+    const cont = lista.filter(conteggiato);
+    return cont.length ? { filtro: "conteggiati", ids: new Set(cont.map((r) => r.id)) } : { filtro: "tutti", ids: new Set(lista.map((r) => r.id)) };
+  };
   const stampa = async () => {
     if (!sceltaStampa) return;
     const { c, ids, filtro: _f, ...opzioni } = sceltaStampa;
@@ -175,8 +182,7 @@ export default function ContiClienti() {
   const [sceltaEf, setSceltaEf] = useState<SceltaEf | null>(null);
   const apriEasyfatt = (c: Conto) => {
     const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
-    const cont = lista.filter(conteggiato);
-    setSceltaEf({ c, filtro: cont.length ? "conteggiati" : "tutti", ids: new Set((cont.length ? cont : lista).map((r) => r.id)), modo: "riassunta", ivaMateriali: 22, ivaManodopera: 22 });
+    setSceltaEf({ c, ...filtroIniziale(lista), modo: "riassunta", ivaMateriali: 22, ivaManodopera: 22 });
   };
   const preparaEasyfatt = async () => {
     if (!sceltaEf) return;
@@ -420,10 +426,10 @@ export default function ContiClienti() {
                 <div className="sc-rapidi">
                   <b>Rapportini da fatturare</b>
                   <span style={{ flex: 1 }} />
-                  {(["conteggiati", "non", "tutti"] as Filtro[]).map((f) => (
+                  {([...(lista.some((r) => scelti.has(r.id)) ? ["scelti"] : []), "conteggiati", "non", "tutti"] as Filtro[]).map((f) => (
                     <button key={f} className={`sc-filtro${s.filtro === f ? " attivo" : ""}`}
                       onClick={() => cambia({ filtro: f, ids: new Set(lista.filter((r) => passa(r, f)).map((r) => r.id)) })}>
-                      {{ conteggiati: "Già conteggiati", non: "Non conteggiati", tutti: "Tutti" }[f]} ({lista.filter((r) => passa(r, f)).length})
+                      {{ scelti: "Selezionati", conteggiati: "Già conteggiati", non: "Non conteggiati", tutti: "Tutti" }[f]} ({lista.filter((r) => passa(r, f)).length})
                     </button>
                   ))}
                 </div>
@@ -471,10 +477,10 @@ export default function ContiClienti() {
                   <b>Rapportini da stampare</b>
                   <span style={{ flex: 1 }} />
                   {/* Mostra solo quel gruppo e lo sceglie tutto (poi si toglie a mano quello che non serve) */}
-                  {(["conteggiati", "non", "tutti"] as Filtro[]).map((f) => (
+                  {([...(lista.some((r) => scelti.has(r.id)) ? ["scelti"] : []), "conteggiati", "non", "tutti"] as Filtro[]).map((f) => (
                     <button key={f} className={`sc-filtro${s.filtro === f ? " attivo" : ""}`}
                       onClick={() => cambia({ filtro: f, ids: new Set(lista.filter((r) => passa(r, f)).map((r) => r.id)) })}>
-                      {{ conteggiati: "Già conteggiati", non: "Non conteggiati", tutti: "Tutti" }[f]} ({lista.filter((r) => passa(r, f)).length})
+                      {{ scelti: "Selezionati", conteggiati: "Già conteggiati", non: "Non conteggiati", tutti: "Tutti" }[f]} ({lista.filter((r) => passa(r, f)).length})
                     </button>
                   ))}
                 </div>
