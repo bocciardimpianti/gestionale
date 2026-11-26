@@ -2428,3 +2428,4 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .ef-iva button { border: 0; background: var(--carta); color: var(--testo); padding: 5px 14px; font: inherit; cursor: pointer; }
 .ef-iva button + button { border-left: 1px solid var(--bordo); }
 .ef-iva button.attivo { background: #1e88e5; color: #fff; font-weight: 600; }
+.ef-documento { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }

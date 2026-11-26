@@ -7,7 +7,7 @@ import { useAuth } from "../auth";
 import { controllaConti } from "../notifiche";
 import { stampaConto, type OpzioniConto, type PiedePreventivo } from "../stampe";
 import { serviziRapporto } from "../dividiRapportino";
-import { fatturaEasyfatt, scaricaEasyfatt, type RigaFattura } from "../easyfatt";
+import { fatturaEasyfatt, righeDdt, scaricaEasyfatt, type RigaFattura } from "../easyfatt";
 
 // Conti Clienti: per ogni cliente il totale dei rapportini eseguiti e non ancora riscossi (casella "Pagata"),
 // dal più alto. Soglia di avviso (2500 € per tutti, modificabile anche per singolo cliente): oltre la soglia
@@ -178,11 +178,12 @@ export default function ContiClienti() {
   };
 
   // Fattura per Danea Easy Fatt (file Easyfatt-XML da importare): rapportini scelti, righe riassunte o dettagliate, IVA a scelta
-  type SceltaEf = { c: Conto; ids: Set<number>; filtro: Filtro; modo: "riassunta" | "dettagliata"; ivaMateriali: number; ivaManodopera: number };
+  type SceltaEf = { c: Conto; ids: Set<number>; filtro: Filtro; modo: "riassunta" | "dettagliata"; ivaMateriali: number; ivaManodopera: number;
+    documento: "fattura" | "ddt"; ddtUnaRiga: boolean };
   const [sceltaEf, setSceltaEf] = useState<SceltaEf | null>(null);
   const apriEasyfatt = (c: Conto) => {
     const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
-    setSceltaEf({ c, ...filtroIniziale(lista), modo: "riassunta", ivaMateriali: 22, ivaManodopera: 22 });
+    setSceltaEf({ c, ...filtroIniziale(lista), modo: "riassunta", ivaMateriali: 22, ivaManodopera: 22, documento: "fattura", ddtUnaRiga: false });
   };
   const preparaEasyfatt = async () => {
     if (!sceltaEf) return;
@@ -197,6 +198,17 @@ export default function ContiClienti() {
       supabase.from("righe_rapporto").select("rapporto_id, descrizione, nome_articolo, quantita, unita_misura, prezzo_finale, totale, non_approvato, ordine").in("rapporto_id", ids).order("ordine"),
     ]);
     if (e1 || !cli) return setStato("Errore: cliente non trovato " + (e1?.message ?? ""));
+    const daFare = (x: Record<string, unknown>, id: number) => x.rapporto_id === id && !x.non_approvato && String(x.descrizione || x.nome_articolo || "").trim();
+    // DDT: solo i materiali (senza prezzi), come i DDT fatti in Easy Fatt
+    if (s.documento === "ddt") {
+      const mat = ((righe ?? []) as Record<string, unknown>[]).filter((x) => lista.some((r) => daFare(x, r.id)))
+        .map((x) => ({ descrizione: String(x.descrizione || x.nome_articolo), quantita: Number(x.quantita ?? 1) || 1, um: (x.unita_misura as string) ?? null }));
+      if (!mat.length) return setStato("Nei rapportini scelti non ci sono materiali da mettere nel DDT");
+      scaricaEasyfatt(fatturaEasyfatt(cli as Parameters<typeof fatturaEasyfatt>[0], righeDdt(mat, s.ddtUnaRiga), new Date(), "D"),
+        `DDT ${s.c.cliente} ${new Date().toLocaleDateString("it-IT").replace(/\//g, "-")}`);
+      setStato(`File DDT per Easy Fatt scaricato (${lista.length} ${lista.length === 1 ? "rapportino" : "rapportini"}): importalo in Easy Fatt e completa i dati del trasporto`);
+      return setSceltaEf(null);
+    }
     const out: RigaFattura[] = [];
     for (const r of [...lista].sort((a, b) => a.data.localeCompare(b.data))) {
       const d = ((dati ?? []) as Record<string, unknown>[]).find((x) => x.id === r.id) ?? {};
@@ -421,8 +433,15 @@ export default function ContiClienti() {
         return (
           <div className="velo" onMouseDown={() => setSceltaEf(null)}>
             <div className="finestra finestra-stampa-conto" onMouseDown={(e) => e.stopPropagation()}>
-              <div className="finestra-titolo">Fattura per Easy Fatt – {s.c.cliente}</div>
+              <div className="finestra-titolo">{s.documento === "ddt" ? "DDT" : "Fattura"} per Easy Fatt – {s.c.cliente}</div>
               <div className="finestra-corpo">
+                <div className="ef-documento">
+                  <b>Documento</b>
+                  <span className="ef-iva">
+                    <button className={s.documento === "fattura" ? "attivo" : ""} onClick={() => cambia({ documento: "fattura" })}>Fattura</button>
+                    <button className={s.documento === "ddt" ? "attivo" : ""} onClick={() => cambia({ documento: "ddt" })}>DDT</button>
+                  </span>
+                </div>
                 <div className="sc-rapidi">
                   <b>Rapportini da fatturare</b>
                   <span style={{ flex: 1 }} />
@@ -441,20 +460,27 @@ export default function ContiClienti() {
                   </label>
                 ))}
                 {!visibili3.length && <p className="vuoto-linguetta">Nessun rapportino in questo gruppo.</p>}
-                <div className="sc-opzioni">
+                {s.documento === "ddt" ? (
+                  <div className="sc-opzioni">
+                    <b>Righe del DDT</b>
+                    <label><input type="radio" name="ef-ddt" checked={!s.ddtUnaRiga} onChange={() => cambia({ ddtUnaRiga: false })} /> Una riga per materiale, con quantità e unità di misura</label>
+                    <label><input type="radio" name="ef-ddt" checked={s.ddtUnaRiga} onChange={() => cambia({ ddtUnaRiga: true })} /> Tutti i materiali in una riga, come "n. 20 …", "mt. 100 …"</label>
+                    <span className="piccolo">Senza prezzi. Lo stesso materiale in più rapportini viene sommato. Causale, colli e trasporto li completi in Easy Fatt.</span>
+                  </div>
+                ) : <div className="sc-opzioni">
                   <b>Righe della fattura</b>
                   <label><input type="radio" name="ef-modo" checked={s.modo === "riassunta"} onChange={() => cambia({ modo: "riassunta" })} /> Riassunta: per ogni rapportino l'attività, poi "Materiale" e "Manodopera" con i totali</label>
                   <label><input type="radio" name="ef-modo" checked={s.modo === "dettagliata"} onChange={() => cambia({ modo: "dettagliata" })} /> Dettagliata: ogni materiale con quantità e prezzo, poi manodopera, diritto di chiamata e trasferta</label>
                   <b>IVA</b>
                   <div className="ef-righe-iva"><span>Materiale</span>{iva("ivaMateriali")}<span>Manodopera</span>{iva("ivaManodopera")}</div>
                   <span className="piccolo">I preventivi non approvati non vanno in fattura. Il numero della fattura lo dà Easy Fatt.</span>
-                </div>
+                </div>}
               </div>
               <div className="finestra-piede">
                 <span className="piccolo">{scelti3.length} rapportini · imponibile {euro(scelti3.reduce((t, r) => t + r.importo, 0))}</span>
                 <span style={{ flex: 1 }} />
                 <button className="btn grigio" onClick={() => setSceltaEf(null)}>Annulla</button>
-                <button className="btn blu" disabled={!scelti3.length} onClick={preparaEasyfatt}><FileOutput size={15} /> Scarica file per Easy Fatt</button>
+                <button className="btn blu" disabled={!scelti3.length} onClick={preparaEasyfatt}><FileOutput size={15} /> Scarica {s.documento === "ddt" ? "DDT" : "fattura"} per Easy Fatt</button>
               </div>
             </div>
           </div>
