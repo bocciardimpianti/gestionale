@@ -1,3 +1,4 @@
+import { serviziRapporto, totaliDivisi } from "./dividiRapportino";
 import { dataIt } from "./supabase";
 
 // Dati dell'azienda in intestazione ai documenti
@@ -49,6 +50,11 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   const iva = Number(d.iva ?? 0);
   const totale = Number(d._totale ?? imponibile) * (1 + iva / 100);
   const titolo = `RAPPORTO INTERVENTO N. ${d.numero ?? ""} DEL ${dataIt(d.data)}`;
+  // Rapportino diviso: le voci nei preventivi non approvati si stampano a parte, fuori dal totale
+  const righeNo = righe.filter((r) => r.non_approvato);
+  const totaleNo = totaliDivisi(d, righe).nonApprovato;
+  righe = righe.filter((r) => !r.non_approvato);
+  const serviziNo = serviziRapporto(d).filter((s) => s.nonApprovato);
 
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(titolo)}</title>
 <style>
@@ -94,6 +100,13 @@ export function stampaRapporto(d: Record<string, unknown>, righe: Record<string,
   /* Righe dei materiali che non si spezzano a metà tra due pagine */
   table.materiali tr { break-inside: avoid; }
   .tariffe, .totali, .firma { break-inside: avoid; }
+  .non-approvati { margin-top: 10px; border: 1.5px dashed #c2611a; padding: 4px; break-inside: avoid; }
+  .non-approvati .titolo-na { color: #c2611a; font-weight: 700; font-size: 13px; }
+  .non-approvati .titolo-na span { font-weight: 400; font-size: 10px; }
+  .non-approvati table.materiali th { background: #f6c9a4; }
+  .non-approvati table.materiali td { background: #fdeee2; }
+  .non-approvati table.materiali tr.riempi td { height: 0; }
+  .non-approvati .totale-na { text-align: right; margin-top: 4px; font-size: 12px; }
 </style></head><body>
 <div class="alto">
   <div class="azienda">
@@ -154,6 +167,17 @@ ${senzaPrezzi ? "" : `<div class="tariffe">
   <div style="background: none; min-height: 30px"><div class="etichetta">Iva ${iva ? num(iva) + "%" : ""}</div></div>
   <div class="documento"><div class="etichetta">Totale Documento</div><div class="valore">${euro(totale) || "0,00 €"}</div></div>
 </div>`}
+${righeNo.length || serviziNo.length ? `<div class="non-approvati">
+  <div class="titolo-na">Preventivo non approvato <span>(non compreso nel totale del documento)</span></div>
+  <table class="materiali">
+    <thead><tr><th style="width: 42%">Descrizione</th><th style="width: 10%">Q.tà</th><th style="width: 7%">U.m.</th><th style="width: 18%"></th><th>Totale</th></tr></thead>
+    <tbody>
+      ${righeNo.map((r) => `<tr><td>${esc(r.descrizione || r.nome_articolo)}</td><td>${num(r.quantita)}</td><td style="text-align: center">${esc(r.unita_misura)}</td><td></td><td style="text-align: right">${euro(r.totale)}</td></tr>`).join("")}
+      ${serviziNo.map((x) => `<tr><td>${esc(x.nome)}${x.dettaglio ? ` – ${esc(x.dettaglio)}` : ""}</td><td></td><td></td><td></td><td style="text-align: right">${senzaPrezzi ? "" : euro(x.importo)}</td></tr>`).join("")}
+    </tbody>
+  </table>
+  ${senzaPrezzi ? "" : `<div class="totale-na">Totale preventivo non approvato: <b>${euro(totaleNo)}</b></div>`}
+</div>` : ""}
 <div class="annotazioni"><div class="etichetta">Annotazioni</div>${esc(d.note).replace(/\n/g, "<br>")}</div>
 <div class="firma"><div class="etichetta">Firma Cliente</div>${d._firma_url ? `<img src="${esc(d._firma_url)}" alt="" style="max-height: 70px; max-width: 100%">` : ""}</div>
 <div class="pagina">Pagina: 1 / 1</div>

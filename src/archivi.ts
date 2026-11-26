@@ -1,3 +1,4 @@
+import { totaliDivisi } from "./dividiRapportino";
 import type { Colonna } from "./components/Griglia";
 import { maschioFemmina } from "./testoFoto";
 import { CATEGORIE_IMPIANTI, TIPI_IMPIANTO_TERMICO } from "./impiantiAuto";
@@ -192,21 +193,23 @@ function oreRapporto(dati: Record<string, unknown>, chiave: string) {
   return { totale_ore: Math.round(ore * 100) / 100 };
 }
 
-// Imponibile = materiali + diritto di chiamata + tariffa fissa + ore × tariffa oraria + km × tariffa km
+// Imponibile = materiali + diritto di chiamata + tariffa fissa + ore × tariffa oraria + km × tariffa km.
+// Rapportino diviso (dividiRapportino.ts): le voci messe nei "Preventivi non approvati" non entrano nell'imponibile.
 function totaliRapporto(dati: Record<string, unknown>, righe: Record<string, unknown>[]) {
-  const materiali = righe.reduce((t, r) => t + n(r.totale), 0);
   const prezzoOre = Math.round(n(dati.totale_ore) * n(dati.tariffa_oraria) * 100) / 100;
   const prezzoKm = Math.round(n(dati.km_percorsi) * n(dati.tariffa_km) * 100) / 100;
-  const tariffe = n(dati.diritto_chiamata) + n(dati.tariffa_fissa) + prezzoOre + prezzoKm;
+  const tutteTariffe = n(dati.diritto_chiamata) + n(dati.tariffa_fissa) + prezzoOre + prezzoKm;
+  const d = totaliDivisi(dati, righe);
   // I rapporti importati non hanno righe né tariffe: si conserva l'imponibile originale
-  const calcolato = righe.length || tariffe ? Math.round((materiali + tariffe) * 100) / 100 : n(dati.imponibile);
+  const calcolato = righe.length || tutteTariffe ? d.daFatturare : n(dati.imponibile);
   const imponibile = dati.azzera_imponibile ? 0 : calcolato;
   return {
     imponibile,
+    totale_non_approvato: d.nonApprovato,
     _totale: dati.considera_totale_preventivo ? n(dati.totale_preventivo) : imponibile,
     _prezzo_ore: prezzoOre,
     _prezzo_km: prezzoKm,
-    _totale_servizi: Math.round(tariffe * 100) / 100,
+    _totale_servizi: d.serviziSi,
   };
 }
 
@@ -580,6 +583,8 @@ export const ARCHIVI: Record<string, Archivio> = {
     titolo: "Rapporti di intervento",
     visteRapide: [
       { nome: "Foto matricola da fare (unità esterne)", filtro: (r) => !!r.matricola_da_fare && !r.foto_matricola, ordine: { chiave: "data", su: false } },
+      // Rapportini divisi: voci lasciate nei "Preventivi non approvati" (script 0060)
+      { nome: "Con preventivi non approvati", filtro: (r) => Number(r.totale_non_approvato ?? 0) > 0, ordine: { chiave: "data", su: false } },
     ],
     titoloNuovo: "Nuovo intervento tecnico",
     titoloScheda: (v) => `Intervento tecnico N. ${v.numero ?? ""} - ${v.cliente ?? ""}`,
@@ -653,6 +658,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "tecnico_vecchio", titolo: "Tecnico Vecchio", excel: "Tecnico Vecchio", larghezza: 70, classe: "cella-tecnico" },
       { chiave: "attivita", titolo: "Attività svolte", excel: "Attività svolte", larghezza: 202 },
       { chiave: "imponibile", titolo: "Imponibile", excel: "Imponibile", larghezza: 74, tipo: "euro", somma: true },
+      { chiave: "totale_non_approvato", titolo: "Prev. non approvati", excel: "Preventivi non approvati", larghezza: 74, tipo: "euro", somma: true },
       { chiave: "azzera_imponibile", titolo: "Azzera Imponibile", excel: "Azzera Imponibile", larghezza: 45, tipo: "booleano" },
       { chiave: "fatto_conto", titolo: "Fatto conto", excel: "Fatto conto", larghezza: 45 },
       { chiave: "pagata", titolo: "Pagata", excel: "Pagata", larghezza: 49, tipo: "booleano" },
@@ -725,6 +731,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "_prezzo_ore", etichetta: "Totale prezzo oraria", tipo: "euro", solaLettura: true, larghezza: 1, linguetta: "Tariffe" },
       { chiave: "_totale_servizi", etichetta: "Totale servizi", tipo: "euro", solaLettura: true, larghezza: 1, linguetta: "Tariffe" },
       { chiave: "km_percorsi", etichetta: "KM percorsi", tipo: "numero", larghezza: 1, linguetta: "Tariffe" },
+      // Servizi messi nei "Preventivi non approvati" con "Dividi rapportino" (non si mostra: si cambia dalla finestra)
+      { chiave: "servizi_non_approvati", etichetta: "Servizi non approvati", larghezza: 1, linguetta: "Tariffe", mostraSe: () => false },
     ],
     righe: {
       tabella: "righe_rapporto",
@@ -755,6 +763,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "considera_totale_preventivo", etichetta: "Considera totale preventivo", tipo: "booleano" },
       { chiave: "totale_preventivo", etichetta: "Totale Preventivo", tipo: "euro" },
       { chiave: "_totale", etichetta: "Totale", tipo: "euro", solaLettura: true },
+      { chiave: "totale_non_approvato", etichetta: "Preventivi non approvati", tipo: "euro", solaLettura: true },
     ],
   },
   materiali: {
