@@ -2429,3 +2429,24 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .ef-iva button + button { border-left: 1px solid var(--bordo); }
 .ef-iva button.attivo { background: #1e88e5; color: #fff; font-weight: 600; }
 .ef-documento { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.rapporti-conto .tec-sotto { display: none; }
+/* Conti clienti su tablet (in verticale): tutto dentro lo schermo, senza scorrere di lato */
+@media (min-width: 761px) and (max-width: 1200px) {
+  .tabella-conti { font-size: 14px; }
+  .tabella-conti td, .tabella-conti th { padding: 6px 5px; }
+  .tabella-conti th { font-size: 12.5px; line-height: 1.2; }
+  .tabella-conti .campo-soglia input { width: 64px; }
+  .tabella-conti .barra-soglia { width: 110px; max-width: 100%; }
+  .tabella-conti > tbody > tr > td:nth-child(3), .tabella-conti > thead > tr > th:nth-child(3) { width: 1%; }
+  .rapporti-conto { font-size: 13px; }
+  .rapporti-conto th, .rapporti-conto td { padding: 5px 4px; }
+  .rapporti-conto td.num, .rapporti-conto td.data, .rapporti-conto td.imp { white-space: nowrap; }
+  /* Il tecnico va sotto la data, l'attività va a capo (al massimo 2 righe) */
+  .rapporti-conto th.tec, .rapporti-conto td.tec { display: none; }
+  .rapporti-conto .tec-sotto { display: block; font-size: 11.5px; color: #1f5fbf; white-space: normal; }
+  .attivita-conto { max-width: none; white-space: normal; }
+  .attivita-conto .testo-attivita { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rapporti-conto td.fatto .bollino-conteggiato { font-size: 11px; padding: 1px 6px; white-space: nowrap; }
+  .rapporti-conto td.fatto { width: 1%; }
+  .azioni-conto .btn { padding-left: 12px; padding-right: 12px; }
+}

@@ -339,7 +339,7 @@ export default function ContiClienti() {
                           <thead><tr>
                             {puoModificare && <th><input type="checkbox" aria-label="Tutti" checked={scelti.size === rapporti.length && rapporti.length > 0}
                               onChange={(e) => setScelti(e.target.checked ? new Set(rapporti.map((r) => r.id)) : new Set())} /></th>}
-                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Conteggiato</th><th className="destra">Importo</th><th className="destra">Prev. non appr.</th><th className="centro">Pagato</th><th />
+                            <th>N.</th><th>Data</th><th className="tec">Tecnico</th><th>Attività</th><th>Conteggiato</th><th className="destra">Importo</th><th className="destra">Prev. non appr.</th><th className="centro">Pagato</th><th />
                           </tr></thead>
                           <tbody>
                             {rapporti.map((r) => (
@@ -347,9 +347,9 @@ export default function ContiClienti() {
                                 {puoModificare && <td className="sel"><input type="checkbox" disabled={pagatiOra.has(r.id)} checked={scelti.has(r.id) && !pagatiOra.has(r.id)} aria-label={`Rapportino ${r.numero}`}
                                   onChange={(e) => setScelti((s) => { const n = new Set(s); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; })} /></td>}
                                 <td className="num">n. {r.numero}</td>
-                                <td className="data">{dataIt(r.data)}</td>
+                                <td className="data">{dataIt(r.data)}{r.tecnico && <span className="tec-sotto">{r.tecnico}</span>}</td>
                                 <td className="cella-tecnico tec">{r.tecnico}</td>
-                                <td className="attivita-conto" title={r.attivita ?? ""}>{r.attivita}</td>
+                                <td className="attivita-conto" title={r.attivita ?? ""}><span className="testo-attivita">{r.attivita}</span></td>
                                 <td className="fatto">{conteggiato(r) ? <span className="bollino-conteggiato">✓ già conteggiato</span> : ""}
                                   {conteggiato(r) && r.conteggiato_il && (() => { const g = giorniDa(r.conteggiato_il)!; return <span className={`data-conteggio ${classeGiorni(g)}`}>il {dataIt(r.conteggiato_il)} · {g} gg</span>; })()}</td>
                                 <td className="destra imp">{r.importo ? euro(r.importo) : ""}</td>
