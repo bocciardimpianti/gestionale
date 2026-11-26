@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { leggiPdfDdt, salvaDdt, type Rec } from "./ddtImport";
+import { scritteDaPdf } from "./ddtPdf";
 
 // Importazione automatica dei DDT arrivati dalla cartella Google Drive (tabella ddt_in_arrivo, script 0057).
 // Il DDT si salva da solo solo se è tutto sicuro: fornitore riconosciuto, numero e data letti, righe abbinate con
@@ -13,6 +14,10 @@ let inCorso: Promise<unknown> | null = null;
 // Passo dell'importazione in corso (mostrato nel riquadro "DDT in arrivo")
 export let passoAttuale = "";
 const TEMPO_MASSIMO = 4 * 60 * 1000;
+/** Messaggio messo da "Riprova": quel PDF non viene più scartato da solo */
+export const RIPROVA_A_MANO = "Rimesso in coda a mano";
+const NON_DDT = /\bpreventiv\w*|\bofferta\b|\bquotazione|\bfattura\b(?!\s+accompagnat)|conferma\s+d['’ ]?ordine|nota\s+di\s+credito|estratto\s+conto|\bvisura\b|sollecito/i;
+const SEMBRA_DDT = /documento\s+di\s+trasporto|doc\w*\.?\s+(di\s+)?trasp|\bd\.?\s?d\.?\s?t\b|bolla\s+di\s+(consegna|accompagnamento)|documento\s+di\s+consegna/i;
 
 /** Chiede alla funzione server di guardare subito la cartella Drive (oltre al controllo ogni 5 minuti) */
 export async function controllaDrive() {
@@ -59,6 +64,15 @@ export async function importaDdtInArrivo(avanzamento: (s: string) => void = () =
         const l = await leggiPdfDdt(file, x.nome_file, p);
         const fornitore = l.fornitori.find((f) => f.id === l.fornitoreId) ?? null;
         if (l.doppione) { await fine("scartato", l.doppione); return; }
+        // Dai fornitori arrivano anche preventivi, fatture, visure…: se il PDF non si legge come un DDT e il testo
+        // non parla di DDT (o dice che è altro) si scarta da solo. Molti DDT (es. Palagini) hanno la scritta
+        // "Documento di trasporto" solo disegnata, per questo conta soprattutto se numero e righe si leggono.
+        const testo = await scritteDaPdf(file).then((s) => s.map((y) => y.s).join(" ")).catch(() => "");
+        const altro = testo.match(NON_DDT)?.[0];
+        const illeggibile = !l.righe.length || !l.ddt.numeroDdt.trim();
+        if (x.messaggio !== RIPROVA_A_MANO && testo.replace(/\s/g, "").length > 80 && !SEMBRA_DDT.test(testo) && (illeggibile || (altro && !fornitore))) {
+          await fine("scartato", `Non sembra un DDT${altro ? ` (c'è scritto: ${altro.toLowerCase()})` : ""}: scartato da solo. Se invece lo è, premi Riprova.`); return;
+        }
         // Cosa impedisce il salvataggio automatico
         const problemi: string[] = [...l.ddt.errori];
         if (!fornitore) problemi.push(`fornitore non riconosciuto${l.ddt.nomeFornitore ? ` (${l.ddt.nomeFornitore})` : ""}`);

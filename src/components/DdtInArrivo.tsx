@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CloudDownload, RefreshCw } from "lucide-react";
 import { supabase } from "../supabase";
-import { controllaDrive, importaDdtInArrivo, type InArrivo } from "../ddtAutomatici";
+import { controllaDrive, importaDdtInArrivo, RIPROVA_A_MANO, type InArrivo } from "../ddtAutomatici";
 import ImportaDdtPdf from "./ImportaDdtPdf";
 
 // DDT di Acquisto: i PDF arrivati dalla cartella Google Drive. Quelli sicuri si importano da soli;
@@ -100,7 +100,7 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
               <button type="button" className="btn blu piccolo-btn" onClick={() => apri(x)}>Controlla</button>
               <button type="button" className="btn grigio piccolo-btn" onClick={() => confirm(`Scartare "${x.nome_file}"? Non verrà importato.`) && cambiaStato(x, "scartato", "Scartato a mano")}>Scarta</button>
             </>}
-            {puoImportare && x.stato === "scartato" && <button type="button" className="btn grigio piccolo-btn" onClick={() => cambiaStato(x, "da_importare", null)}>Riprova</button>}
+            {puoImportare && x.stato === "scartato" && <button type="button" className="btn grigio piccolo-btn" onClick={() => cambiaStato(x, "da_importare", RIPROVA_A_MANO)}>Riprova</button>}
           </div>
         );
       })}
