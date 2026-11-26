@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Banknote, Printer, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, Banknote, FileOutput, Printer, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search } from "lucide-react";
 import Scheda from "../components/Scheda";
 import { ARCHIVI } from "../archivi";
 import { dataIt, supabase } from "../supabase";
@@ -7,6 +7,7 @@ import { useAuth } from "../auth";
 import { controllaConti } from "../notifiche";
 import { stampaConto, type OpzioniConto, type PiedePreventivo } from "../stampe";
 import { serviziRapporto } from "../dividiRapportino";
+import { fatturaEasyfatt, scaricaEasyfatt, type RigaFattura } from "../easyfatt";
 
 // Conti Clienti: per ogni cliente il totale dei rapportini eseguiti e non ancora riscossi (casella "Pagata"),
 // dal più alto. Soglia di avviso (2500 € per tutti, modificabile anche per singolo cliente): oltre la soglia
@@ -169,6 +170,51 @@ export default function ContiClienti() {
     setSceltaStampa(null);
   };
 
+  // Fattura per Danea Easy Fatt (file Easyfatt-XML da importare): rapportini scelti, righe riassunte o dettagliate, IVA a scelta
+  type SceltaEf = { c: Conto; ids: Set<number>; filtro: Filtro; modo: "riassunta" | "dettagliata"; ivaMateriali: number; ivaManodopera: number };
+  const [sceltaEf, setSceltaEf] = useState<SceltaEf | null>(null);
+  const apriEasyfatt = (c: Conto) => {
+    const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
+    const cont = lista.filter(conteggiato);
+    setSceltaEf({ c, filtro: cont.length ? "conteggiati" : "tutti", ids: new Set((cont.length ? cont : lista).map((r) => r.id)), modo: "riassunta", ivaMateriali: 22, ivaManodopera: 22 });
+  };
+  const preparaEasyfatt = async () => {
+    if (!sceltaEf) return;
+    const s = sceltaEf;
+    const lista = (rapporti ?? []).filter((r) => s.ids.has(r.id) && !pagatiOra.has(r.id) && passa(r, s.filtro));
+    if (!lista.length) return;
+    setStato("Preparazione della fattura per Easy Fatt…");
+    const ids = lista.map((r) => r.id);
+    const [{ data: cli, error: e1 }, { data: dati }, { data: righe }] = await Promise.all([
+      supabase.from("clienti").select("nome, codice_fiscale, piva, email, indirizzo_fatturazione, tipologia_pagamento").eq("id", s.c.cliente_id).maybeSingle(),
+      supabase.from("rapporti").select("id, totale_ore, tariffa_oraria, km_percorsi, tariffa_km, diritto_chiamata, tariffa_fissa, servizi_non_approvati, considera_totale_preventivo, totale_preventivo, azzera_imponibile").in("id", ids),
+      supabase.from("righe_rapporto").select("rapporto_id, descrizione, nome_articolo, quantita, unita_misura, prezzo_finale, totale, non_approvato, ordine").in("rapporto_id", ids).order("ordine"),
+    ]);
+    if (e1 || !cli) return setStato("Errore: cliente non trovato " + (e1?.message ?? ""));
+    const out: RigaFattura[] = [];
+    for (const r of [...lista].sort((a, b) => a.data.localeCompare(b.data))) {
+      const d = ((dati ?? []) as Record<string, unknown>[]).find((x) => x.id === r.id) ?? {};
+      out.push({ descrizione: `Intervento del ${dataIt(r.data)} (rapportino n. ${r.numero ?? ""})${r.attivita ? ": " + r.attivita.trim() : ""}` });
+      if (d.azzera_imponibile) continue;
+      if (d.considera_totale_preventivo) { out.push({ descrizione: "Importo concordato", prezzo: Number(d.totale_preventivo ?? 0), iva: s.ivaMateriali }); continue; }
+      const mat = ((righe ?? []) as Record<string, unknown>[]).filter((x) => x.rapporto_id === r.id && !x.non_approvato && (Number(x.totale) || String(x.descrizione || x.nome_articolo || "").trim()));
+      const servizi = serviziRapporto(d).filter((x) => !x.nonApprovato);
+      if (s.modo === "riassunta") {
+        const totMat = mat.reduce((t, x) => t + Number(x.totale ?? 0), 0);
+        const totServ = servizi.reduce((t, x) => t + x.importo, 0);
+        if (totMat) out.push({ descrizione: "Materiale", prezzo: Math.round(totMat * 100) / 100, iva: s.ivaMateriali });
+        if (totServ) out.push({ descrizione: "Manodopera", prezzo: Math.round(totServ * 100) / 100, iva: s.ivaManodopera });
+      } else {
+        for (const x of mat) out.push({ descrizione: String(x.descrizione || x.nome_articolo || "Materiale"), quantita: Number(x.quantita ?? 1) || 1, um: (x.unita_misura as string) ?? "",
+          prezzo: Number(x.prezzo_finale ?? (Number(x.totale ?? 0) / (Number(x.quantita) || 1))), iva: s.ivaMateriali });
+        for (const x of servizi) out.push({ descrizione: x.nome.replace(/\s*\(.*\)$/, "") + (x.dettaglio ? ` (${x.dettaglio})` : ""), prezzo: x.importo, iva: s.ivaManodopera });
+      }
+    }
+    scaricaEasyfatt(fatturaEasyfatt(cli as Parameters<typeof fatturaEasyfatt>[0], out), `Fattura ${s.c.cliente} ${new Date().toLocaleDateString("it-IT").replace(/\//g, "-")}`);
+    setStato(`File per Easy Fatt scaricato (${lista.length} ${lista.length === 1 ? "rapportino" : "rapportini"}): importalo in Easy Fatt e controlla la fattura prima di emetterla`);
+    setSceltaEf(null);
+  };
+
   const cambiaSoglia = async (c: Conto, testo: string) => {
     const t = testo.trim();
     const valore = t === "" ? null : numero(t);
@@ -321,6 +367,9 @@ export default function ContiClienti() {
                                 <button className="btn blu" title="Stampa il conto per il cliente: scegli i rapportini e cosa mettere" onClick={() => apriStampa(c)}>
                                   <Printer size={15} /> Stampa conto…
                                 </button>
+                                <button className="btn easyfatt" title="Prepara la fattura per Danea Easy Fatt con i rapportini scelti" onClick={() => apriEasyfatt(c)}>
+                                  <FileOutput size={15} /> Easy Fatt…
+                                </button>
                               </>;
                             })()}
                           </div>
@@ -354,6 +403,57 @@ export default function ContiClienti() {
           </div>
         </div>
       )}
+      {sceltaEf && (() => {
+        const s = sceltaEf;
+        const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
+        const visibili3 = lista.filter((r) => passa(r, s.filtro));
+        const scelti3 = visibili3.filter((r) => s.ids.has(r.id));
+        const cambia = (v: Partial<SceltaEf>) => setSceltaEf({ ...s, ...v });
+        const iva = (chiave: "ivaMateriali" | "ivaManodopera") => (
+          <span className="ef-iva">{[22, 10].map((v) => <button key={v} className={s[chiave] === v ? "attivo" : ""} onClick={() => cambia({ [chiave]: v })}>{v}%</button>)}</span>
+        );
+        return (
+          <div className="velo" onMouseDown={() => setSceltaEf(null)}>
+            <div className="finestra finestra-stampa-conto" onMouseDown={(e) => e.stopPropagation()}>
+              <div className="finestra-titolo">Fattura per Easy Fatt – {s.c.cliente}</div>
+              <div className="finestra-corpo">
+                <div className="sc-rapidi">
+                  <b>Rapportini da fatturare</b>
+                  <span style={{ flex: 1 }} />
+                  {(["conteggiati", "non", "tutti"] as Filtro[]).map((f) => (
+                    <button key={f} className={`sc-filtro${s.filtro === f ? " attivo" : ""}`}
+                      onClick={() => cambia({ filtro: f, ids: new Set(lista.filter((r) => passa(r, f)).map((r) => r.id)) })}>
+                      {{ conteggiati: "Già conteggiati", non: "Non conteggiati", tutti: "Tutti" }[f]} ({lista.filter((r) => passa(r, f)).length})
+                    </button>
+                  ))}
+                </div>
+                {visibili3.map((r) => (
+                  <label key={r.id} className={`sc-voce${s.ids.has(r.id) ? " scelta" : ""}`}>
+                    <input type="checkbox" checked={s.ids.has(r.id)} onChange={() => { const n = new Set(s.ids); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); cambia({ ids: n }); }} />
+                    <span className="sc-testi"><b>n. {r.numero} · {dataIt(r.data)}</b><span className="piccolo">{r.attivita}</span></span>
+                    <span className="sc-importi"><b>{r.importo ? euro(r.importo) : ""}</b></span>
+                  </label>
+                ))}
+                {!visibili3.length && <p className="vuoto-linguetta">Nessun rapportino in questo gruppo.</p>}
+                <div className="sc-opzioni">
+                  <b>Righe della fattura</b>
+                  <label><input type="radio" name="ef-modo" checked={s.modo === "riassunta"} onChange={() => cambia({ modo: "riassunta" })} /> Riassunta: per ogni rapportino l'attività, poi "Materiale" e "Manodopera" con i totali</label>
+                  <label><input type="radio" name="ef-modo" checked={s.modo === "dettagliata"} onChange={() => cambia({ modo: "dettagliata" })} /> Dettagliata: ogni materiale con quantità e prezzo, poi manodopera, diritto di chiamata e trasferta</label>
+                  <b>IVA</b>
+                  <div className="ef-righe-iva"><span>Materiale</span>{iva("ivaMateriali")}<span>Manodopera</span>{iva("ivaManodopera")}</div>
+                  <span className="piccolo">I preventivi non approvati non vanno in fattura. Il numero della fattura lo dà Easy Fatt.</span>
+                </div>
+              </div>
+              <div className="finestra-piede">
+                <span className="piccolo">{scelti3.length} rapportini · imponibile {euro(scelti3.reduce((t, r) => t + r.importo, 0))}</span>
+                <span style={{ flex: 1 }} />
+                <button className="btn grigio" onClick={() => setSceltaEf(null)}>Annulla</button>
+                <button className="btn blu" disabled={!scelti3.length} onClick={preparaEasyfatt}><FileOutput size={15} /> Scarica file per Easy Fatt</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {sceltaStampa && (() => {
         const s = sceltaStampa;
         const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));

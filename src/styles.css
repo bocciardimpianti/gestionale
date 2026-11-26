@@ -2420,3 +2420,11 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .dc-scelta span { font-size: 12.5px; color: var(--tenue); }
 .dc-scelta.oggi { border-color: #1d7a3a; }
 .dc-scelta.oggi b { color: #1d7a3a; }
+/* Conti clienti: fattura per Danea Easy Fatt */
+.btn.easyfatt { background: #e6511a; color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+.btn.easyfatt:hover { background: #c94415; }
+.ef-righe-iva { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ef-iva { display: inline-flex; border: 1px solid var(--bordo); border-radius: 8px; overflow: hidden; margin-right: 10px; }
+.ef-iva button { border: 0; background: var(--carta); color: var(--testo); padding: 5px 14px; font: inherit; cursor: pointer; }
+.ef-iva button + button { border-left: 1px solid var(--bordo); }
+.ef-iva button.attivo { background: #1e88e5; color: #fff; font-weight: 600; }
