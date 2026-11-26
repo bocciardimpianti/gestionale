@@ -568,7 +568,10 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                   () => { prendiInCarico(rigaSel).then((ok) => { if (ok) carica(); }); })}
                 {cfg.sezione === "rapporti" && !nelCestino && (selezionate.length > 0 || rigaSel) && voce(FileOutput, "#e6511a",
                   selezionate.length > 0 ? `DDT per Easy Fatt dei ${selezionate.length === 1 ? "rapportino spuntato" : `${selezionate.length} rapportini spuntati`}` : `DDT per Easy Fatt del rapportino ${rigaSel?.numero ?? ""}`,
-                  () => ddtEasyfattDaRapporti((selezionate.length ? selezionate : [rigaSel!]).map((r) => Number(r.id))).then(setMessaggio))}
+                  () => ddtEasyfattDaRapporti((selezionate.length ? selezionate : [rigaSel!]).map((r) => Number(r.id)))
+                    // Se il file non parte, il motivo si vede subito (non solo nella riga dei messaggi)
+                    .then((m) => { setMessaggio(m); if (!m.startsWith("File")) alert(m); })
+                    .catch((e) => { const m = "Errore nel DDT per Easy Fatt: " + (e as Error).message; setMessaggio(m); alert(m); }))}
                 {cfg.sezione === "materiali" && selezionate.length > 0 && voce(QrCode, "#123b45", `Etichette QR dei materiali spuntati (${selezionate.length})`,
                   () => stampaEtichette(selezionate).catch((e) => setMessaggio("Errore: " + (e as Error).message)))}
                 {cfg.sezione === "materiali" && !selezionate.length && rigaSel && voce(QrCode, "#123b45", `Etichetta QR di "${nomeDi(rigaSel)}"`,

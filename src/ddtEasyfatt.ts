@@ -13,10 +13,11 @@ export async function ddtEasyfattDaRapporti(ids: number[]): Promise<string> {
   const clienti = [...new Set((rapp ?? []).map((r) => r.cliente_id).filter(Boolean))];
   if (!clienti.length) return "I rapportini scelti non hanno il cliente";
   if (clienti.length > 1) return "Scegli rapportini dello stesso cliente: un DDT è per un solo cliente";
-  const [{ data: cli }, { data: righe }] = await Promise.all([
+  const [{ data: cli, error: e1 }, { data: righe, error: e2 }] = await Promise.all([
     supabase.from("clienti").select("nome, codice_fiscale, piva, email, indirizzo_fatturazione, tipologia_pagamento").eq("id", clienti[0]).maybeSingle(),
     supabase.from("righe_rapporto").select("descrizione, nome_articolo, quantita, unita_misura, non_approvato, ordine").in("rapporto_id", ids).order("ordine"),
   ]);
+  if (e1 || e2) return "Errore: " + (e1 ?? e2)!.message;
   if (!cli) return "Cliente non trovato";
   const mat = ((righe ?? []) as Record<string, unknown>[]).filter((x) => !x.non_approvato && String(x.descrizione || x.nome_articolo || "").trim())
     .map((x) => ({ descrizione: String(x.descrizione || x.nome_articolo), quantita: Number(x.quantita ?? 1) || 1, um: (x.unita_misura as string) ?? null }));
