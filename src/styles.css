@@ -2368,7 +2368,8 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .azioni-conto .separa-azioni { flex: 1; }
 @media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
   .rapporti-conto td.fatto { display: block; grid-area: a; justify-self: start; }
-  .rapporti-conto tr { grid-template-areas: "s n d i l" "s t t m m" "s a a a a" "s c c c c"; }
+  .rapporti-conto tr { grid-template-areas: "s n d i l" "s t t m m" "s a a a a" "s c c p p"; }
+  .rapporti-conto td.pagato { grid-area: p; justify-self: end; }
   .rapporti-conto td.fatto { grid-area: c; }
   .azioni-conto .separa-azioni { display: none; }
 }
@@ -2388,3 +2389,10 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .sc-opzioni label input { width: 18px; height: 18px; }
 .sc-opzioni label.spento { color: var(--tenue); }
 .finestra-stampa-conto .finestra-piede { flex-wrap: wrap; gap: 8px; }
+
+/* Conti clienti: spunta "Pagato" sul singolo rapportino */
+.rapporti-conto th.centro, .rapporti-conto td.centro { text-align: center; }
+.spunta-pagato { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; font-weight: 600; color: #1d7a3a; }
+.spunta-pagato input { width: 18px; height: 18px; accent-color: #1d7a3a; cursor: pointer; }
+.rapporti-conto tr.pagato-ora td:not(.pagato):not(.apri) { text-decoration: line-through; opacity: .55; }
+.rapporti-conto tr.pagato-ora td { background: #f1f8f3; }

@@ -72,7 +72,7 @@ export default function ContiClienti() {
 
   const apri = async (c: Conto) => {
     if (aperto === c.cliente_id) { setAperto(null); return; }
-    setAperto(c.cliente_id); setRapporti(null); setScelti(new Set());
+    setAperto(c.cliente_id); setRapporti(null); setScelti(new Set()); setPagatiOra(new Set());
     const { data, error } = await supabase.rpc("rapporti_da_riscuotere_cliente", { p_cliente: c.cliente_id });
     if (error) return setStato("Errore: " + error.message);
     setRapporti(((data ?? []) as Rapporto[]).map((r) => ({ ...r, importo: Number(r.importo), non_approvato: Number(r.non_approvato ?? 0) })));
@@ -86,6 +86,19 @@ export default function ContiClienti() {
     if (error) return setStato("Errore: " + error.message);
     setStato(`${data} ${data === 1 ? "rapportino segnato" : "rapportini segnati"} come riscossi (${euro(tot)})`);
     setAperto(null);
+    carica();
+  };
+
+  // Spunta "Pagato" sul singolo rapportino: resta nell'elenco barrato finché non si chiude il cliente (così si può togliere)
+  const [pagatiOra, setPagatiOra] = useState<Set<number>>(new Set());
+  const segnaPagato = async (r: Rapporto, si: boolean) => {
+    const { error } = si
+      ? await supabase.rpc("segna_riscossi", { p_rapporti: [r.id] })
+      : await supabase.from("rapporti").update({ pagata: false, data_pagamento: null }).eq("id", r.id);
+    if (error) return setStato("Errore: " + error.message);
+    setPagatiOra((x) => { const n = new Set(x); if (si) n.add(r.id); else n.delete(r.id); return n; });
+    setScelti((x) => { const n = new Set(x); n.delete(r.id); return n; });
+    setStato(si ? `Rapportino n. ${r.numero} segnato pagato (${euro(r.importo)})` : `Rapportino n. ${r.numero}: tolto "pagato"`);
     carica();
   };
 
@@ -103,7 +116,7 @@ export default function ContiClienti() {
   // Stampa del conto per il cliente: si scelgono i rapportini (di partenza i già conteggiati) e cosa mettere
   const [sceltaStampa, setSceltaStampa] = useState<{ c: Conto; ids: Set<number> } & OpzioniConto | null>(null);
   const apriStampa = (c: Conto) => {
-    const lista = rapporti ?? [];
+    const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
     const cont = lista.filter(conteggiato);
     setSceltaStampa({ c, ids: new Set((cont.length ? cont : lista).map((r) => r.id)), materiali: true, prezzi: false, nonApprovati: lista.some((r) => r.non_approvato > 0) });
   };
@@ -239,12 +252,12 @@ export default function ContiClienti() {
                           <thead><tr>
                             {puoModificare && <th><input type="checkbox" aria-label="Tutti" checked={scelti.size === rapporti.length && rapporti.length > 0}
                               onChange={(e) => setScelti(e.target.checked ? new Set(rapporti.map((r) => r.id)) : new Set())} /></th>}
-                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Conteggiato</th><th className="destra">Importo</th><th className="destra">Prev. non appr.</th><th />
+                            <th>N.</th><th>Data</th><th>Tecnico</th><th>Attività</th><th>Conteggiato</th><th className="destra">Importo</th><th className="destra">Prev. non appr.</th><th className="centro">Pagato</th><th />
                           </tr></thead>
                           <tbody>
                             {rapporti.map((r) => (
-                              <tr key={r.id} className={conteggiato(r) ? "conteggiato" : ""}>
-                                {puoModificare && <td className="sel"><input type="checkbox" checked={scelti.has(r.id)} aria-label={`Rapportino ${r.numero}`}
+                              <tr key={r.id} className={`${conteggiato(r) ? "conteggiato" : ""}${pagatiOra.has(r.id) ? " pagato-ora" : ""}`}>
+                                {puoModificare && <td className="sel"><input type="checkbox" disabled={pagatiOra.has(r.id)} checked={scelti.has(r.id) && !pagatiOra.has(r.id)} aria-label={`Rapportino ${r.numero}`}
                                   onChange={(e) => setScelti((s) => { const n = new Set(s); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; })} /></td>}
                                 <td className="num">n. {r.numero}</td>
                                 <td className="data">{dataIt(r.data)}</td>
@@ -253,6 +266,12 @@ export default function ContiClienti() {
                                 <td className="fatto">{conteggiato(r) ? <span className="bollino-conteggiato">✓ già conteggiato</span> : ""}</td>
                                 <td className="destra imp">{r.importo ? euro(r.importo) : ""}</td>
                                 <td className="destra imp-na">{r.non_approvato > 0 ? <span className="bollino-na">{euro(r.non_approvato)}</span> : ""}</td>
+                                <td className="pagato centro">
+                                  <label className="spunta-pagato" title={pagatiOra.has(r.id) ? "Pagato: togli la spunta se è un errore" : "Segna questo rapportino come pagato"}>
+                                    <input type="checkbox" disabled={!puoModificare} checked={pagatiOra.has(r.id)} onChange={(e) => segnaPagato(r, e.target.checked)} />
+                                    <span>{pagatiOra.has(r.id) ? "Pagato" : ""}</span>
+                                  </label>
+                                </td>
                                 <td className="apri"><button className="link" title="Apri il rapportino" onClick={() => apriRapporto(r.id)}><ExternalLink size={15} /></button></td>
                               </tr>
                             ))}
@@ -294,7 +313,7 @@ export default function ContiClienti() {
 
       {sceltaStampa && (() => {
         const s = sceltaStampa;
-        const lista = rapporti ?? [];
+        const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
         const scelti2 = lista.filter((r) => s.ids.has(r.id));
         const cambia = (v: Partial<typeof s>) => setSceltaStampa({ ...s, ...v });
         const tocca = (id: number) => { const n = new Set(s.ids); if (n.has(id)) n.delete(id); else n.add(id); cambia({ ids: n }); };
