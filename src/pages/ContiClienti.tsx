@@ -18,6 +18,7 @@ type Conto = { cliente_id: number; cliente: string; telefono: string | null; rap
   soglia: number; soglia_personale: boolean; oltre: boolean };
 type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; non_approvato: number; fatto_conto: string | null };
 
+type Filtro = "conteggiati" | "non" | "tutti";
 const euro = (v: number) => Number(v ?? 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const numero = (s: string) => Number(s.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, ""));
 
@@ -114,16 +115,17 @@ export default function ContiClienti() {
   };
 
   // Stampa del conto per il cliente: si scelgono i rapportini (di partenza i già conteggiati) e cosa mettere
-  const [sceltaStampa, setSceltaStampa] = useState<{ c: Conto; ids: Set<number> } & OpzioniConto | null>(null);
+  const [sceltaStampa, setSceltaStampa] = useState<{ c: Conto; ids: Set<number>; filtro: Filtro } & OpzioniConto | null>(null);
   const apriStampa = (c: Conto) => {
     const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
     const cont = lista.filter(conteggiato);
-    setSceltaStampa({ c, ids: new Set((cont.length ? cont : lista).map((r) => r.id)), materiali: true, prezzi: false, nonApprovati: lista.some((r) => r.non_approvato > 0) });
+    setSceltaStampa({ c, filtro: cont.length ? "conteggiati" : "tutti", ids: new Set((cont.length ? cont : lista).map((r) => r.id)), materiali: true, prezzi: false, nonApprovati: lista.some((r) => r.non_approvato > 0) });
   };
+  const passa = (r: Rapporto, f: Filtro) => f === "tutti" || (f === "conteggiati") === conteggiato(r);
   const stampa = async () => {
     if (!sceltaStampa) return;
-    const { c, ids, ...opzioni } = sceltaStampa;
-    const lista = (rapporti ?? []).filter((r) => ids.has(r.id));
+    const { c, ids, filtro: _f, ...opzioni } = sceltaStampa;
+    const lista = (rapporti ?? []).filter((r) => ids.has(r.id) && !pagatiOra.has(r.id) && passa(r, sceltaStampa.filtro));
     if (!lista.length) return;
     const finestra = window.open("", "_blank");
     if (!finestra) return setStato("Il browser ha bloccato la finestra di stampa: consenti i popup per il gestionale");
@@ -314,7 +316,9 @@ export default function ContiClienti() {
       {sceltaStampa && (() => {
         const s = sceltaStampa;
         const lista = (rapporti ?? []).filter((r) => !pagatiOra.has(r.id));
-        const scelti2 = lista.filter((r) => s.ids.has(r.id));
+        const visibili2 = lista.filter((r) => passa(r, s.filtro));
+        // Si stampano solo i rapportini spuntati e visibili nel gruppo scelto
+        const scelti2 = visibili2.filter((r) => s.ids.has(r.id));
         const cambia = (v: Partial<typeof s>) => setSceltaStampa({ ...s, ...v });
         const tocca = (id: number) => { const n = new Set(s.ids); if (n.has(id)) n.delete(id); else n.add(id); cambia({ ids: n }); };
         return (
@@ -325,12 +329,20 @@ export default function ContiClienti() {
                 <div className="sc-rapidi">
                   <b>Rapportini da stampare</b>
                   <span style={{ flex: 1 }} />
-                  <button className="link" onClick={() => cambia({ ids: new Set(lista.filter(conteggiato).map((r) => r.id)) })}>Solo già conteggiati</button>
-                  <button className="link" onClick={() => cambia({ ids: new Set(lista.filter((r) => !conteggiato(r)).map((r) => r.id)) })}>Solo non conteggiati</button>
-                  <button className="link" onClick={() => cambia({ ids: new Set(lista.map((r) => r.id)) })}>Tutti</button>
-                  <button className="link" onClick={() => cambia({ ids: new Set() })}>Nessuno</button>
+                  {/* Mostra solo quel gruppo e lo sceglie tutto (poi si toglie a mano quello che non serve) */}
+                  {(["conteggiati", "non", "tutti"] as Filtro[]).map((f) => (
+                    <button key={f} className={`sc-filtro${s.filtro === f ? " attivo" : ""}`}
+                      onClick={() => cambia({ filtro: f, ids: new Set(lista.filter((r) => passa(r, f)).map((r) => r.id)) })}>
+                      {{ conteggiati: "Già conteggiati", non: "Non conteggiati", tutti: "Tutti" }[f]} ({lista.filter((r) => passa(r, f)).length})
+                    </button>
+                  ))}
                 </div>
-                {lista.map((r) => (
+                <div className="sc-tutti">
+                  <button className="link" onClick={() => cambia({ ids: new Set([...s.ids, ...visibili2.map((r) => r.id)]) })}>Spunta tutti</button>
+                  <button className="link" onClick={() => cambia({ ids: new Set() })}>Togli tutte le spunte</button>
+                </div>
+                {!visibili2.length && <p className="vuoto-linguetta">Nessun rapportino in questo gruppo.</p>}
+                {visibili2.map((r) => (
                   <label key={r.id} className={`sc-voce${s.ids.has(r.id) ? " scelta" : ""}`}>
                     <input type="checkbox" checked={s.ids.has(r.id)} onChange={() => tocca(r.id)} />
                     <span className="sc-testi"><b>n. {r.numero} · {dataIt(r.data)}</b>{conteggiato(r) && <span className="bollino-conteggiato">✓ già conteggiato</span>}

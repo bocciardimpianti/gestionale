@@ -2396,3 +2396,8 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .spunta-pagato input { width: 18px; height: 18px; accent-color: #1d7a3a; cursor: pointer; }
 .rapporti-conto tr.pagato-ora td:not(.pagato):not(.apri) { text-decoration: line-through; opacity: .55; }
 .rapporti-conto tr.pagato-ora td { background: #f1f8f3; }
+.sc-filtro { border: 1px solid var(--bordo); background: var(--carta); color: var(--testo); border-radius: 16px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.sc-filtro.attivo { background: #1e88e5; border-color: #1e88e5; color: #fff; font-weight: 600; }
+.sc-tutti { display: flex; gap: 14px; margin: 2px 0 8px; font-size: 13px; }
+.finestra-stampa-conto .sc-opzioni label { display: flex !important; flex-direction: row !important; align-items: center; justify-content: flex-start; text-align: left; gap: 8px; margin: 0; }
+.finestra-stampa-conto .sc-opzioni label input { flex: none; margin: 0; }
