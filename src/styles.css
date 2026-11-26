@@ -2302,3 +2302,48 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .ps-riga { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid #f3e6c8; padding-top: 6px; font-size: 13px; }
 .ps-cliente { flex: 0 1 240px; min-width: 180px; }
 .ps-riga select { height: 34px; border: 1px solid #c3c2b7; border-radius: 6px; font-size: 13px; }
+
+/* Rapportino diviso: da fatturare / preventivi non approvati */
+.barra-righe .btn.dividi { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; color: #fff; background: #c2611a; }
+.barra-righe .btn.consigliati + .btn.dividi { margin-left: 8px; }
+.barra-righe .btn.dividi:hover { background: #a9531a; color: #fff; }
+.barra-righe-telefono .btn.dividi { grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; gap: 8px; color: #fff; background: #c2611a; font-size: 14px; }
+.tabella-righe th.cella-fattura, .tabella-righe td.cella-fattura { width: 34px; text-align: center; padding: 0 2px; }
+.cella-fattura button { border: 0; border-radius: 6px; width: 28px; height: 26px; display: inline-grid; place-items: center; cursor: pointer; }
+.cella-fattura button.fattura { background: #e3f3e6; color: #1d7a3a; }
+.cella-fattura button.prev { background: #fde9d9; color: #b5531a; }
+.cella-fattura button:disabled { cursor: default; }
+.tabella-righe tr.non-approvata td { background: #fff4ea; }
+.tabella-righe tr.non-approvata td input { background: transparent; color: #8a4a17; }
+.riga-materiale-telefono.non-approvata { background: #fff4ea; border-left: 4px solid #e07b2c; }
+.tag-non-approvato { display: inline-block; font-size: 11px; font-weight: 600; color: #b5531a; background: #fde9d9; border-radius: 10px; padding: 1px 8px; margin-left: 6px; white-space: nowrap; }
+.riepilogo-diviso { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 8px 0; padding: 8px 12px; border-radius: 8px; background: #fafafa; border: 1px solid var(--bordo); font-size: 14px; }
+.riepilogo-diviso span { display: inline-flex; align-items: center; gap: 6px; }
+.riepilogo-diviso .fattura { color: #1d7a3a; }
+.riepilogo-diviso .prev { color: #b5531a; }
+.finestra-dividi { width: min(760px, 100%); max-height: 92vh; display: flex; flex-direction: column; }
+.finestra-dividi .finestra-corpo { overflow: auto; }
+.dr-totali { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 14px 0; }
+.dr-tot { border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; }
+.dr-tot span { font-size: 12px; }
+.dr-tot b { font-size: 20px; }
+.dr-tot.fattura { background: #e3f3e6; color: #1d7a3a; }
+.dr-tot.prev { background: #fde9d9; color: #b5531a; }
+.dr-rapidi { display: flex; gap: 16px; margin: 4px 0 8px; }
+.dr-gruppo { font-weight: 700; font-size: 13px; color: var(--tenue); text-transform: uppercase; margin: 12px 0 4px; }
+.dr-voce { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--bordo); border-radius: 8px; margin-bottom: 6px; background: #fff; }
+.dr-voce.no { background: #fff4ea; border-color: #f0c39d; }
+.dr-testi { display: flex; flex-direction: column; min-width: 0; }
+.dr-descr { font-weight: 600; overflow-wrap: anywhere; }
+.dr-importo { white-space: nowrap; }
+.dr-scelta { display: inline-flex; border: 1px solid var(--bordo); border-radius: 8px; overflow: hidden; }
+.dr-scelta button { border: 0; background: #fff; padding: 6px 10px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; color: var(--tenue); white-space: nowrap; }
+.dr-scelta button + button { border-left: 1px solid var(--bordo); }
+.dr-scelta button.attiva.fattura { background: #1d7a3a; color: #fff; }
+.dr-scelta button.attiva.prev { background: #c2611a; color: #fff; }
+@media (max-width: 700px) {
+  .dr-voce { grid-template-columns: minmax(0, 1fr) auto; }
+  .dr-scelta { grid-column: 1 / -1; }
+  .dr-scelta button { flex: 1; justify-content: center; }
+  .dr-tot b { font-size: 17px; }
+}
