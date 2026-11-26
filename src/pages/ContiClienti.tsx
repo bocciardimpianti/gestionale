@@ -14,11 +14,19 @@ import { serviziRapporto } from "../dividiRapportino";
 
 // non_approvato: preventivi non approvati dei rapportini divisi (script 0061). Si vedono a parte, in arancione:
 // non entrano nel "Da riscuotere" né nella soglia, ma il cliente li ha in sospeso.
-type Conto = { cliente_id: number; cliente: string; telefono: string | null; rapporti: number; totale: number; non_approvato: number; conteggiato: number; dal: string; al: string;
+type Conto = { cliente_id: number; cliente: string; telefono: string | null; rapporti: number; totale: number; non_approvato: number; conteggiato: number; conteggiato_dal: string | null; dal: string; al: string;
   soglia: number; soglia_personale: boolean; oltre: boolean };
-type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; non_approvato: number; fatto_conto: string | null };
+type Rapporto = { id: number; numero: number | null; data: string; tecnico: string | null; attivita: string | null; importo: number; non_approvato: number; fatto_conto: string | null; conteggiato_il?: string | null };
 
 type Filtro = "conteggiati" | "non" | "tutti";
+// Giorni passati da una data (aaaa-mm-gg) a oggi
+const giorniDa = (d: string | null | undefined) => {
+  if (!d) return null;
+  const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((oggi.getTime() - new Date(d + "T00:00:00").getTime()) / 86400000));
+};
+// Colore dei giorni dal conto: verde fino a 30, arancio fino a 60, rosso oltre
+const classeGiorni = (g: number) => (g > 60 ? "giorni-rosso" : g > 30 ? "giorni-arancio" : "giorni-verde");
 const euro = (v: number) => Number(v ?? 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const numero = (s: string) => Number(s.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, ""));
 
@@ -216,7 +224,7 @@ export default function ContiClienti() {
 
       {visibili.length > 0 && (
         <table className="griglia tabella-conti">
-          <thead><tr><th /><th>Cliente</th><th className="destra">Rapportini</th><th>Dal</th><th className="destra">Da riscuotere</th><th className="destra">Prev. non approvati</th><th>Soglia</th></tr></thead>
+          <thead><tr><th /><th>Cliente</th><th className="destra">Rapportini</th><th>Dal</th><th className="destra">Da riscuotere</th><th className="destra" title="Giorni passati da quando hai segnato conteggiati i rapportini (il più vecchio ancora da pagare)">Giorni dal conto</th><th className="destra">Prev. non approvati</th><th>Soglia</th></tr></thead>
           <tbody>
             {visibili.map((c) => (
               <Fragment key={c.cliente_id}>
@@ -233,6 +241,7 @@ export default function ContiClienti() {
                     <span className="barra-soglia"><span style={{ width: `${Math.min(100, (c.totale / Math.max(c.soglia, 1)) * 100)}%` }} /></span>
                     {c.conteggiato > 0 && <small className="gia-conteggiato">di cui già conteggiati {euro(c.conteggiato)}</small>}
                   </td>
+                  <td className="destra giorni-conto">{(() => { const g = giorniDa(c.conteggiato_dal); return g === null ? "" : <span className={`bollino-giorni ${classeGiorni(g)}`} title={`Conteggiati dal ${dataIt(c.conteggiato_dal)}`}>{g} {g === 1 ? "giorno" : "giorni"}</span>; })()}</td>
                   <td className="destra importo-na">{c.non_approvato > 0 ? <span className="bollino-na">{euro(c.non_approvato)}</span> : ""}</td>
                   <td onClick={(e) => e.stopPropagation()}>
                     {puoModificare ? (
@@ -246,7 +255,7 @@ export default function ContiClienti() {
                   </td>
                 </tr>
                 {aperto === c.cliente_id && (
-                  <tr className="dettaglio-conto"><td colSpan={7}>
+                  <tr className="dettaglio-conto"><td colSpan={8}>
                     {!rapporti && <p className="piccolo">Caricamento…</p>}
                     {rapporti && (
                       <>
@@ -265,7 +274,8 @@ export default function ContiClienti() {
                                 <td className="data">{dataIt(r.data)}</td>
                                 <td className="cella-tecnico tec">{r.tecnico}</td>
                                 <td className="attivita-conto" title={r.attivita ?? ""}>{r.attivita}</td>
-                                <td className="fatto">{conteggiato(r) ? <span className="bollino-conteggiato">✓ già conteggiato</span> : ""}</td>
+                                <td className="fatto">{conteggiato(r) ? <span className="bollino-conteggiato">✓ già conteggiato</span> : ""}
+                                  {conteggiato(r) && r.conteggiato_il && (() => { const g = giorniDa(r.conteggiato_il)!; return <span className={`data-conteggio ${classeGiorni(g)}`}>il {dataIt(r.conteggiato_il)} · {g} gg</span>; })()}</td>
                                 <td className="destra imp">{r.importo ? euro(r.importo) : ""}</td>
                                 <td className="destra imp-na">{r.non_approvato > 0 ? <span className="bollino-na">{euro(r.non_approvato)}</span> : ""}</td>
                                 <td className="pagato centro">
