@@ -1,3 +1,4 @@
+import { ddtEasyfattDaRapporti } from "../ddtEasyfatt";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ICONE } from "../Layout";
 import { useTelefono } from "../telefono";
@@ -7,6 +8,7 @@ import writeXlsxFile from "write-excel-file";
 import {
   ChevronRight, Columns3, Database, Filter, FileDown, FileUp, Folder, FolderOpen, FolderPlus, Printer, QrCode, RefreshCw, UserCheck,
   RotateCcw, Search, Sheet, Trash2, Undo2,
+  FileOutput,
 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase, vuoto } from "../supabase";
 import { senzaPrezzi } from "../prezzi";
@@ -564,6 +566,9 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
                 {voce(Printer, "#444", "Stampa", stampa, puo(cfg.sezione, "esportare"))}
                 {cfg.sezione === "richieste" && rigaSel && !["Completata", "Annullata"].includes(String(rigaSel.stato)) && voce(UserCheck, "#8e44ad", `Prendi in carico "${nomeDi(rigaSel)}"`,
                   () => { prendiInCarico(rigaSel).then((ok) => { if (ok) carica(); }); })}
+                {cfg.sezione === "rapporti" && !nelCestino && (selezionate.length > 0 || rigaSel) && voce(FileOutput, "#e6511a",
+                  selezionate.length > 0 ? `DDT per Easy Fatt dei ${selezionate.length === 1 ? "rapportino spuntato" : `${selezionate.length} rapportini spuntati`}` : `DDT per Easy Fatt del rapportino ${rigaSel?.numero ?? ""}`,
+                  () => ddtEasyfattDaRapporti((selezionate.length ? selezionate : [rigaSel!]).map((r) => Number(r.id))).then(setMessaggio))}
                 {cfg.sezione === "materiali" && selezionate.length > 0 && voce(QrCode, "#123b45", `Etichette QR dei materiali spuntati (${selezionate.length})`,
                   () => stampaEtichette(selezionate).catch((e) => setMessaggio("Errore: " + (e as Error).message)))}
                 {cfg.sezione === "materiali" && !selezionate.length && rigaSel && voce(QrCode, "#123b45", `Etichetta QR di "${nomeDi(rigaSel)}"`,
