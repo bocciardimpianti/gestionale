@@ -1108,7 +1108,6 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "creato_il", titolo: "Arrivato", excel: "Arrivato il", larghezza: 108,
         valore: (r) => (r.creato_il ? new Date(String(r.creato_il)).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "") },
       { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 120, riferimento: { campo: "tecnico_id", tabella: "tecnici" }, classe: "cella-tecnico" },
-      { chiave: "stato", titolo: "Stato Documento", excel: "Stato Documento", larghezza: 97, tipo: "stato" },
       // Materiali del DDT già messi nei rapportini: Tutto / Parziale / No
       { chiave: "nei_rapportini", titolo: "Nei rapportini", excel: "Nei rapportini", calcolata: true, larghezza: 105,
         valore: (r) => (r.nei_rapportini ? `${/^Tutto/.test(String(r.nei_rapportini)) ? "🟢" : /^Parziale/.test(String(r.nei_rapportini)) ? "🟡" : "⚪"} ${r.nei_rapportini}` : "") },
@@ -1119,7 +1118,8 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "email", titolo: "E-Mail", excel: "E-Mail", larghezza: 197 },
       { chiave: "prezzo", titolo: "Prezzo", excel: "Prezzo", larghezza: 197, tipo: "euro" },
       { chiave: "tipologia_pagamento", titolo: "Tipologia Pagamento", excel: "Tipologia Pagamento", larghezza: 197 },
-      { chiave: "pagato", titolo: "Pagato", excel: "Pagato", larghezza: 215, tipo: "booleano" },
+      { chiave: "stato", titolo: "Stato Documento", excel: "Stato Documento", larghezza: 97, tipo: "stato" },
+      { chiave: "pagato", titolo: "Pagato", excel: "Pagato", larghezza: 70, tipo: "booleano" },
     ],
     campi: [
       { chiave: "fornitore_id", etichetta: "Nominativo", tipo: "riferimento", riferimentoA: "fornitori", larghezza: 2, obbligatorio: true },
