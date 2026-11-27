@@ -263,7 +263,9 @@ ${d.tipologia_pagamento || d.modalita_pagamento ? `<p>Pagamento: ${esc([d.modali
 // ---------------------------------------------------------------------------------------------------------------
 // Preventivo impaginato (come il modello Word della ditta): logo in alto, cliente e data, una o più soluzioni
 // con titolo, testo e totale "+ IVA", nota finale e piede con indirizzo e dati bancari su ogni pagina.
-export type SoluzionePreventivo = { titolo: string; testo: string; totale: number | null; nuovaPagina?: boolean };
+// materiali: elenco dei materiali del preventivo, separato dal testo; si stampano solo quelli spuntati, col nome scritto qui
+export type MaterialeImpaginato = { nome: string; mostra: boolean };
+export type SoluzionePreventivo = { titolo: string; testo: string; totale: number | null; nuovaPagina?: boolean; materiali?: MaterialeImpaginato[] };
 export type PreventivoImpaginato = { soluzioni: SoluzionePreventivo[]; nota: string };
 export type PiedePreventivo = { riga1: string; riga2: string };
 
@@ -306,14 +308,16 @@ export function testoInParagrafi(testo: string) {
 // Un titolo non resta mai da solo in fondo al foglio; un paragrafo troppo lungo continua sul foglio dopo.
 export function htmlPreventivoImpaginato(d: { cliente: string; data: unknown; titolo: string }, p: PreventivoImpaginato, piede: PiedePreventivo, stampa = true) {
   const data = d.data ? new Date(String(d.data)).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "";
-  const soluzioni = p.soluzioni.filter((s) => s.titolo.trim() || s.testo.trim() || s.totale);
+  const soluzioni = p.soluzioni.filter((s) => s.titolo.trim() || s.testo.trim() || s.totale || s.materiali?.some((m) => m.mostra));
   // Blocchi in ordine: ognuno è un pezzo che non si divide (tranne i paragrafi lunghi)
   const blocchi: string[] = [`<div class="cliente"><span>${esc(d.cliente)}</span><span>${esc(data)}</span></div>`];
   soluzioni.forEach((s, i) => {
     if (i > 0) blocchi.push(s.nuovaPagina ? `<div class="salto"></div>` : `<div class="spazio"></div>`);
     if (s.titolo.trim()) blocchi.push(`<h2>${esc(s.titolo.trim())}</h2>`);
     // ogni punto dell'elenco è un blocco a sé (così l'elenco può continuare sul foglio dopo)
-    blocchi.push(...testoInParagrafi(s.testo).replace(/<ul>|<\/ul>/g, "").split(/(?=<p[ >]|<li>)/).filter(Boolean)
+    // Testo scritto e, sotto, l'elenco dei materiali spuntati (come punti dell'elenco)
+    const materiali = (s.materiali ?? []).filter((m) => m.mostra && m.nome.trim()).map((m) => `- ${m.nome.trim()}`).join("\n");
+    blocchi.push(...testoInParagrafi([s.testo, materiali].filter((t) => t.trim()).join("\n\n")).replace(/<ul>|<\/ul>/g, "").split(/(?=<p[ >]|<li>)/).filter(Boolean)
       .map((b) => (b.startsWith("<li>") ? `<ul>${b}</ul>` : b)));
     // Totale sempre in fondo al foglio (con la nota, sotto l'ultima soluzione); la soluzione dopo parte su un foglio nuovo
     const ultima = i === soluzioni.length - 1;

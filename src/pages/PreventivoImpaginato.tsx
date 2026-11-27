@@ -39,7 +39,7 @@ export default function PreventivoImpaginato() {
   const [inCorso, setInCorso] = useState(false);
   // Preventivo con righe di materiali (es. da un'offerta del fornitore): il testo parte dall'elenco dei materiali,
   // i totali restano quelli delle righe
-  const [conRighe, setConRighe] = useState<{ testo: string; totale: number } | null>(null);
+  const [conRighe, setConRighe] = useState<{ materiali: string[]; totale: number } | null>(null);
   // Anteprima A4 accanto al testo, aggiornata mentre si scrive
   const [anteprima, setAnteprima] = useState("");
 
@@ -67,12 +67,15 @@ export default function PreventivoImpaginato() {
       const ore = Number(md?.ore_lavoro ?? 0), tecnici = Number(md?.numero_tecnici ?? 1) || 1;
       if (!elenco.length && !ore) return;
       const qta = (q: number | null) => Number(q ?? 1).toLocaleString("it-IT", { maximumFractionDigits: 2 });
-      const testo = elenco.map((x) => `- ${qta(x.quantita)} ${/^(pz|nr|n)\.?$/i.test(String(x.unita_misura ?? "")) || !x.unita_misura ? "x" : String(x.unita_misura).toLowerCase()} ${String(x.descrizione).trim()}`).join("\n")
-        + (ore ? `${elenco.length ? "\n" : ""}- Manodopera: ${tecnici} ${tecnici === 1 ? "tecnico" : "tecnici"} per ${ore.toLocaleString("it-IT")} ${ore === 1 ? "ora" : "ore"}` : "");
+      // Ogni materiale è una voce dell'elenco (nome modificabile, si spunta se va nel preventivo); in fondo la manodopera
+      const materiali = [
+        ...elenco.map((x) => `${qta(x.quantita)} ${/^(pz|nr|n)\.?$/i.test(String(x.unita_misura ?? "")) || !x.unita_misura ? "x" : String(x.unita_misura).toLowerCase()} ${String(x.descrizione).trim()}`),
+        ...(ore ? [`Manodopera: ${tecnici} ${tecnici === 1 ? "tecnico" : "tecnici"} per ${ore.toLocaleString("it-IT")} ${ore === 1 ? "ora" : "ore"}`] : []),
+      ];
       const totale = Number(r.prezzo_scontato ?? r.imponibile ?? 0) || 0;
-      setConRighe({ testo, totale });
+      setConRighe({ materiali, totale });
       if (!imp?.soluzioni?.length) {
-        setP({ soluzioni: [{ titolo: String(r.numero ?? "").toUpperCase(), testo, totale: totale || null, nuovaPagina: false }], nota: NOTA });
+        setP({ soluzioni: [{ titolo: String(r.numero ?? "").toUpperCase(), testo: "", totale: totale || null, nuovaPagina: false, materiali: materiali.map((nome) => ({ nome, mostra: true })) }], nota: NOTA });
         setModificato(true);
       }
     });
@@ -163,6 +166,30 @@ export default function PreventivoImpaginato() {
               <MicDettatura testoLibero onTesto={(t) => cambia(i, { testo: (s.testo ? s.testo.replace(/\s*$/, " ") : "") + t })} />
             </div>
           </label>
+          {/* Elenco dei materiali, separato dal testo: si spuntano quelli da stampare e se ne cambia il nome */}
+          {!!s.materiali?.length && (
+            <div className="si-materiali">
+              <div className="si-mat-testa">
+                <b>Materiali</b> <span className="piccolo">({s.materiali.filter((m) => m.mostra).length} di {s.materiali.length} nel preventivo)</span>
+                <span style={{ flex: 1 }} />
+                <button type="button" className="link" onClick={() => cambia(i, { materiali: s.materiali!.map((m) => ({ ...m, mostra: true })) })}>Tutti</button>
+                <button type="button" className="link" onClick={() => cambia(i, { materiali: s.materiali!.map((m) => ({ ...m, mostra: false })) })}>Nessuno</button>
+              </div>
+              {s.materiali.map((m, k) => (
+                <div key={k} className={`si-mat${m.mostra ? "" : " spento"}`}>
+                  <input type="checkbox" checked={m.mostra} aria-label="Nel preventivo" title={m.mostra ? "Compare nel preventivo (togli la spunta per nasconderlo)" : "Non compare nel preventivo"}
+                    onChange={(e) => cambia(i, { materiali: s.materiali!.map((x, j) => (j === k ? { ...x, mostra: e.target.checked } : x)) })} />
+                  <input className="si-mat-nome" value={m.nome} aria-label="Nome nel preventivo"
+                    onChange={(e) => cambia(i, { materiali: s.materiali!.map((x, j) => (j === k ? { ...x, nome: e.target.value } : x)) })} />
+                  <button type="button" className="link" title="Sposta su" disabled={k === 0}
+                    onClick={() => { const l = [...s.materiali!]; [l[k - 1], l[k]] = [l[k], l[k - 1]]; cambia(i, { materiali: l }); }}><ArrowUp size={15} /></button>
+                  <button type="button" className="link" title="Sposta giù" disabled={k === s.materiali!.length - 1}
+                    onClick={() => { const l = [...s.materiali!]; [l[k + 1], l[k]] = [l[k], l[k + 1]]; cambia(i, { materiali: l }); }}><ArrowDown size={15} /></button>
+                </div>
+              ))}
+              <button type="button" className="link" onClick={() => cambia(i, { materiali: [...s.materiali!, { nome: "", mostra: true }] })}><Plus size={14} /> Aggiungi una voce</button>
+            </div>
+          )}
           <label className="si-totale">Totale (€, + IVA)
             <input inputMode="decimal" value={s.totale ?? ""} placeholder="es. 32095"
               onChange={(e) => { const v = e.target.value.replace(/\./g, "").replace(",", "."); cambia(i, { totale: v.trim() === "" ? null : Number(v) || null }); }} />
@@ -178,10 +205,10 @@ export default function PreventivoImpaginato() {
         {guidato && <button type="button" className="btn grigio" title="Rifà il testo con le stanze e i punti del preventivo guidato"
           onClick={() => confirm("Rifare il testo dal foglio guidato? Le modifiche fatte a mano al testo si perdono.") && (setModificato(true), setP(impaginatoDaConfigurazione(guidato.conf, oggetto, guidato.sconto)))}>
           Rifai il testo dal foglio guidato</button>}
-        {conRighe && <button type="button" className="btn grigio" title="Rimette nel testo della prima soluzione l'elenco dei materiali del preventivo e il suo totale"
-          onClick={() => confirm("Rifare il testo dai materiali del preventivo? Le modifiche fatte a mano al testo della prima soluzione si perdono.") && (setModificato(true),
-            setP((x) => ({ ...x, soluzioni: x.soluzioni.map((s, j) => (j === 0 ? { ...s, titolo: s.titolo || oggetto.toUpperCase(), testo: conRighe.testo, totale: conRighe.totale || null } : s)) })))}>
-          Rifai il testo dai materiali</button>}
+        {conRighe && <button type="button" className="btn grigio" title="Rimette nella prima soluzione l'elenco dei materiali del preventivo (tutti spuntati) e il suo totale"
+          onClick={() => confirm("Rifare l'elenco dai materiali del preventivo? I nomi cambiati a mano e le spunte dell'elenco si perdono (il testo scritto resta).") && (setModificato(true),
+            setP((x) => ({ ...x, soluzioni: x.soluzioni.map((s, j) => (j === 0 ? { ...s, titolo: s.titolo || oggetto.toUpperCase(), materiali: conRighe.materiali.map((nome) => ({ nome, mostra: true })), totale: conRighe.totale || null } : s)) })))}>
+          Rifai l'elenco dai materiali</button>}
       </div>
 
       <label className="nota-impaginato">Nota in fondo<textarea rows={2} value={p.nota} onChange={(e) => { setModificato(true); setP((x) => ({ ...x, nota: e.target.value })); }} /></label>

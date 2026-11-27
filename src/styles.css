@@ -2509,3 +2509,11 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .mp-per { align-self: center; color: var(--tenue); font-weight: 700; padding-top: 14px; }
 .mp-totale { align-self: center; padding-top: 14px; font-weight: 700; font-size: 15px; min-width: 80px; text-align: right; }
 @media (max-width: 760px) { .manodopera-preventivo { margin-right: 0; width: 100%; } .mp-campo input { width: 70px; } }
+/* Preventivo impaginato: elenco dei materiali separato dal testo */
+.si-materiali { border: 1px solid var(--bordo); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; background: var(--carta); }
+.si-mat-testa { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.si-mat { display: flex; align-items: center; gap: 6px; }
+.si-mat input[type="checkbox"] { width: 18px; height: 18px; flex: none; }
+.si-mat-nome { flex: 1; min-width: 0; height: 30px; border: 1px solid var(--bordo); border-radius: 6px; padding: 0 8px; font: inherit; font-size: 13px; }
+.si-mat.spento .si-mat-nome { color: var(--tenue); text-decoration: line-through; background: #f6f6f6; }
+.si-mat .link:disabled { opacity: .3; }
