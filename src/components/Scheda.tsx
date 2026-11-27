@@ -92,12 +92,15 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const [sostituisci, setSostituisci] = useState<number | null>(null);
   // Codici del fornitore riabbinati in questa scheda: al salvataggio si aggiorna l'abbinamento ricordato
   const riabbinati = useRef(new Map<string, number>());
+  // Materiali rinominati cambiando la descrizione nelle righe del DDT: al salvataggio cambia la descrizione del materiale
+  const rinominati = useRef(new Map<number, string>());
   const cambiaMaterialeRiga = (i: number, m: Record<string, unknown>) => {
     segna();
     setRighe((rr) => rr.map((r, j) => {
       if (j !== i) return r;
       const codice = String(r.codice_originale ?? "").trim();
       if (codice) riabbinati.current.set(codice, Number(m.id));
+      if (r.materiale_id) rinominati.current.delete(Number(r.materiale_id));
       return cfg.righe!.ricalcola({
         ...r,
         materiale_id: m.id, codice_barre: m.codice_interno ?? m.codice_barre ?? null, descrizione: m.descrizione ?? null, unita_misura: m.unita_misura ?? r.unita_misura ?? null,
@@ -169,7 +172,16 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
 
   const cambiaRiga = (i: number, chiave: string, valore: unknown) => {
     segna();
-    setRighe((rr) => rr.map((r, j) => (j === i ? cfg.righe!.ricalcola({ ...r, [chiave]: valore }, chiave) : r)));
+    setRighe((rr) => rr.map((r, j) => {
+      if (j !== i) return r;
+      // DDT di acquisto: la descrizione cambiata nella riga rinomina il materiale abbinato (un solo articolo in Materiali)
+      if (cfg.sezione === "ddt_acquisto" && chiave === "descrizione" && r.materiale_id) {
+        rinominati.current.set(Number(r.materiale_id), String(valore ?? "").trim());
+        return cfg.righe!.ricalcola({ ...r, descrizione: valore, descrizione_originale: r.descrizione_originale ?? r.descrizione ?? null,
+          modifica: r.modifica ?? `Descrizione cambiata (prima: ${String(r.descrizione ?? "")})`, modificata_il: new Date().toISOString() }, chiave);
+      }
+      return cfg.righe!.ricalcola({ ...r, [chiave]: valore }, chiave);
+    }));
   };
   // Sul telefono la riga appena aggiunta viene portata in vista
   const righePrecedenti = useRef(righe.length);
@@ -445,6 +457,17 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       if (idVecchie.length) {
         const del = await supabase.from(tabella).delete().in("id", idVecchie);
         if (del.error) return setStato("Errore: " + del.error.message);
+      }
+      // DDT: descrizioni cambiate nelle righe → nuova descrizione del materiale abbinato
+      if (cfg.sezione === "ddt_acquisto" && rinominati.current.size) {
+        const errori: string[] = [];
+        for (const [id, descrizione] of rinominati.current) {
+          if (!descrizione) continue;
+          const { error } = await supabase.from("materiali").update({ descrizione }).eq("id", id);
+          if (error) errori.push(error.message);
+        }
+        rinominati.current.clear();
+        if (errori.length) setStato("DDT salvato, ma la descrizione del materiale non è cambiata: " + errori[0]);
       }
       // DDT: i codici del fornitore riabbinati a mano valgono anche per i prossimi DDT
       if (cfg.sezione === "ddt_acquisto" && riabbinati.current.size && dati.fornitore_id) {
