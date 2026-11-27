@@ -220,7 +220,9 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
     setQuanti(60);
   }, [visibili, onVisibili]);
 
-  const ALTEZZA_RIGA = 21;
+  // Tablet con colonna foto: righe più alte per le foto ingrandite del 30% (stessa altezza in styles.css)
+  const fotoGrandi = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse) and (min-width: 700px)").matches && colonne.some((c) => c.tipo === "miniatura");
+  const ALTEZZA_RIGA = fotoGrandi ? 27 : 21;
   const primo = Math.max(0, Math.floor(finestra.alto / ALTEZZA_RIGA) - 20);
   const ultimo = Math.min(visibili.length, primo + Math.ceil(finestra.altezza / ALTEZZA_RIGA) + 40);
 
@@ -373,10 +375,13 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
     return n;
   });
 
+  // Tablet: la colonna delle foto è più larga del 30% (foto più grandi, vedi styles.css)
+  const tablet = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse) and (min-width: 700px)").matches;
+  const larghezza = (c: Colonna) => (tablet && c.tipo === "miniatura" ? Math.round(c.larghezza * 1.3) : c.larghezza);
   const larghezze = (
     <colgroup>
       <col style={{ width: larghezzaPrima }} />
-      {colonne.map((c) => <col key={c.chiave} style={{ width: c.larghezza }} />)}
+      {colonne.map((c) => <col key={c.chiave} style={{ width: larghezza(c) }} />)}
     </colgroup>
   );
 
@@ -384,7 +389,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
     <div className="griglia-dati">
       {correzioni.current.length > 0 && visibili.length > 0 && <p className="forse-cercavi">Nessun risultato esatto: <b>forse cercavi</b> {correzioni.current.join(" · ")}</p>}
       <div className="griglia-scorri" ref={scorri}>
-        <table style={{ width: larghezzaPrima + colonne.reduce((t, c) => t + c.larghezza, 0) }}>
+        <table className={fotoGrandi ? "foto-grandi" : undefined} style={{ width: larghezzaPrima + colonne.reduce((t, c) => t + larghezza(c), 0) }}>
           {larghezze}
           <thead>
             <tr className="intestazioni">

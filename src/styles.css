@@ -2455,3 +2455,11 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .cella-cambia .sul-ddt { display: block; font-size: 11px; color: var(--tenue); line-height: 1.25; margin-bottom: 2px; }
 .tabella-righe tr.riga-modificata td { background: #fff7d6; }
 .tag-modificata { display: inline-block; font-size: 11px; font-weight: 700; color: #8a5a00; background: #ffe7a3; border-radius: 10px; padding: 1px 7px; margin-right: 6px; }
+/* Tablet: foto più grandi (+30%) nelle tabelle (elenchi e righe dei documenti) */
+@media (pointer: coarse) and (min-width: 700px) {
+  .griglia-dati table.foto-grandi tbody td { height: 27px; }
+  .griglia-dati .cella-miniatura .miniatura { height: 25px; width: 47px; }
+  .tabella-righe .foto-cella { width: 52px; }
+  .tabella-righe .foto-riga, .tabella-righe .foto-riga .miniatura { width: 42px; height: 42px; }
+  .foto-riga, .foto-riga .miniatura { width: 42px; height: 42px; }
+}
