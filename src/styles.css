@@ -2492,3 +2492,9 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .ep-riga2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ep-riga2 select { height: 30px; border: 1px solid #c3c2b7; border-radius: 6px; font-size: 12.5px; max-width: 210px; }
 .ep-riga2 .mail-testo { flex-basis: 100%; }
+/* Preventivi → Da fornitore */
+.ipf-barra { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.ipf-cerca { flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--bordo); border-radius: 8px; padding: 0 8px; background: var(--carta); }
+.ipf-cerca input { border: 0; outline: none; height: 34px; flex: 1; background: transparent; font: inherit; }
+.ipf-voce { width: 100%; text-align: left; font: inherit; color: var(--testo); background: var(--carta); }
+.ipf-voce:hover:not(:disabled) { border-color: #1e88e5; background: #f2f8fe; }

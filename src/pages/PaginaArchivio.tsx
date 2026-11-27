@@ -1,3 +1,4 @@
+import ImportaPreventivoFornitore from "../components/ImportaPreventivoFornitore";
 import { ddtEasyfattDaRapporti } from "../ddtEasyfatt";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ICONE } from "../Layout";
@@ -84,6 +85,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
     }
     await registra(`${cfg.sezione}_modificato`, { id: r.id, [chiave]: valore });
   };
+  // Preventivi: offerta di un fornitore da convertire in preventivo
+  const [daFornitore, setDaFornitore] = useState(false);
   const apriNuovo = async (extra: Record<string, unknown> = {}) => {
     const base = vista.tipo === "archivio" ? { archivio_id: vista.id } : {};
     const proposti = (await cfg.valoriNuovo?.({ utenteId: profilo?.id ?? "", admin: profilo?.ruolo === "admin" })) ?? {};
@@ -546,7 +549,8 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
           )}
           {cfg.sezione === "preventivi" && !nelCestino && puo(cfg.sezione, "creare") && (
             <><button className="btn arancio" onClick={() => { location.hash = "#/preventivo-guidato"; }} title="Preventivo a ambienti: elettrico o idraulico">⚡ Guidato</button>
-            <button className="btn blu" onClick={() => { location.hash = "#/preventivo-impaginato"; }} title="Preventivo scritto a testo, impaginato con logo e piè di pagina">📄 Impaginato</button></>
+            <button className="btn blu" onClick={() => { location.hash = "#/preventivo-impaginato"; }} title="Preventivo scritto a testo, impaginato con logo e piè di pagina">📄 Impaginato</button>
+            <button className="btn blu" onClick={() => setDaFornitore(true)} title="Converte un'offerta di un fornitore (mail o PDF) in un nuovo preventivo con i suoi materiali">📥 Da fornitore</button></>
           )}
           {puo(cfg.sezione, "creare") && !nelCestino && (
             <button className="btn blu" onClick={() => apriNuovo()}>Nuovo</button>
@@ -747,6 +751,7 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       {unisciDoppi && <UnisciDoppioni onChiudi={() => setUnisciDoppi(false)} onFinito={() => carica(true)} />}
       {confronta && <ConfrontaReportOne onChiudi={() => setConfronta(false)} onFinito={() => carica(true)} />}
       {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={() => carica(true)} />}
+      {daFornitore && <ImportaPreventivoFornitore onChiudi={() => setDaFornitore(false)} onPronto={(v) => { setDaFornitore(false); setScheda(v); }} />}
       {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={() => carica()} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}
       {sceltaColonne && (
         <div className="velo" onMouseDown={() => setSceltaColonne(false)}>
