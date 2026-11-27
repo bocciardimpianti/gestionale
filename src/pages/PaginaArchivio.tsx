@@ -751,7 +751,16 @@ export default function PaginaArchivio({ cfg }: { cfg: Archivio }) {
       {unisciDoppi && <UnisciDoppioni onChiudi={() => setUnisciDoppi(false)} onFinito={() => carica(true)} />}
       {confronta && <ConfrontaReportOne onChiudi={() => setConfronta(false)} onFinito={() => carica(true)} />}
       {importaReportOne && <ImportaReportOne onChiudi={() => setImportaReportOne(false)} onFinito={() => carica(true)} />}
-      {daFornitore && <ImportaPreventivoFornitore onChiudi={() => setDaFornitore(false)} onPronto={(v) => { setDaFornitore(false); setScheda(v); }} />}
+      {daFornitore && <ImportaPreventivoFornitore onChiudi={() => setDaFornitore(false)} onPronto={async (id) => {
+        setDaFornitore(false);
+        carica();
+        // Si apre il preventivo appena creato (già salvato: c'è anche "Impagina preventivo")
+        const { data } = await supabase.from(cfg.tabella).select(cfg.select ?? "*").eq("id", id).single();
+        if (!data) return;
+        const r = { ...(data as unknown as Record<string, unknown>) };
+        for (const [k, v] of Object.entries(r)) if (v && typeof v === "object" && "nome" in v) r[k] = (v as { nome: unknown }).nome;
+        setScheda(r);
+      }} />}
       {importaPdf && <ImportaDdtPdf onChiudi={() => setImportaPdf(false)} onFinito={() => carica()} onCorreggi={(v) => { setImportaPdf(false); setScheda(v); }} />}
       {sceltaColonne && (
         <div className="velo" onMouseDown={() => setSceltaColonne(false)}>

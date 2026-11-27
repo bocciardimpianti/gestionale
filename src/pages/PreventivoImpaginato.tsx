@@ -37,6 +37,9 @@ export default function PreventivoImpaginato() {
   // Preventivo nato dal foglio guidato: totali e righe restano quelli del foglio; il testo si può rifare da lì
   const [guidato, setGuidato] = useState<{ conf: Configurazione; sconto: number } | null>(null);
   const [inCorso, setInCorso] = useState(false);
+  // Preventivo con righe di materiali (es. da un'offerta del fornitore): il testo parte dall'elenco dei materiali,
+  // i totali restano quelli delle righe
+  const [conRighe, setConRighe] = useState<{ testo: string; totale: number } | null>(null);
   // Anteprima A4 accanto al testo, aggiornata mentre si scrive
   const [anteprima, setAnteprima] = useState("");
 
@@ -46,7 +49,7 @@ export default function PreventivoImpaginato() {
       if (data?.valore) setPiede({ ...PIEDE_PREDEFINITO, ...(data.valore as PiedePreventivo) });
     });
     if (!id) return;
-    supabase.from("preventivi").select("id, data, numero, impaginato, configurazione, sconto, cliente:clienti(nome)").eq("id", id).maybeSingle().then(({ data: r, error }) => {
+    supabase.from("preventivi").select("id, data, numero, impaginato, configurazione, sconto, imponibile, prezzo_scontato, cliente:clienti(nome)").eq("id", id).maybeSingle().then(async ({ data: r, error }) => {
       if (error) return setStato(/impaginato/.test(error.message) ? "Esegui su Supabase lo script 0058_preventivo_impaginato.sql" : "Errore: " + error.message);
       if (!r) return setStato("Preventivo non trovato");
       setData(String(r.data ?? dataIso(new Date())));
@@ -55,6 +58,19 @@ export default function PreventivoImpaginato() {
       if (r.configurazione) setGuidato({ conf: r.configurazione as Configurazione, sconto: Number(r.sconto ?? 0) });
       const imp = r.impaginato as Impaginato | null;
       if (imp?.soluzioni?.length) setP({ soluzioni: imp.soluzioni, nota: imp.nota ?? NOTA });
+      if (r.configurazione) return;
+      // Materiali del preventivo: elenco puntato (quantità e descrizione, senza prezzi) e il totale delle righe
+      const { data: righe } = await supabase.from("righe_preventivo").select("descrizione, quantita, unita_misura, ordine").eq("preventivo_id", id).order("ordine");
+      const elenco = ((righe ?? []) as { descrizione: string | null; quantita: number | null; unita_misura: string | null }[]).filter((x) => String(x.descrizione ?? "").trim());
+      if (!elenco.length) return;
+      const qta = (q: number | null) => Number(q ?? 1).toLocaleString("it-IT", { maximumFractionDigits: 2 });
+      const testo = elenco.map((x) => `- ${qta(x.quantita)} ${/^(pz|nr|n)\.?$/i.test(String(x.unita_misura ?? "")) || !x.unita_misura ? "x" : String(x.unita_misura).toLowerCase()} ${String(x.descrizione).trim()}`).join("\n");
+      const totale = Number(r.prezzo_scontato ?? r.imponibile ?? 0) || 0;
+      setConRighe({ testo, totale });
+      if (!imp?.soluzioni?.length) {
+        setP({ soluzioni: [{ titolo: String(r.numero ?? "").toUpperCase(), testo, totale: totale || null, nuovaPagina: false }], nota: NOTA });
+        setModificato(true);
+      }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -90,7 +106,7 @@ export default function PreventivoImpaginato() {
     const record: Record<string, unknown> = {
       data, numero: ogg, cliente_id: cliente?.id ?? null, impaginato: { ...p, cliente_testo: testoCliente.trim() },
       // dal foglio guidato i totali restano quelli calcolati là
-      ...(guidato ? {} : { imponibile: totale, prezzo_scontato: totale, totale, sconto: 0, sconto_totale: 0, iva: 0, iva_totale: 0 }),
+      ...(guidato || conRighe ? {} : { imponibile: totale, prezzo_scontato: totale, totale, sconto: 0, sconto_totale: 0, iva: 0, iva_totale: 0 }),
     };
     const r = id
       ? await supabase.from("preventivi").update(record).eq("id", id).select("id").single()
@@ -158,6 +174,10 @@ export default function PreventivoImpaginato() {
         {guidato && <button type="button" className="btn grigio" title="Rifà il testo con le stanze e i punti del preventivo guidato"
           onClick={() => confirm("Rifare il testo dal foglio guidato? Le modifiche fatte a mano al testo si perdono.") && (setModificato(true), setP(impaginatoDaConfigurazione(guidato.conf, oggetto, guidato.sconto)))}>
           Rifai il testo dal foglio guidato</button>}
+        {conRighe && <button type="button" className="btn grigio" title="Rimette nel testo della prima soluzione l'elenco dei materiali del preventivo e il suo totale"
+          onClick={() => confirm("Rifare il testo dai materiali del preventivo? Le modifiche fatte a mano al testo della prima soluzione si perdono.") && (setModificato(true),
+            setP((x) => ({ ...x, soluzioni: x.soluzioni.map((s, j) => (j === 0 ? { ...s, titolo: s.titolo || oggetto.toUpperCase(), testo: conRighe.testo, totale: conRighe.totale || null } : s)) })))}>
+          Rifai il testo dai materiali</button>}
       </div>
 
       <label className="nota-impaginato">Nota in fondo<textarea rows={2} value={p.nota} onChange={(e) => { setModificato(true); setP((x) => ({ ...x, nota: e.target.value })); }} /></label>
