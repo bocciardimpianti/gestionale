@@ -782,7 +782,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     titolo: "Materiali",
     titoloNuovo: "Nuovo Articolo",
     titoloScheda: (v) => String(v.descrizione ?? ""),
-    linguette: ["Storico", "Log Cloud"],
+    linguette: ["Storico", "Acquisti (DDT)", "Log Cloud"],
     tabella: "materiali",
     chiaveImport: ["codice_interno", "descrizione"],
     ordineIniziale: { chiave: "descrizione", su: true },
@@ -833,6 +833,26 @@ export const ARCHIVI: Record<string, Archivio> = {
       dettagli: (r) => [r.codice_interno, euro(r.prezzo_ricaricato), `Giacenza ${Number(r.giacenza ?? 0).toLocaleString("it-IT")}`].filter(Boolean).join(" · "),
     },
     figli: [{
+      // Ogni DDT di acquisto in cui è arrivato questo materiale, con il codice e la descrizione scritti dal fornitore
+      // (anche quando la riga del DDT è stata abbinata a mano a questo materiale perché simile; script 0064)
+      linguetta: "Acquisti (DDT)",
+      titolo: "DDT di acquisto (codice e descrizione originali del fornitore)",
+      tabella: "righe_ddt_acquisto",
+      campo: "materiale_id",
+      apri: { sezione: "ddt_acquisto", id: (r) => r.ddt_id },
+      select: "*, ddt:ddt_acquisto(numero_ddt, data, eliminato_il, fornitore:fornitori(nome))",
+      recentiPer: "ddt.data",
+      escludi: (r) => !!(r.ddt as Record<string, unknown> | null)?.eliminato_il,
+      colonne: [
+        { chiave: "ddt.data", titolo: "Data", larghezza: 90, tipo: "data" },
+        { chiave: "ddt.numero_ddt", titolo: "DDT n.", larghezza: 110 },
+        { chiave: "ddt.fornitore.nome", titolo: "Fornitore", larghezza: 150 },
+        { chiave: "codice_originale", titolo: "Codice fornitore", larghezza: 110, valore: (r) => r.codice_originale ?? "" },
+        { chiave: "descrizione_originale", titolo: "Descrizione sul DDT", larghezza: 300, valore: (r) => r.descrizione_originale ?? "(DDT importato prima: non salvata)" },
+        { chiave: "quantita", titolo: "Quantità", larghezza: 70 },
+        { chiave: "costo", titolo: "Costo", larghezza: 80, tipo: "euro" },
+      ],
+    }, {
       linguetta: "Storico",
       titolo: "Rapporti di intervento (materiale usato)",
       tabella: "righe_rapporto",

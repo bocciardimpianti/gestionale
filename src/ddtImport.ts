@@ -233,6 +233,8 @@ export async function salvaDdt({ ddt, fornitore, righe, file, tecnicoId, avanzam
       descrizione: m ? m.descrizione : r.pdf.descrizione,
       unita_misura: m ? m.unita_misura : umDa(r.pdf.um),
       quantita: r.pdf.quantita, costo: r.pdf.prezzo, sconto: 0, iva: r.pdf.iva,
+      // Codice e descrizione come scritti dal fornitore (restano anche se la riga è abbinata a un materiale simile)
+      codice_originale: valido(r.pdf.codice) ? r.pdf.codice : null, descrizione_originale: r.pdf.descrizione || null,
     });
   });
   const tot = cfg.calcolaTotali!({}, righeFinali);
@@ -270,7 +272,10 @@ export async function salvaDdt({ ddt, fornitore, righe, file, tecnicoId, avanzam
       if (e) { if (tentativo >= 3) throw new Error("Righe del DDT: " + MSG_RETE); await attendi(1500 * tentativo); continue; }
       if ((count ?? 0) >= righeFinali.length) break;
     }
-    const ins = await supabase.from("righe_ddt_acquisto").insert(righeFinali.map((r) => ({ ...r, ddt_id: nuovo!.id })));
+    let ins = await supabase.from("righe_ddt_acquisto").insert(righeFinali.map((r) => ({ ...r, ddt_id: nuovo!.id })));
+    // Script 0064 non ancora eseguito: si salva senza codice e descrizione originali
+    if (ins.error && /codice_originale|descrizione_originale/.test(ins.error.message))
+      ins = await supabase.from("righe_ddt_acquisto").insert(righeFinali.map(({ codice_originale: _c, descrizione_originale: _d, ...r }) => ({ ...r, ddt_id: nuovo!.id })));
     if (!ins.error) break;
     if (!erroreRete(ins.error) || tentativo >= 2) {
       // Senza righe il DDT non serve: si toglie (se la connessione lo permette) e si potrà rifare da capo
