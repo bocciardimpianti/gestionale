@@ -5,6 +5,7 @@ import {
   LogOut, Menu, MessageCircle, Monitor, Paperclip, PieChart, Puzzle, RefreshCw, Rocket, ScrollText,
   Search, Settings, Smartphone, Star, Type, User, UserRound, Users, Wrench, X, type LucideIcon,
   ChevronDown, MapPin, PackageSearch, PanelLeftClose, PanelLeftOpen, Plus, Snowflake, Zap,
+  FileStack, FolderOpen,
 } from "lucide-react";
 import TavolozzaComandi, { type Comando } from "./components/TavolozzaComandi";
 import { ARCHIVI } from "./archivi";
@@ -36,6 +37,8 @@ export const ICONE: Record<string, LucideIcon> = {
   scadenziario: Banknote,
   conti_clienti: Banknote,
   spese_aziendali: Wallet,
+  preventivi_fornitori: FileStack,
+  progetti_documenti: FolderOpen,
   fgas: Snowflake,
 };
 
@@ -46,6 +49,7 @@ export const COLORI_ICONE: Record<string, string> = {
   rapporti: "#4dd0e1", agenda: "#f48fb1", preventivi: "#aed581", richieste: "#ff8a65",
   ddt_acquisto: "#b39ddb", materiali: "#ffca28",
   scadenziario: "#4db6ac", conti_clienti: "#ef9a9a", spese_aziendali: "#ffb74d", fgas: "#80deea",
+  preventivi_fornitori: "#ffab91", progetti_documenti: "#9fa8da",
   "admin/utenti": "#90caf9", "admin/materiali-tecnici": "#ffb300", "admin/chiamata": "#ef5350",
   "admin/impianti-tipo": "#fff176", "admin/registro": "#bcaaa4",
 };

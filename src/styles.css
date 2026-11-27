@@ -2473,3 +2473,12 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .mail-intestazione dt { color: var(--tenue); font-weight: 600; }
 .mail-intestazione dd { margin: 0; overflow-wrap: anywhere; }
 .mail-corpo { white-space: pre-wrap; font-size: 13.5px; line-height: 1.45; border-top: 1px solid var(--bordo); padding-top: 10px; overflow-wrap: anywhere; }
+/* Sezioni "Preventivi fornitori" e "Progetti e documenti" */
+.pagina-progetti { display: flex; flex-direction: column; gap: 10px; }
+.pagina-progetti > .piccolo { margin: 0; }
+.ep-gruppo { background: var(--carta); }
+.ep-testa { cursor: default; }
+.pc-file.senza-cliente { background: #fffaf0; }
+.ep-cliente { font-weight: 600; color: #1f5fbf; white-space: nowrap; }
+.ep-assegna { display: inline-flex; align-items: center; gap: 6px; }
+.ep-assegna > :first-child { width: 220px; }

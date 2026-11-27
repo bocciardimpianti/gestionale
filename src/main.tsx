@@ -1,3 +1,4 @@
+import ElencoProgetti from "./pages/ElencoProgetti";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
@@ -102,6 +103,8 @@ function PaginaSezione() {
   if (ARCHIVI[chiave]) return <PaginaArchivio key={chiave} cfg={ARCHIVI[chiave]} />;
   if (chiave === "agenda") return <Agenda />;
   if (chiave === "conti_clienti") return <ContiClienti />;
+  if (chiave === "preventivi_fornitori") return <ElencoProgetti key={chiave} preventivi />;
+  if (chiave === "progetti_documenti") return <ElencoProgetti key={chiave} preventivi={false} />;
   return (
     <>
       <h2>{sezione.etichetta}</h2>
