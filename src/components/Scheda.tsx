@@ -896,6 +896,30 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <Barcode size={22} />
           </button>
         )}
+        {/* Sotto i materiali: manodopera del preventivo (a sinistra) e codice a barre (a destra) */}
+        <div className="sotto-righe">
+        {cfg.sezione === "preventivi" && (() => {
+          // Preventivo: manodopera = ore × numero di tecnici × tariffa oraria (entra nell'imponibile)
+          const num = (k: string) => (dati[k] == null || dati[k] === "" ? "" : String(dati[k]));
+          const campoNum = (k: string, etichetta: string, passo = "0.5") => (
+            <label className="mp-campo">{etichetta}
+              <input type="number" inputMode="decimal" step={passo} min="0" value={num(k)} disabled={!modificabile}
+                onChange={(e) => cambia(k, e.target.value === "" ? null : Number(e.target.value))} />
+            </label>
+          );
+          return (
+            <div className="manodopera-preventivo">
+              <b>Manodopera</b>
+              {campoNum("ore_lavoro", "Ore di lavoro")}
+              <span className="mp-per">×</span>
+              {campoNum("numero_tecnici", "N. tecnici", "1")}
+              <span className="mp-per">×</span>
+              {campoNum("tariffa_oraria", "Tariffa oraria €", "0.01")}
+              <span className="mp-per">=</span>
+              <span className="mp-totale">{euro(totali.manodopera ?? 0) || "0,00 €"}</span>
+            </div>
+          );
+        })()}
         {modificabile && !telefono && (
           <div className="riga-codice">
             <input
@@ -913,6 +937,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
             <Barcode size={22} />
           </div>
         )}
+        </div>
         {!!piedeGruppi?.length && (
           <div className="piede-gruppi">
             {piedeGruppi.map((g) => (

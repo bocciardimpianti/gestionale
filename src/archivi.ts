@@ -215,14 +215,16 @@ function totaliRapporto(dati: Record<string, unknown>, righe: Record<string, unk
   };
 }
 
-// Preventivo: imponibile (somma righe) - sconto % + iva %
+// Preventivo: imponibile (somma righe + manodopera) - sconto % + iva %
+// Manodopera = ore di lavoro × numero di tecnici × tariffa oraria (script 0068)
 function totaliPreventivo(dati: Record<string, unknown>, righe: Record<string, unknown>[]) {
   const r2 = (x: number) => Math.round(x * 100) / 100;
-  const imponibile = righe.length ? r2(righe.reduce((t, r) => t + n(r.totale), 0)) : n(dati.imponibile);
+  const manodopera = r2(n(dati.ore_lavoro) * (dati.numero_tecnici == null || dati.numero_tecnici === "" ? 1 : n(dati.numero_tecnici)) * n(dati.tariffa_oraria));
+  const imponibile = righe.length || manodopera ? r2(righe.reduce((t, r) => t + n(r.totale), 0) + manodopera) : n(dati.imponibile);
   const scontoTotale = r2(imponibile * n(dati.sconto) / 100);
   const scontato = r2(imponibile - scontoTotale);
   const ivaTotale = r2(scontato * n(dati.iva) / 100);
-  return { imponibile, sconto_totale: scontoTotale, prezzo_scontato: scontato, iva_totale: ivaTotale, totale: r2(scontato + ivaTotale) };
+  return { imponibile, ...(manodopera || dati.ore_lavoro != null ? { manodopera } : {}), sconto_totale: scontoTotale, prezzo_scontato: scontato, iva_totale: ivaTotale, totale: r2(scontato + ivaTotale) };
 }
 
 // DDT di acquisto: costo × quantità, sconto % e iva % per riga; materiali e servizi separati
@@ -984,7 +986,11 @@ export const ARCHIVI: Record<string, Archivio> = {
       mostra: (d) => !!d.id && (!d.configurazione || !!d.impaginato),
       esegui: (d) => { location.hash = `#/preventivo-impaginato?id=${d.id}`; },
     }],
-    valoriNuovo: async () => ({ data: dataIso(new Date()), stato: "Aperto", sconto: 0, iva: 0 }),
+    valoriNuovo: async () => {
+      // Tariffa oraria proposta: quella della prima tariffa (es. "Standard"); si può cambiare
+      const { data: t } = await supabase.from("tariffe").select("tariffa_oraria").order("ordine").limit(1).maybeSingle();
+      return { data: dataIso(new Date()), stato: "Aperto", sconto: 0, iva: 0, numero_tecnici: 1, tariffa_oraria: t?.tariffa_oraria ?? null };
+    },
     colonne: [
       { chiave: "data", titolo: "Data", excel: "Data", larghezza: 88, tipo: "data" },
       { chiave: "numero", titolo: "Oggetto", excel: "Numero", larghezza: 320 },
@@ -1012,6 +1018,10 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "stato", etichetta: "Stato Documento", tipo: "scelta", opzioniDa: "stati_documento", titoloOpzioni: "Stati documento", colori: COLORI_STATO, larghezza: 1, finisciRiga: true },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4, linguetta: "Dettaglio" },
       { chiave: "firma", etichetta: "Firma", tipo: "firma", larghezza: 2, linguetta: "Dettaglio" },
+      // Manodopera: si scrive nel riquadro accanto al codice a barre (sotto i materiali), non qui
+      { chiave: "ore_lavoro", etichetta: "Ore di lavoro", tipo: "numero", larghezza: 1, mostraSe: () => false },
+      { chiave: "numero_tecnici", etichetta: "Numero tecnici", tipo: "numero", larghezza: 1, mostraSe: () => false },
+      { chiave: "tariffa_oraria", etichetta: "Tariffa oraria", tipo: "euro", larghezza: 1, mostraSe: () => false },
     ],
     righe: {
       tabella: "righe_preventivo",

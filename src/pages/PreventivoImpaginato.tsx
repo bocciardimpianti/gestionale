@@ -62,9 +62,13 @@ export default function PreventivoImpaginato() {
       // Materiali del preventivo: elenco puntato (quantità e descrizione, senza prezzi) e il totale delle righe
       const { data: righe } = await supabase.from("righe_preventivo").select("descrizione, quantita, unita_misura, ordine").eq("preventivo_id", id).order("ordine");
       const elenco = ((righe ?? []) as { descrizione: string | null; quantita: number | null; unita_misura: string | null }[]).filter((x) => String(x.descrizione ?? "").trim());
-      if (!elenco.length) return;
+      // Manodopera del preventivo (script 0068): una riga in fondo all'elenco, senza prezzo
+      const { data: md } = await supabase.from("preventivi").select("ore_lavoro, numero_tecnici").eq("id", id).maybeSingle();
+      const ore = Number(md?.ore_lavoro ?? 0), tecnici = Number(md?.numero_tecnici ?? 1) || 1;
+      if (!elenco.length && !ore) return;
       const qta = (q: number | null) => Number(q ?? 1).toLocaleString("it-IT", { maximumFractionDigits: 2 });
-      const testo = elenco.map((x) => `- ${qta(x.quantita)} ${/^(pz|nr|n)\.?$/i.test(String(x.unita_misura ?? "")) || !x.unita_misura ? "x" : String(x.unita_misura).toLowerCase()} ${String(x.descrizione).trim()}`).join("\n");
+      const testo = elenco.map((x) => `- ${qta(x.quantita)} ${/^(pz|nr|n)\.?$/i.test(String(x.unita_misura ?? "")) || !x.unita_misura ? "x" : String(x.unita_misura).toLowerCase()} ${String(x.descrizione).trim()}`).join("\n")
+        + (ore ? `${elenco.length ? "\n" : ""}- Manodopera: ${tecnici} ${tecnici === 1 ? "tecnico" : "tecnici"} per ${ore.toLocaleString("it-IT")} ${ore === 1 ? "ora" : "ore"}` : "");
       const totale = Number(r.prezzo_scontato ?? r.imponibile ?? 0) || 0;
       setConRighe({ testo, totale });
       if (!imp?.soluzioni?.length) {

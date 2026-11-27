@@ -2498,3 +2498,14 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .ipf-cerca input { border: 0; outline: none; height: 34px; flex: 1; background: transparent; font: inherit; }
 .ipf-voce { width: 100%; text-align: left; font: inherit; color: var(--testo); background: var(--carta); }
 .ipf-voce:hover:not(:disabled) { border-color: #1e88e5; background: #f2f8fe; }
+/* Sotto le righe dei materiali: manodopera del preventivo accanto al codice a barre */
+.sotto-righe { display: flex; align-items: flex-end; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.sotto-righe:empty { display: none; }
+.sotto-righe .riga-codice { align-self: flex-end; }
+.manodopera-preventivo { margin-right: auto; display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; background: #eef7f8; border: 1px solid #bcdfe2; border-radius: 8px; padding: 6px 10px; }
+.manodopera-preventivo > b { align-self: center; color: #0a646d; }
+.mp-campo { display: flex; flex-direction: column; font-size: 11.5px; color: var(--tenue); gap: 2px; }
+.mp-campo input { width: 84px; height: 30px; border: 1px solid var(--bordo); border-radius: 6px; padding: 0 6px; text-align: right; font-size: 14px; }
+.mp-per { align-self: center; color: var(--tenue); font-weight: 700; padding-top: 14px; }
+.mp-totale { align-self: center; padding-top: 14px; font-weight: 700; font-size: 15px; min-width: 80px; text-align: right; }
+@media (max-width: 760px) { .manodopera-preventivo { margin-right: 0; width: 100%; } .mp-campo input { width: 70px; } }
