@@ -522,6 +522,20 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
     await registra(`${cfg.sezione}_${nuovo ? "creato" : "modificato"}`, { id: risposta.data.id, nome: dati[cfg.colonne[0].chiave] ?? testoRif[cfg.campi.find((c) => c.tipo === "riferimento")?.chiave ?? ""] ?? null });
     modificata.current = false;
     onSalvato(risposta.data.id);
+    // Azione chiesta prima del salvataggio (es. "Impagina preventivo" con modifiche non salvate)
+    const dopo = dopoSalva.current;
+    dopoSalva.current = null;
+    dopo?.();
+  };
+  const dopoSalva = useRef<(() => void) | null>(null);
+  // Azioni della scheda: quelle con "salvaPrima" salvano prima le modifiche, così l'azione le vede
+  const eseguiAzione = async (a: NonNullable<Archivio["azioniScheda"]>[number], d: Record<string, unknown>) => {
+    const ctx = { aggiorna: () => onSalvato(valori.id as number) };
+    if (!a.salvaPrima || !modificabile || !modificata.current) return a.esegui(d, ctx);
+    dopoSalva.current = () => a.esegui(d, ctx);
+    await salva();
+    // salvataggio non riuscito: l'azione non parte (il messaggio d'errore resta in basso)
+    if (modificata.current) dopoSalva.current = null;
   };
 
   // Foto veloce: Ctrl+V ovunque nella scheda mette l'immagine nel primo campo foto vuoto e salva
@@ -1092,7 +1106,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                 {!nelCestino && cfg.azioniScheda?.filter((a) => a.inEvidenza && (!a.mostra || a.mostra({ ...valori, ...dati, ...testoRifNomi() }))).map((a, i) => {
                   const d = { ...valori, ...dati, ...testoRifNomi() };
                   return (
-                    <button type="button" key={`e${i}`} className="btn azione-evidenza" onClick={() => a.esegui(d, { aggiorna: () => onSalvato(valori.id as number) })}>
+                    <button type="button" key={`e${i}`} className="btn azione-evidenza" onClick={() => eseguiAzione(a, d)}>
                       {typeof a.etichetta === "function" ? a.etichetta(d) : a.etichetta}
                     </button>
                   );
@@ -1118,7 +1132,7 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                           const d = { ...valori, ...dati, ...testoRifNomi() };
                           const testo = typeof a.etichetta === "function" ? a.etichetta(d) : a.etichetta;
                           return (
-                            <button type="button" key={i} onClick={() => { setMenuAzioni(false); a.esegui(d, { aggiorna: () => onSalvato(valori.id as number) }); }}>{testo}</button>
+                            <button type="button" key={i} onClick={() => { setMenuAzioni(false); eseguiAzione(a, d); }}>{testo}</button>
                           );
                         })}
                         {dati.email ? <a href={`mailto:${dati.email}`}>Invia e-mail</a> : null}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, Eye, FileText, Plus, Printer, Save, Trash2 } from "lucide-react";
 import { dataIso, leggiTutto, registra, supabase } from "../supabase";
@@ -42,13 +42,18 @@ export default function PreventivoImpaginato() {
   const [conRighe, setConRighe] = useState<{ materiali: string[]; totale: number } | null>(null);
   // Anteprima A4 accanto al testo, aggiornata mentre si scrive
   const [anteprima, setAnteprima] = useState("");
+  // Valori più recenti (letti dopo il caricamento, fuori dal ciclo di React)
+  const pRef = useRef(p), clienteRef = useRef(testoCliente), dataRef = useRef(data), oggettoRef = useRef(oggetto);
+  pRef.current = p; clienteRef.current = testoCliente; dataRef.current = data; oggettoRef.current = oggetto;
+  const conRigheRef = useRef(conRighe);
+  conRigheRef.current = conRighe;
 
   useEffect(() => {
     leggiTutto("clienti", "id, nome", true).then((c) => setClienti(c as { id: number; nome: string }[])).catch(() => {});
     supabase.from("impostazioni").select("valore").eq("chiave", "preventivo_piede").maybeSingle().then(({ data }) => {
       if (data?.valore) setPiede({ ...PIEDE_PREDEFINITO, ...(data.valore as PiedePreventivo) });
     });
-    if (!id) return;
+    if (!id) { ripristinaBozza(); return; }
     supabase.from("preventivi").select("id, data, numero, impaginato, configurazione, sconto, imponibile, prezzo_scontato, cliente:clienti(nome)").eq("id", id).maybeSingle().then(async ({ data: r, error }) => {
       if (error) return setStato(/impaginato/.test(error.message) ? "Esegui su Supabase lo script 0058_preventivo_impaginato.sql" : "Errore: " + error.message);
       if (!r) return setStato("Preventivo non trovato");
@@ -78,8 +83,49 @@ export default function PreventivoImpaginato() {
         setP({ soluzioni: [{ titolo: String(r.numero ?? "").toUpperCase(), testo: "", totale: totale || null, nuovaPagina: false, materiali: materiali.map((nome) => ({ nome, mostra: true })) }], nota: NOTA });
         setModificato(true);
       }
-    });
+    }).then(ripristinaBozza);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Modifiche non salvate: restano sul dispositivo e si ritrovano riaprendo l'impaginato (finché non si salva)
+  const chiaveBozza = `bozza-impaginato:${id ?? "nuovo"}`;
+  // base: i materiali del preventivo quando è stata fatta la bozza (se poi cambiano, l'elenco si aggiorna)
+  type Bozza = { p: Impaginato; cliente: string; data: string; oggetto: string; quando: string; base?: string };
+  const [caricato, setCaricato] = useState(false);
+  const [ripristinata, setRipristinata] = useState(false);
+  // Contenuto appena aperto (dal database o dai materiali): la bozza si salva solo se lo si cambia davvero
+  const iniziale = useRef("");
+  const istantanea = () => JSON.stringify([pRef.current, clienteRef.current, dataRef.current, oggettoRef.current]);
+  function ripristinaBozza() {
+    // Si aspetta che il contenuto caricato sia a video, poi si guarda se c'è una bozza più recente
+    window.setTimeout(() => {
+      iniziale.current = istantanea();
+      try {
+        const b = JSON.parse(localStorage.getItem(chiaveBozza) ?? "null") as Bozza | null;
+        if (b?.p?.soluzioni?.length) {
+          // Materiali del preventivo cambiati dopo la bozza: si tiene il testo scritto, l'elenco e il totale si rifanno
+          const ora = conRigheRef.current;
+          const cambiati = !!ora && b.base !== undefined && b.base !== ora.materiali.join("\n");
+          const pp = cambiati ? { ...b.p, soluzioni: b.p.soluzioni.map((x, j) => (j === 0 ? { ...x, materiali: ora!.materiali.map((nome) => ({ nome, mostra: true })), totale: ora!.totale || x.totale } : x)) } : b.p;
+          setP(pp); setTestoCliente(b.cliente); setData(b.data); setOggetto(b.oggetto); setModificato(true); setRipristinata(true);
+          setStato(`Ripristinate le modifiche non salvate del ${new Date(b.quando).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}.${cambiati ? " I materiali del preventivo sono cambiati: elenco e totale aggiornati." : ""}`);
+        }
+      } catch { /* bozza illeggibile: si ignora */ }
+      setCaricato(true);
+    }, 80);
+  }
+  useEffect(() => {
+    if (!caricato || !modificato) return;
+    const t = window.setTimeout(() => {
+      if (istantanea() === iniziale.current) return;
+      try { localStorage.setItem(chiaveBozza, JSON.stringify({ p, cliente: testoCliente, data, oggetto, quando: new Date().toISOString(), base: conRighe?.materiali.join("\n") } satisfies Bozza)); } catch { /* spazio pieno */ }
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [p, testoCliente, data, oggetto, modificato, caricato]); // eslint-disable-line react-hooks/exhaustive-deps
+  const scartaBozza = () => {
+    if (!confirm("Scartare le modifiche non salvate e tornare all'ultima versione salvata?")) return;
+    try { localStorage.removeItem(chiaveBozza); } catch { /* niente */ }
+    location.reload();
+  };
 
   useEffect(() => {
     const t = window.setTimeout(() => setAnteprima(htmlPreventivoImpaginato({ cliente: testoCliente.trim(), data, titolo: "Anteprima" }, p, piede, false)), 500);
@@ -123,6 +169,8 @@ export default function PreventivoImpaginato() {
     if (!id) { setId(r.data.id); naviga(`/preventivo-impaginato?id=${r.data.id}`, { replace: true }); }
     setOggetto(ogg);
     setModificato(false);
+    // Salvato: la bozza sul dispositivo non serve più
+    try { localStorage.removeItem(chiaveBozza); localStorage.removeItem(`bozza-impaginato:${r.data.id}`); } catch { /* niente */ }
     await registra(id ? "preventivo_impaginato_modificato" : "preventivo_impaginato_creato", { id: r.data.id, oggetto: ogg });
     setStato(`Preventivo salvato (${ogg}).`);
   };
@@ -222,7 +270,8 @@ export default function PreventivoImpaginato() {
         </details>
       )}
 
-      {stato && <p className={stato.startsWith("Errore") || stato.startsWith("Esegui") ? "errore" : "ok"}>{stato}</p>}
+      {stato && <p className={stato.startsWith("Errore") || stato.startsWith("Esegui") ? "errore" : "ok"}>{stato}
+        {ripristinata && modificato && <> <button type="button" className="link" onClick={scartaBozza}>Scarta le modifiche</button></>}</p>}
       <div className="barra-impaginato">
         {/* Si torna al preventivo da cui si è partiti: il foglio guidato da modificare, oppure la scheda del preventivo */}
         <button type="button" className="btn grigio" onClick={() => (!modificato || confirm("Uscire senza salvare le modifiche?"))

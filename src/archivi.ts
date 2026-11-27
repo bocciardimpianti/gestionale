@@ -155,6 +155,8 @@ export interface Archivio {
     mostra?: (dati: Record<string, unknown>) => boolean;
     // Mostrata anche come pulsante in fondo alla scheda, accanto a Salva
     inEvidenza?: boolean;
+    // Prima si salvano le modifiche della scheda (se ce ne sono), poi si esegue (es. "Impagina preventivo")
+    salvaPrima?: boolean;
     // "aggiorna" ricarica l'elenco e chiude la scheda (dopo un'azione che cambia il record)
     esegui: (dati: Record<string, unknown>, ctx: { aggiorna: () => void }) => void;
   }[];
@@ -982,7 +984,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       esegui: (d) => { location.hash = `#/preventivo-guidato?id=${d.id}`; },
     }, {
       // Preventivo scritto a testo e impaginato come il modello Word della ditta (script 0058)
-      etichetta: (d) => (d.impaginato ? "Apri impaginato" : "Impagina preventivo"), inEvidenza: true,
+      etichetta: (d) => (d.impaginato ? "Apri impaginato" : "Impagina preventivo"), inEvidenza: true, salvaPrima: true,
       mostra: (d) => !!d.id && (!d.configurazione || !!d.impaginato),
       esegui: (d) => { location.hash = `#/preventivo-impaginato?id=${d.id}`; },
     }],
