@@ -1,3 +1,4 @@
+import { recuperaOriginali } from "./ddtOriginali";
 import { ddtEasyfattDaRapporti } from "./ddtEasyfatt";
 import { totaliDivisi } from "./dividiRapportino";
 import type { Colonna } from "./components/Griglia";
@@ -1083,6 +1084,17 @@ export const ARCHIVI: Record<string, Archivio> = {
         { chiave: "importo", titolo: "Importo", larghezza: 90, tipo: "euro" },
         { chiave: "pagato", titolo: "Pagato", larghezza: 60, tipo: "booleano" },
       ],
+    }],
+    azioniScheda: [{
+      // DDT importati prima dello script 0064: si riprendono dal PDF codice e descrizione del fornitore di ogni riga
+      etichetta: "Recupera dal PDF codici e descrizioni del fornitore", mostra: (d) => !!d.id && !!d.pdf,
+      esegui: async (d, { aggiorna }) => {
+        try {
+          const n = await recuperaOriginali(Number(d.id));
+          alert(n ? `Completate ${n} righe con il codice e la descrizione del fornitore.` : "Niente da completare: le righe hanno già i dati del fornitore, o il PDF non si legge.");
+          if (n) aggiorna();
+        } catch (e) { alert((e as Error).message); }
+      },
     }],
     chiaveImport: ["data", "numero_ddt", "fornitore"],
     ordineIniziale: { chiave: "data", su: false },

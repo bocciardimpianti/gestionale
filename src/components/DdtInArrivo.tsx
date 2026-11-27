@@ -3,6 +3,7 @@ import { CloudDownload, RefreshCw } from "lucide-react";
 import { supabase } from "../supabase";
 import { controllaDrive, importaDdtInArrivo, RIPROVA_A_MANO, type InArrivo } from "../ddtAutomatici";
 import ImportaDdtPdf from "./ImportaDdtPdf";
+import { recuperaOriginali } from "../ddtOriginali";
 
 // DDT di Acquisto: i PDF arrivati dalla cartella Google Drive. Quelli sicuri si importano da soli;
 // quelli da controllare si aprono qui nella finestra "Importa DDT da PDF" già caricati.
@@ -65,6 +66,23 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
     setInCorso(false);
   };
 
+  // DDT importati prima dello script 0064: si riprendono dal PDF codice e descrizione del fornitore
+  const recupera = async () => {
+    const importati = (righe ?? []).filter((x) => x.stato === "importato" && x.ddt_id);
+    if (!importati.length) return setStato("Nessun DDT importato negli ultimi 7 giorni.");
+    setInCorso(true);
+    let righeFatte = 0, ddtFatti = 0;
+    try {
+      for (const [k, x] of importati.entries()) {
+        setStato(`Rilettura dei PDF: ${k + 1} di ${importati.length} (${x.nome_file})…`);
+        const n = await recuperaOriginali(x.ddt_id!);
+        if (n) { righeFatte += n; ddtFatti++; }
+      }
+      setStato(righeFatte ? `Completate ${righeFatte} righe in ${ddtFatti} DDT con codice e descrizione del fornitore.` : "Niente da completare: i DDT hanno già i dati del fornitore.");
+    } catch (e) { setStato("Errore: " + (e as Error).message); }
+    setInCorso(false);
+  };
+
   const apri = async (x: InArrivo) => {
     const { data, error } = await supabase.storage.from("ddt_acquisto").download(x.percorso);
     if (error || !data) return setStato("PDF non trovato: " + (error?.message ?? ""));
@@ -86,6 +104,8 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
         <span className="piccolo">{aperti.length ? `${aperti.length} da sistemare` : "tutto importato"} · {righe.filter((x) => x.stato === "importato").length} importati negli ultimi 7 giorni</span>
         <span style={{ flex: 1 }} />
         {righe.length > aperti.length && <button type="button" className="link" onClick={() => setTutti(!tutti)}>{tutti ? "Solo da sistemare" : "Mostra tutti"}</button>}
+        {puoImportare && <button type="button" className="btn grigio piccolo-btn" disabled={inCorso} onClick={recupera}
+          title="Rilegge i PDF dei DDT importati negli ultimi 7 giorni e aggiunge alle righe codice e descrizione scritti dal fornitore">Recupera codici fornitore</button>}
         {puoImportare && <button type="button" className="btn grigio piccolo-btn" disabled={inCorso} onClick={controllaAdesso}><RefreshCw size={14} /> Controlla adesso</button>}
       </div>
       {passo && <p className="piccolo">⏳ {passo}</p>}
