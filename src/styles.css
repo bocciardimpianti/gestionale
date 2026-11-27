@@ -2482,3 +2482,13 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .ep-cliente { font-weight: 600; color: #1f5fbf; white-space: nowrap; }
 .ep-assegna { display: inline-flex; align-items: center; gap: 6px; }
 .ep-assegna > :first-child { width: 220px; }
+.ep-file { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px 8px 34px; border-top: 1px solid #f0efe9; font-size: 13px; }
+.ep-file.senza-cliente { background: #fffaf0; }
+.ep-riga1 { display: flex; align-items: baseline; gap: 12px; }
+.ep-nome { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ep-nome .pc-nome { text-align: left; overflow-wrap: anywhere; }
+.ep-riga1 .ep-cliente { margin-left: auto; text-align: right; }
+.ep-cliente.nessuno { color: #b5531a; font-weight: 600; }
+.ep-riga2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ep-riga2 select { height: 30px; border: 1px solid #c3c2b7; border-radius: 6px; font-size: 12.5px; max-width: 210px; }
+.ep-riga2 .mail-testo { flex-basis: 100%; }

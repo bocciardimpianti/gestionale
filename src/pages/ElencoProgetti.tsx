@@ -118,25 +118,30 @@ export default function ElencoProgetti({ preventivi }: { preventivi: boolean }) 
         <div key={g} className="pc-cartella ep-gruppo">
           <div className="pc-testa ep-testa"><span className="pc-icona">{preventivi ? "🏷️" : iconaCategoria(g)}</span> <b>{g}</b> <span className="piccolo">({lista.length})</span></div>
           {lista.map((x) => (
-            <div key={x.id} className={`pc-file${assegnato(x) ? "" : " senza-cliente"}`}>
-              <button type="button" className="link pc-nome" title="Apri il file" onClick={() => apriProgetto(x)}>{preventivi ? titoloSenzaFornitore(x) : x.nome_file}</button>
-              <span className="piccolo">{new Date(x.creato_il).toLocaleDateString("it-IT")}{x.mail?.oggetto && !preventivi ? ` · mail: ${x.mail.oggetto}` : ""}</span>
-              {assegnato(x)
-                ? <span className="ep-cliente">👤 {x.cliente?.nome}</span>
-                : puoModificare
-                  ? <span className="ep-assegna"><Autocompleta id={`ep-${x.id}`} valore={scelte[x.id] ?? ""} opzioni={clienti.map((c) => c.nome)} placeholder="Cliente…"
-                      onCambia={(t) => setScelte((s) => ({ ...s, [x.id]: t }))} />
-                      <button type="button" className="btn blu piccolo-btn" onClick={() => assegna(x)}>Assegna</button></span>
-                  : <span className="piccolo">senza cliente</span>}
-              <MailProgetto mail={x.mail} />
-              {puoModificare && <>
-                {!preventivi && <select value={x.categoria ?? "Altro"} title="Sposta in un'altra cartella" onChange={(e) => cambia(x, { categoria: e.target.value }, `"${x.nome_file}" → ${e.target.value}`)}>
-                  {NOMI_CATEGORIE.map((n) => <option key={n} value={n}>{iconaCategoria(n)} {n}</option>)}
-                </select>}
-                {assegnato(x) && <button type="button" className="btn grigio piccolo-btn" title="Non è di questo cliente"
-                  onClick={() => confirm(`Togliere "${x.nome_file}" da ${x.cliente?.nome}?`) && cambia(x, { cliente_id: null, stato: "da_smistare" }, "Tolto dal cliente")}>Non è suo</button>}
-                <button type="button" className="btn grigio piccolo-btn" onClick={() => confirm(`Scartare "${x.nome_file}"? Non comparirà più (resta su Drive).`) && cambia(x, { stato: "scartato" }, "Scartato")}>Scarta</button>
-              </>}
+            <div key={x.id} className={`ep-file${assegnato(x) ? "" : " senza-cliente"}`}>
+              {/* Riga 1: nome del file a sinistra, cliente sempre allineato a destra */}
+              <div className="ep-riga1">
+                <span className="ep-nome">
+                  <button type="button" className="link pc-nome" title="Apri il file" onClick={() => apriProgetto(x)}>{preventivi ? titoloSenzaFornitore(x) : x.nome_file}</button>
+                  <span className="piccolo">{new Date(x.creato_il).toLocaleDateString("it-IT")}{x.mail?.oggetto && !preventivi ? ` · mail: ${x.mail.oggetto}` : ""}</span>
+                </span>
+                <span className={`ep-cliente${assegnato(x) ? "" : " nessuno"}`}>{assegnato(x) ? `👤 ${x.cliente?.nome}` : "senza cliente"}</span>
+              </div>
+              {/* Riga 2: i pulsanti */}
+              <div className="ep-riga2">
+                <MailProgetto mail={x.mail} />
+                {puoModificare && <>
+                  {!assegnato(x) && <span className="ep-assegna"><Autocompleta id={`ep-${x.id}`} valore={scelte[x.id] ?? ""} opzioni={clienti.map((c) => c.nome)} placeholder="Scegli il cliente…"
+                    onCambia={(t) => setScelte((s) => ({ ...s, [x.id]: t }))} />
+                    <button type="button" className="btn blu piccolo-btn" onClick={() => assegna(x)}>Assegna</button></span>}
+                  {!preventivi && <select value={x.categoria ?? "Altro"} title="Sposta in un'altra cartella" onChange={(e) => cambia(x, { categoria: e.target.value }, `"${x.nome_file}" → ${e.target.value}`)}>
+                    {NOMI_CATEGORIE.map((n) => <option key={n} value={n}>{iconaCategoria(n)} {n}</option>)}
+                  </select>}
+                  {assegnato(x) && <button type="button" className="btn grigio piccolo-btn" title="Non è di questo cliente"
+                    onClick={() => confirm(`Togliere "${x.nome_file}" da ${x.cliente?.nome}?`) && cambia(x, { cliente_id: null, stato: "da_smistare" }, "Tolto dal cliente")}>Non è suo</button>}
+                  <button type="button" className="btn grigio piccolo-btn" onClick={() => confirm(`Scartare "${x.nome_file}"? Non comparirà più (resta su Drive).`) && cambia(x, { stato: "scartato" }, "Scartato")}>Scarta</button>
+                </>}
+              </div>
             </div>
           ))}
         </div>
