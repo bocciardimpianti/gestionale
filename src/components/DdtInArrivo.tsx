@@ -115,7 +115,8 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
         return (
           <div key={x.id} className="dia-riga">
             <span className={`etichetta-pdf ${s.classe}`}>{s.testo}</span>
-            <span className="dia-testi"><b>{x.nome_file}</b>{x.messaggio && <span className="piccolo">{x.messaggio}</span>}</span>
+            <span className="dia-testi"><b>{x.nome_file}</b>
+              <span className="piccolo">arrivato {new Date(x.creato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}{x.messaggio ? ` · ${x.messaggio}` : ""}</span></span>
             {puoImportare && (["da_controllare", "errore"].includes(x.stato) || (x.stato === "in_corso" && !passo)) && <>
               <button type="button" className="btn blu piccolo-btn" onClick={() => apri(x)}>Controlla</button>
               <button type="button" className="btn grigio piccolo-btn" onClick={() => confirm(`Scartare "${x.nome_file}"? Non verrà importato.`) && cambiaStato(x, "scartato", "Scartato a mano")}>Scarta</button>

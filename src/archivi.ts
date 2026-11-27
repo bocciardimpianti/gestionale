@@ -1097,12 +1097,16 @@ export const ARCHIVI: Record<string, Archivio> = {
       },
     }],
     chiaveImport: ["data", "numero_ddt", "fornitore"],
-    ordineIniziale: { chiave: "data", su: false },
+    // Dal più recente in base a quando è arrivato (importato da Drive o inserito a mano)
+    ordineIniziale: { chiave: "creato_il", su: false },
     calcolaTotali: totaliDdt,
     valoriNuovo: async () => ({ data: dataIso(new Date()), stato: "Aperto" }),
     colonne: [
       { chiave: "fornitore", titolo: "Nominativo", excel: "Nominativo", larghezza: 165, riferimento: { campo: "fornitore_id", tabella: "fornitori" } },
       { chiave: "data", titolo: "Data", excel: "Data", larghezza: 78, tipo: "data" },
+      // Giorno e ora in cui il DDT è arrivato nel gestionale (dalla mail/Drive o inserito a mano)
+      { chiave: "creato_il", titolo: "Arrivato", excel: "Arrivato il", larghezza: 108,
+        valore: (r) => (r.creato_il ? new Date(String(r.creato_il)).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "") },
       { chiave: "tecnico", titolo: "Tecnico", excel: "Tecnico", larghezza: 120, riferimento: { campo: "tecnico_id", tabella: "tecnici" }, classe: "cella-tecnico" },
       { chiave: "stato", titolo: "Stato Documento", excel: "Stato Documento", larghezza: 97, tipo: "stato" },
       // Materiali del DDT già messi nei rapportini: Tutto / Parziale / No
