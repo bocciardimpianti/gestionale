@@ -49,19 +49,20 @@ async function tokenGoogle(sa: { client_email: string; private_key: string }) {
   return d.access_token as string;
 }
 
-type FileDrive = { id: string; name: string; mimeType: string; size?: string; cartella: string };
+type FileDrive = { id: string; name: string; mimeType: string; size?: string; description?: string; cartella: string };
 // Tutti i file di una cartella e delle sue sottocartelle (con il percorso delle sottocartelle)
 async function fileDi(token: string, cartella: string, percorso = "", profondita = 0): Promise<FileDrive[]> {
   const out: FileDrive[] = [];
   let pagina = "";
   do {
     const q = encodeURIComponent(`'${cartella}' in parents and trashed = false`);
-    const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType,size)&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true${pagina ? `&pageToken=${pagina}` : ""}`,
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType,size,description)&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true${pagina ? `&pageToken=${pagina}` : ""}`,
       { headers: { Authorization: `Bearer ${token}` } });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error?.message ?? String(r.status));
     for (const f of d.files ?? []) {
-      if (f.mimeType === "application/vnd.google-apps.folder") { if (profondita < 5) out.push(...await fileDi(token, f.id, percorso ? `${percorso}/${f.name}` : f.name, profondita + 1)); }
+      // "_mail": le mail salvate dallo script di Gmail (lette insieme al file a cui appartengono, non sono progetti)
+      if (f.mimeType === "application/vnd.google-apps.folder") { if (profondita < 5 && f.name !== "_mail") out.push(...await fileDi(token, f.id, percorso ? `${percorso}/${f.name}` : f.name, profondita + 1)); }
       else out.push({ ...f, cartella: percorso });
     }
     pagina = d.nextPageToken ?? "";
@@ -98,7 +99,17 @@ async function progetti(token: string, db: ReturnType<typeof createClient>) {
     const percorso = `drive/${f.id}${estensione}`;
     const up = await db.storage.from("progetti").upload(percorso, dati, { contentType: tipo, upsert: true });
     if (up.error) { errori.push(`${f.name}: ${up.error.message}`); continue; }
-    const { error } = await db.from("progetti_file").insert({ drive_id: f.id, nome_file: nome, cartella: f.cartella || null, percorso, tipo, dimensione: dati.length });
+    // Mail da cui arriva il file (lo script di Gmail scrive nella descrizione "mail:<id del file .json>")
+    let mail: unknown = null;
+    const idMail = /^mail:([\w-]+)/.exec(f.description ?? "")?.[1];
+    if (idMail) {
+      const rm = await fetch(`https://www.googleapis.com/drive/v3/files/${idMail}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+      if (rm.ok) mail = await rm.json().catch(() => null);
+    }
+    const riga = { drive_id: f.id, nome_file: nome, cartella: f.cartella || null, percorso, tipo, dimensione: dati.length };
+    let { error } = await db.from("progetti_file").insert(mail ? { ...riga, mail } : riga);
+    // Script 0066 non ancora eseguito: si salva senza la mail
+    if (error && /mail/.test(error.message) && mail) ({ error } = await db.from("progetti_file").insert(riga));
     if (error && !/duplicate|unique/i.test(error.message)) { errori.push(`${f.name}: ${error.message}`); continue; }
     if (!error) nuovi++;
   }

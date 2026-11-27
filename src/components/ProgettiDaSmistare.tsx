@@ -5,6 +5,7 @@ import { controllaDrive } from "../ddtAutomatici";
 import { apriProgetto, EVENTO_PROGETTI, iconaCategoria, smistaProgetti, type ProgettoFile } from "../progettiClienti";
 import { NOMI_CATEGORIE } from "./ProgettiCliente";
 import Autocompleta from "./Autocompleta";
+import MailProgetto from "./MailProgetto";
 
 // Sezione Clienti: file della cartella Drive "Progetti clienti" di cui non si è capito il cliente (o con errori).
 // Si sceglie il cliente (e se serve la cartella) e il file va nella linguetta "Progetti e schede" di quel cliente.
@@ -90,6 +91,7 @@ export default function ProgettiDaSmistare({ puoModificare }: { puoModificare: b
             <button type="button" className="link pc-nome" onClick={() => apriProgetto(x)}>{iconaCategoria(x.categoria)} {x.nome_file}</button>
             <span className="piccolo">{x.cartella ? `Drive: ${x.cartella} · ` : ""}{x.stato === "errore" ? "Errore: " : ""}{x.motivo}</span>
           </span>
+          <MailProgetto mail={x.mail} />
           {puoModificare && <>
             <span className="ps-cliente"><Autocompleta id={`ps-${x.id}`} valore={scelte[x.id]?.cliente ?? ""} opzioni={clienti.map((c) => c.nome)} placeholder="Cliente…"
               onCambia={(t) => setScelte((s) => ({ ...s, [x.id]: { categoria: s[x.id]?.categoria ?? x.categoria ?? "", cliente: t } }))} /></span>

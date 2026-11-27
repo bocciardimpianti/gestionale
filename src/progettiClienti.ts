@@ -10,7 +10,10 @@ import { scritteDaPdf } from "./ddtPdf";
 export type ProgettoFile = {
   id: number; drive_id: string | null; nome_file: string; cartella: string | null; percorso: string; tipo: string | null; dimensione: number | null;
   stato: string; cliente_id: number | null; categoria: string | null; motivo: string | null; a_mano: boolean; creato_il: string;
+  // Mail da cui è arrivato il file (script 0066), salvata dallo script di Gmail
+  mail?: MailFile | null;
 };
+export type MailFile = { da?: string; a?: string; cc?: string; data?: string; oggetto?: string; testo?: string; allegati?: string[] };
 
 export const CATEGORIE_PROGETTO: { nome: string; icona: string; parole: RegExp }[] = [
   { nome: "Bagni", icona: "🛁", parole: /\bbagn[oi]\b|sanitar|\bwc\b|vaso sospes|lavab|bidet|\bdocci|piatto doccia|mobile bagno|miscelator|rubinett|vasca/g },
@@ -142,6 +145,8 @@ export async function smistaProgetti(avanzamento: (s: string) => void = () => {}
           const { data: file } = await supabase.storage.from("progetti").download(x.percorso);
           if (file) testo = await scritteDaPdf(file).then((s) => s.map((y) => y.s).join(" ")).catch(() => "");
         }
+        // Anche l'oggetto e il testo della mail aiutano a capire cliente e argomento
+        if (x.mail) testo = `${x.mail.oggetto ?? ""}\n${(x.mail.testo ?? "").slice(0, 3000)}\n${testo}`;
         const { categoria, parole } = categoriaDi(x.nome_file, x.cartella ?? "", testo, x.tipo);
         // Nei preventivi dei fornitori il nome del fornitore e quello dell'azienda non sono il cliente
         const daFornitore = categoria === PREVENTIVI_FORNITORI.nome;

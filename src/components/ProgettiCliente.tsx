@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Upload } from "lucide-react";
 import { registra, supabase } from "../supabase";
 import { apriProgetto, ALTRO, PREVENTIVI_FORNITORI, CATEGORIE_PROGETTO, categoriaDi, EVENTO_PROGETTI, FOTO, iconaCategoria, type ProgettoFile } from "../progettiClienti";
 import { scritteDaPdf } from "../ddtPdf";
+import MailProgetto from "./MailProgetto";
 
 // Scheda del cliente → "Progetti e schede": i suoi file divisi in cartelle per argomento (Bagni, Caldaia, Clima…).
 // Ogni file si apre, si sposta in un'altra cartella o si toglie dal cliente (torna "da smistare").
@@ -80,6 +81,7 @@ export default function ProgettiCliente({ clienteId, modificabile, soloPreventiv
               <div key={x.id} className="pc-file">
                 <button type="button" className="link pc-nome" title="Apri il file" onClick={() => apriProgetto(x)}>{x.nome_file}</button>
                 <span className="piccolo">{new Date(x.creato_il).toLocaleDateString("it-IT")}{x.dimensione ? ` · ${dimensione(x.dimensione)}` : ""}{x.cartella ? ` · Drive: ${x.cartella}` : ""}</span>
+                <MailProgetto mail={x.mail} />
                 {modificabile && <>
                   <select value={x.categoria ?? ALTRO.nome} title="Sposta in un'altra cartella" onChange={(e) => cambia(x, { categoria: e.target.value })}>
                     {NOMI_CATEGORIE.map((n) => <option key={n} value={n}>{iconaCategoria(n)} {n}</option>)}

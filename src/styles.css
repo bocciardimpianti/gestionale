@@ -2463,3 +2463,13 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
   .tabella-righe .foto-riga, .tabella-righe .foto-riga .miniatura { width: 42px; height: 42px; }
   .foto-riga, .foto-riga .miniatura { width: 42px; height: 42px; }
 }
+/* Progetti e preventivi arrivati per e-mail: testo e mail completa */
+.mail-btn { display: inline-flex; align-items: center; gap: 4px; }
+.btn.grigio.mail-btn.attivo { background: #123b45; color: #fff; border-color: #123b45; }
+.mail-testo { flex-basis: 100%; white-space: pre-wrap; font-size: 13px; background: #f6f8f9; border-left: 3px solid #0e7c86; border-radius: 6px; padding: 8px 10px; margin-top: 4px; max-height: 260px; overflow: auto; }
+.finestra-mail { width: min(720px, 100%); max-height: 92vh; display: flex; flex-direction: column; }
+.finestra-mail .finestra-corpo { overflow: auto; }
+.mail-intestazione { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0 0 10px; font-size: 13.5px; }
+.mail-intestazione dt { color: var(--tenue); font-weight: 600; }
+.mail-intestazione dd { margin: 0; overflow-wrap: anywhere; }
+.mail-corpo { white-space: pre-wrap; font-size: 13.5px; line-height: 1.45; border-top: 1px solid var(--bordo); padding-top: 10px; overflow-wrap: anywhere; }
