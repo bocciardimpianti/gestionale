@@ -6,7 +6,8 @@ import { useAuth } from "../auth";
 import Autocompleta from "../components/Autocompleta";
 import MicDettatura from "../components/MicDettatura";
 import { impaginatoDaConfigurazione, type Configurazione } from "../impaginaGuidato";
-import { AZIENDA, htmlPreventivoImpaginato, importoPreventivo, type PiedePreventivo, type PreventivoImpaginato as Impaginato, type SoluzionePreventivo } from "../stampe";
+import { ARCHIVI } from "../archivi";
+import { AZIENDA, htmlPreventivoImpaginato, importoPreventivo, type MaterialeImpaginato, type PiedePreventivo, type PreventivoImpaginato as Impaginato, type SoluzionePreventivo } from "../stampe";
 
 // Preventivo impaginato come il modello Word della ditta: si scrive il testo (una o più soluzioni con titolo,
 // descrizione e totale) e il gestionale lo impagina con logo, cliente, data, "Totale €. … + IVA" e piè di pagina.
@@ -17,6 +18,31 @@ const PIEDE_PREDEFINITO: PiedePreventivo = {
   riga1: `VIA UGO FOSCOLO, 6 - 56029 STAFFOLI (PISA) - TEL. ${AZIENDA.telefono} - E-mail: ${AZIENDA.email}`,
   riga2: `PARTITA IVA ${AZIENDA.piva}`,
 };
+// Elenco dei materiali aggiornato con quelli di adesso del preventivo: le voci che ci sono ancora tengono nome e spunta,
+// quelle nuove si aggiungono (spuntate), quelle tolte dal preventivo spariscono; la manodopera si aggiorna (ore e tecnici);
+// le voci scritte a mano restano in fondo.
+function aggiornaElenco(vecchio: MaterialeImpaginato[] | undefined, ora: string[]) {
+  const prima = vecchio ?? [];
+  // Voci scritte a mano ("Aggiungi una voce"): restano sempre, in fondo
+  const aMano = prima.filter((m) => m.origine === "");
+  const dalPreventivo = prima.filter((m) => m.origine !== "");
+  // Elenchi vecchi senza "origine": si confronta il nome
+  const origine = (m: MaterialeImpaginato) => m.origine ?? m.nome;
+  const usate = new Set<number>();
+  const elenco: MaterialeImpaginato[] = ora.map((o) => {
+    let k = dalPreventivo.findIndex((m, j) => !usate.has(j) && origine(m) === o);
+    if (k < 0 && o.startsWith("Manodopera")) k = dalPreventivo.findIndex((m, j) => !usate.has(j) && origine(m).startsWith("Manodopera"));
+    if (k < 0) return { nome: o, mostra: true, origine: o };
+    usate.add(k);
+    const m = dalPreventivo[k];
+    // Voce cambiata nel preventivo (es. ore della manodopera): il nome si rifà, a meno che non fosse stato riscritto a mano
+    const nome = origine(m) !== o && m.nome === origine(m) ? o : m.nome;
+    return { nome, mostra: m.mostra, origine: o };
+  });
+  const finale = [...elenco, ...aMano];
+  const chiave = (l: MaterialeImpaginato[]) => JSON.stringify(l.map((m) => [m.nome, m.mostra]));
+  return { elenco: finale, cambiato: chiave(finale) !== chiave(prima) };
+}
 const nuovaSoluzione = (nuovaPagina = false): SoluzionePreventivo => ({ titolo: "", testo: "", totale: null, nuovaPagina });
 
 export default function PreventivoImpaginato() {
@@ -64,11 +90,17 @@ export default function PreventivoImpaginato() {
       const imp = r.impaginato as Impaginato | null;
       if (imp?.soluzioni?.length) setP({ soluzioni: imp.soluzioni, nota: imp.nota ?? NOTA });
       if (r.configurazione) return;
+      // Scheda del preventivo con modifiche non salvate ("Impagina senza salvare"): si usano quelle
+      let nonSalvata: { dati: Record<string, unknown>; righe: Record<string, unknown>[] } | null = null;
+      try {
+        nonSalvata = JSON.parse(sessionStorage.getItem(`scheda-non-salvata:preventivi:${id}`) ?? "null");
+        sessionStorage.removeItem(`scheda-non-salvata:preventivi:${id}`);
+      } catch { /* niente */ }
       // Materiali del preventivo: elenco puntato (quantità e descrizione, senza prezzi) e il totale delle righe
-      const { data: righe } = await supabase.from("righe_preventivo").select("descrizione, quantita, unita_misura, ordine").eq("preventivo_id", id).order("ordine");
+      const righe = nonSalvata ? nonSalvata.righe : (await supabase.from("righe_preventivo").select("descrizione, quantita, unita_misura, ordine").eq("preventivo_id", id).order("ordine")).data;
       const elenco = ((righe ?? []) as { descrizione: string | null; quantita: number | null; unita_misura: string | null }[]).filter((x) => String(x.descrizione ?? "").trim());
       // Manodopera del preventivo (script 0068): una riga in fondo all'elenco, senza prezzo
-      const { data: md } = await supabase.from("preventivi").select("ore_lavoro, numero_tecnici").eq("id", id).maybeSingle();
+      const md = nonSalvata ? nonSalvata.dati : (await supabase.from("preventivi").select("ore_lavoro, numero_tecnici").eq("id", id).maybeSingle()).data;
       const ore = Number(md?.ore_lavoro ?? 0), tecnici = Number(md?.numero_tecnici ?? 1) || 1;
       if (!elenco.length && !ore) return;
       const qta = (q: number | null) => Number(q ?? 1).toLocaleString("it-IT", { maximumFractionDigits: 2 });
@@ -77,11 +109,21 @@ export default function PreventivoImpaginato() {
         ...elenco.map((x) => `${qta(x.quantita)} ${/^(pz|nr|n)\.?$/i.test(String(x.unita_misura ?? "")) || !x.unita_misura ? "x" : String(x.unita_misura).toLowerCase()} ${String(x.descrizione).trim()}`),
         ...(ore ? [`Manodopera: ${tecnici} ${tecnici === 1 ? "tecnico" : "tecnici"} per ${ore.toLocaleString("it-IT")} ${ore === 1 ? "ora" : "ore"}`] : []),
       ];
-      const totale = Number(r.prezzo_scontato ?? r.imponibile ?? 0) || 0;
+      const tot = nonSalvata ? ARCHIVI.preventivi.calcolaTotali!(nonSalvata.dati, nonSalvata.righe) : null;
+      const totale = Number(tot ? tot.prezzo_scontato : r.prezzo_scontato ?? r.imponibile ?? 0) || 0;
+      if (nonSalvata) setOggetto(String(nonSalvata.dati.numero ?? r.numero ?? ""));
       setConRighe({ materiali, totale });
       if (!imp?.soluzioni?.length) {
-        setP({ soluzioni: [{ titolo: String(r.numero ?? "").toUpperCase(), testo: "", totale: totale || null, nuovaPagina: false, materiali: materiali.map((nome) => ({ nome, mostra: true })) }], nota: NOTA });
+        setP({ soluzioni: [{ titolo: String(r.numero ?? "").toUpperCase(), testo: "", totale: totale || null, nuovaPagina: false, materiali: materiali.map((nome) => ({ nome, mostra: true, origine: nome })) }], nota: NOTA });
         setModificato(true);
+      } else {
+        // Impaginato già salvato: l'elenco si aggiorna con i materiali di adesso (nomi cambiati e spunte restano)
+        const agg = aggiornaElenco(imp.soluzioni[0].materiali, materiali);
+        if (agg.cambiato) {
+          setP({ soluzioni: imp.soluzioni.map((x, j) => (j === 0 ? { ...x, materiali: agg.elenco, totale: totale || x.totale } : x)), nota: imp.nota ?? NOTA });
+          setModificato(true);
+          setStato("I materiali del preventivo sono cambiati: elenco e totale aggiornati (salva per tenerli).");
+        }
       }
     }).then(ripristinaBozza);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -104,8 +146,9 @@ export default function PreventivoImpaginato() {
         if (b?.p?.soluzioni?.length) {
           // Materiali del preventivo cambiati dopo la bozza: si tiene il testo scritto, l'elenco e il totale si rifanno
           const ora = conRigheRef.current;
-          const cambiati = !!ora && b.base !== undefined && b.base !== ora.materiali.join("\n");
-          const pp = cambiati ? { ...b.p, soluzioni: b.p.soluzioni.map((x, j) => (j === 0 ? { ...x, materiali: ora!.materiali.map((nome) => ({ nome, mostra: true })), totale: ora!.totale || x.totale } : x)) } : b.p;
+          const agg = ora ? aggiornaElenco(b.p.soluzioni[0].materiali, ora.materiali) : null;
+          const cambiati = !!agg?.cambiato;
+          const pp = cambiati ? { ...b.p, soluzioni: b.p.soluzioni.map((x, j) => (j === 0 ? { ...x, materiali: agg!.elenco, totale: ora!.totale || x.totale } : x)) } : b.p;
           setP(pp); setTestoCliente(b.cliente); setData(b.data); setOggetto(b.oggetto); setModificato(true); setRipristinata(true);
           setStato(`Ripristinate le modifiche non salvate del ${new Date(b.quando).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}.${cambiati ? " I materiali del preventivo sono cambiati: elenco e totale aggiornati." : ""}`);
         }
@@ -235,7 +278,7 @@ export default function PreventivoImpaginato() {
                     onClick={() => { const l = [...s.materiali!]; [l[k + 1], l[k]] = [l[k], l[k + 1]]; cambia(i, { materiali: l }); }}><ArrowDown size={15} /></button>
                 </div>
               ))}
-              <button type="button" className="link" onClick={() => cambia(i, { materiali: [...s.materiali!, { nome: "", mostra: true }] })}><Plus size={14} /> Aggiungi una voce</button>
+              <button type="button" className="link" onClick={() => cambia(i, { materiali: [...s.materiali!, { nome: "", mostra: true, origine: "" }] })}><Plus size={14} /> Aggiungi una voce</button>
             </div>
           )}
           <label className="si-totale">Totale (€, + IVA)
@@ -255,7 +298,7 @@ export default function PreventivoImpaginato() {
           Rifai il testo dal foglio guidato</button>}
         {conRighe && <button type="button" className="btn grigio" title="Rimette nella prima soluzione l'elenco dei materiali del preventivo (tutti spuntati) e il suo totale"
           onClick={() => confirm("Rifare l'elenco dai materiali del preventivo? I nomi cambiati a mano e le spunte dell'elenco si perdono (il testo scritto resta).") && (setModificato(true),
-            setP((x) => ({ ...x, soluzioni: x.soluzioni.map((s, j) => (j === 0 ? { ...s, titolo: s.titolo || oggetto.toUpperCase(), materiali: conRighe.materiali.map((nome) => ({ nome, mostra: true })), totale: conRighe.totale || null } : s)) })))}>
+            setP((x) => ({ ...x, soluzioni: x.soluzioni.map((s, j) => (j === 0 ? { ...s, titolo: s.titolo || oggetto.toUpperCase(), materiali: conRighe.materiali.map((nome) => ({ nome, mostra: true, origine: nome })), totale: conRighe.totale || null } : s)) })))}>
           Rifai l'elenco dai materiali</button>}
       </div>
 

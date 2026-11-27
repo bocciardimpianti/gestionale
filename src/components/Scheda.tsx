@@ -529,13 +529,30 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   };
   const dopoSalva = useRef<(() => void) | null>(null);
   // Azioni della scheda: quelle con "salvaPrima" salvano prima le modifiche, così l'azione le vede
-  const eseguiAzione = async (a: NonNullable<Archivio["azioniScheda"]>[number], d: Record<string, unknown>) => {
+  // Con modifiche non salvate si chiede prima: salvare, continuare senza salvare, o annullare
+  const [chiediPrima, setChiediPrima] = useState<{ a: NonNullable<Archivio["azioniScheda"]>[number]; d: Record<string, unknown> } | null>(null);
+  const eseguiAzione = (a: NonNullable<Archivio["azioniScheda"]>[number], d: Record<string, unknown>) => {
     const ctx = { aggiorna: () => onSalvato(valori.id as number) };
     if (!a.salvaPrima || !modificabile || !modificata.current) return a.esegui(d, ctx);
-    dopoSalva.current = () => a.esegui(d, ctx);
+    setChiediPrima({ a, d });
+  };
+  const salvaEPoi = async () => {
+    if (!chiediPrima) return;
+    const { a, d } = chiediPrima;
+    setChiediPrima(null);
+    dopoSalva.current = () => a.esegui(d, { aggiorna: () => onSalvato(valori.id as number) });
     await salva();
     // salvataggio non riuscito: l'azione non parte (il messaggio d'errore resta in basso)
     if (modificata.current) dopoSalva.current = null;
+  };
+  const senzaSalvare = () => {
+    if (!chiediPrima) return;
+    const { a, d } = chiediPrima;
+    setChiediPrima(null);
+    // Le modifiche non salvate passano all'azione (es. l'impaginato usa questi materiali e queste ore); la scheda non si salva
+    try { sessionStorage.setItem(`scheda-non-salvata:${cfg.tabella}:${valori.id}`, JSON.stringify({ dati, righe })); } catch { /* niente */ }
+    modificata.current = false;
+    a.esegui(d, { aggiorna: () => onSalvato(valori.id as number) });
   };
 
   // Foto veloce: Ctrl+V ovunque nella scheda mette l'immagine nel primo campo foto vuoto e salva
@@ -1227,6 +1244,23 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
               <button type="button" className="btn blu" autoFocus onClick={() => { setChiediDiritto(false); dirittoDeciso.current = true; salva(); }}>
                 Sì, applica {euro(dirittoAuto.current.importo)}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {chiediPrima && (
+        <div className="velo" onMouseDown={() => setChiediPrima(null)}>
+          <div className="finestra finestra-chiedi" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="finestra-titolo">Ci sono modifiche non salvate</div>
+            <div className="finestra-corpo">
+              <p>Vuoi salvare le modifiche del preventivo prima di continuare?</p>
+              <p className="piccolo">Con <b>"Continua senza salvare"</b> l'impaginato usa lo stesso le modifiche (materiali, ore…), ma il preventivo resta com'era.</p>
+            </div>
+            <div className="finestra-piede">
+              <button type="button" className="btn grigio" onClick={() => setChiediPrima(null)}>Annulla</button>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="btn grigio" onClick={senzaSalvare}>Continua senza salvare</button>
+              <button type="button" className="btn blu" onClick={salvaEPoi}>Salva e continua</button>
             </div>
           </div>
         </div>

@@ -2517,3 +2517,4 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .si-mat-nome { flex: 1; min-width: 0; height: 30px; border: 1px solid var(--bordo); border-radius: 6px; padding: 0 8px; font: inherit; font-size: 13px; }
 .si-mat.spento .si-mat-nome { color: var(--tenue); text-decoration: line-through; background: #f6f6f6; }
 .si-mat .link:disabled { opacity: .3; }
+.finestra-chiedi { width: min(460px, 100%); }

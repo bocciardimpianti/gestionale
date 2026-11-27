@@ -264,7 +264,8 @@ ${d.tipologia_pagamento || d.modalita_pagamento ? `<p>Pagamento: ${esc([d.modali
 // Preventivo impaginato (come il modello Word della ditta): logo in alto, cliente e data, una o più soluzioni
 // con titolo, testo e totale "+ IVA", nota finale e piede con indirizzo e dati bancari su ogni pagina.
 // materiali: elenco dei materiali del preventivo, separato dal testo; si stampano solo quelli spuntati, col nome scritto qui
-export type MaterialeImpaginato = { nome: string; mostra: boolean };
+// origine: la voce come nasce dal preventivo (serve ad aggiornare l'elenco quando i materiali del preventivo cambiano)
+export type MaterialeImpaginato = { nome: string; mostra: boolean; origine?: string };
 export type SoluzionePreventivo = { titolo: string; testo: string; totale: number | null; nuovaPagina?: boolean; materiali?: MaterialeImpaginato[] };
 export type PreventivoImpaginato = { soluzioni: SoluzionePreventivo[]; nota: string };
 export type PiedePreventivo = { riga1: string; riga2: string };
