@@ -88,6 +88,27 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
   const segna = () => { modificata.current = true; };
   // Rapportino: finestra "Dividi rapportino" (da fatturare / preventivi non approvati)
   const [dividi, setDividi] = useState(false);
+  // DDT di acquisto: riga a cui si cambia il materiale (abbinamento sbagliato all'importazione)
+  const [sostituisci, setSostituisci] = useState<number | null>(null);
+  // Codici del fornitore riabbinati in questa scheda: al salvataggio si aggiorna l'abbinamento ricordato
+  const riabbinati = useRef(new Map<string, number>());
+  const cambiaMaterialeRiga = (i: number, m: Record<string, unknown>) => {
+    segna();
+    setRighe((rr) => rr.map((r, j) => {
+      if (j !== i) return r;
+      const codice = String(r.codice_originale ?? "").trim();
+      if (codice) riabbinati.current.set(codice, Number(m.id));
+      return cfg.righe!.ricalcola({
+        ...r,
+        materiale_id: m.id, codice_barre: m.codice_interno ?? m.codice_barre ?? null, descrizione: m.descrizione ?? null, unita_misura: m.unita_misura ?? r.unita_misura ?? null,
+        // Cosa c'era prima (resta la prima versione se la riga era già stata cambiata)
+        descrizione_originale: r.descrizione_originale ?? r.descrizione ?? null,
+        modifica: r.modifica ?? `Prima: ${String(r.descrizione ?? "senza materiale")}`,
+        modificata_il: new Date().toISOString(),
+      }, "materiale_id");
+    }));
+    setSostituisci(null);
+  };
   // Dividere il rapportino (preventivi non approvati) è riservato agli amministratori
   const admin = profilo?.ruolo === "admin";
   // "Fattura tutto": nessuna voce nei preventivi non approvati
@@ -424,6 +445,11 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
       if (idVecchie.length) {
         const del = await supabase.from(tabella).delete().in("id", idVecchie);
         if (del.error) return setStato("Errore: " + del.error.message);
+      }
+      // DDT: i codici del fornitore riabbinati a mano valgono anche per i prossimi DDT
+      if (cfg.sezione === "ddt_acquisto" && riabbinati.current.size && dati.fornitore_id) {
+        await supabase.from("abbinamenti_fornitore").upsert([...riabbinati.current].map(([codice, materiale_id]) => ({ fornitore_id: Number(dati.fornitore_id), codice, materiale_id })), { onConflict: "fornitore_id,codice" });
+        riabbinati.current.clear();
       }
     }
     // Foto e firma: caricamento dei nuovi file e rimozione di quelli sostituiti o eliminati
@@ -792,11 +818,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         {!telefono && <div className="tabella-righe">
           <table>
             <thead>
-              <tr><th style={{ width: 16 }} />{divisione?.diviso && <th className="cella-fattura" title="Fatturare o preventivo non approvato">Fatt.</th>}<th className="foto-cella" aria-label="Foto" />{rc.colonne.map((c) => <th key={c.chiave} style={{ width: c.larghezza }}>{c.titolo}</th>)}</tr>
+              <tr><th style={{ width: 16 }} />{divisione?.diviso && <th className="cella-fattura" title="Fatturare o preventivo non approvato">Fatt.</th>}<th className="foto-cella" aria-label="Foto" />{rc.colonne.map((c) => <th key={c.chiave} style={{ width: c.larghezza }}>{c.titolo}</th>)}{cfg.sezione === "ddt_acquisto" && <th className="cella-cambia">Materiale</th>}</tr>
             </thead>
             <tbody>
               {righe.map((r, i) => (
-                <tr key={i} className={`${i === rigaSel ? "attiva" : ""}${r.non_approvato ? " non-approvata" : ""}`} onClick={() => setRigaSel(i)}>
+                <tr key={i} className={`${i === rigaSel ? "attiva" : ""}${r.non_approvato ? " non-approvata" : ""}${r.modificata_il ? " riga-modificata" : ""}`} onClick={() => setRigaSel(i)}
+                  title={r.modificata_il ? `Materiale cambiato a mano il ${new Date(String(r.modificata_il)).toLocaleDateString("it-IT")}. ${String(r.modifica ?? "")}${r.codice_originale ? ` · codice fornitore ${String(r.codice_originale)}` : ""}` : undefined}>
                   <td className="indicatore-riga">{i === rigaSel ? "▸" : ""}</td>
                   {divisione?.diviso && <td className="cella-fattura">
                     <button type="button" disabled={!modificabile || !admin} className={r.non_approvato ? "prev" : "fattura"}
@@ -820,6 +847,14 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
                       )}
                     </td>
                   ))}
+                  {cfg.sezione === "ddt_acquisto" && <td className="cella-cambia">
+                    {/* Come l'ha scritto il fornitore, se diverso dal materiale abbinato: così si vede subito un abbinamento sbagliato */}
+                    {!!r.descrizione_originale && String(r.descrizione_originale).trim().toUpperCase() !== String(r.descrizione ?? "").trim().toUpperCase() &&
+                      <span className="sul-ddt" title="Come è scritto sul DDT del fornitore">Sul DDT: {r.codice_originale ? `${String(r.codice_originale)} · ` : ""}{String(r.descrizione_originale)}</span>}
+                    {!!r.modificata_il && <span className="tag-modificata">modificato</span>}
+                    {modificabile && <button type="button" className="link" title="Questa riga è abbinata al materiale sbagliato: scegline un altro"
+                      onClick={(e) => { e.stopPropagation(); setSostituisci(i); }}>Cambia</button>}
+                  </td>}
                 </tr>
               ))}
             </tbody>
@@ -1151,6 +1186,12 @@ export default function Scheda({ cfg, valori, onChiudi, onSalvato, onElimina, ca
         </div>
       )}
       {lettore && <LettoreCodice onLetto={codiceLetto} onChiudi={() => setLettore(false)} />}
+      {sostituisci !== null && (
+        <div onMouseDown={(e) => e.stopPropagation()}>
+          <CercaMateriale titolo={`Cambia il materiale della riga: ${String(righe[sostituisci]?.descrizione ?? "")}`}
+            testoIniziale="" onChiudi={() => setSostituisci(null)} onScegli={(m) => cambiaMaterialeRiga(sostituisci, m as Record<string, unknown>)} />
+        </div>
+      )}
       {cercaMateriale && (
         <div onMouseDown={(e) => e.stopPropagation()}>
           <CercaMateriale chiediQuantita onChiudi={() => setCercaMateriale(false)}

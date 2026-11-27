@@ -851,6 +851,8 @@ export const ARCHIVI: Record<string, Archivio> = {
         { chiave: "descrizione_originale", titolo: "Descrizione sul DDT", larghezza: 300, valore: (r) => r.descrizione_originale ?? "(DDT importato prima: non salvata)" },
         { chiave: "quantita", titolo: "Quantità", larghezza: 70 },
         { chiave: "costo", titolo: "Costo", larghezza: 80, tipo: "euro" },
+        // Riga del DDT a cui è stato cambiato il materiale a mano dopo l'importazione (script 0065)
+        { chiave: "modifica", titolo: "Modificato", larghezza: 220, valore: (r) => (r.modificata_il ? `✎ ${new Date(String(r.modificata_il)).toLocaleDateString("it-IT")} · ${String(r.modifica ?? "")}` : "") },
       ],
     }, {
       linguetta: "Storico",

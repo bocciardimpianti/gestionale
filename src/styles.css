@@ -2450,3 +2450,8 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
   .rapporti-conto td.fatto { width: 1%; }
   .azioni-conto .btn { padding-left: 12px; padding-right: 12px; }
 }
+/* DDT di acquisto: righe a cui è stato cambiato il materiale dopo l'importazione */
+.tabella-righe th.cella-cambia, .tabella-righe td.cella-cambia { width: 240px; min-width: 200px; text-align: left; }
+.cella-cambia .sul-ddt { display: block; font-size: 11px; color: var(--tenue); line-height: 1.25; margin-bottom: 2px; }
+.tabella-righe tr.riga-modificata td { background: #fff7d6; }
+.tag-modificata { display: inline-block; font-size: 11px; font-weight: 700; color: #8a5a00; background: #ffe7a3; border-radius: 10px; padding: 1px 7px; margin-right: 6px; }
