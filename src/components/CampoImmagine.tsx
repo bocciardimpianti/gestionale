@@ -7,8 +7,65 @@ import { supabase } from "../supabase";
 // Miniatura per la griglia: avvicinando il mouse o il pennino compare un'anteprima grande
 export function Miniatura({ percorso, archivio }: { percorso: string; archivio: string }) {
   const url = useUrlImmagine(percorso, archivio);
-  const anteprima = useAnteprima(url);
-  return url ? <><img src={url} alt="" className="miniatura" loading="lazy" {...anteprima.eventi} />{anteprima.finestra}</> : null;
+  // Senza i bordi bianchi: il soggetto riempie la miniatura
+  const ritagliata = useRitagliata(url, `${archivio}/${percorso}`);
+  const anteprima = useAnteprima(ritagliata || url);
+  return url ? <><img src={ritagliata || url} alt="" className="miniatura" loading="lazy" {...anteprima.eventi} />{anteprima.finestra}</> : null;
+}
+
+// Foto senza i bordi bianchi (o trasparenti) intorno al soggetto: si calcola una volta per foto e si ricorda.
+// Se la foto non si può leggere (es. permessi del server) resta quella originale.
+const ritagli = new Map<string, Promise<string>>();
+const LATO_RITAGLIO = 320;
+function ritaglia(url: string): Promise<string> {
+  return new Promise((ok) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onerror = () => ok("");
+    img.onload = () => {
+      try {
+        const scala = Math.min(1, LATO_RITAGLIO * 2 / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * scala)), h = Math.max(1, Math.round(img.naturalHeight * scala));
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        const ctx = c.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return ok("");
+        ctx.drawImage(img, 0, 0, w, h);
+        const d = ctx.getImageData(0, 0, w, h).data;
+        // "Vuoto": quasi bianco o trasparente
+        const vuoto = (i: number) => d[i + 3] < 20 || (d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235);
+        let x0 = w, y0 = h, x1 = -1, y1 = -1;
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+          if (vuoto((y * w + x) * 4)) continue;
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+        if (x1 < 0) return ok("");
+        // Un filo di margine; se i bordi sono già minimi non si tocca
+        const m = Math.round(Math.max(w, h) * 0.02);
+        x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(w - 1, x1 + m); y1 = Math.min(h - 1, y1 + m);
+        const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+        if (cw * ch > w * h * 0.9) return ok("");
+        const out = document.createElement("canvas");
+        const s2 = Math.min(1, LATO_RITAGLIO / Math.max(cw, ch));
+        out.width = Math.round(cw * s2); out.height = Math.round(ch * s2);
+        out.getContext("2d")!.drawImage(c, x0, y0, cw, ch, 0, 0, out.width, out.height);
+        out.toBlob((b) => ok(b ? URL.createObjectURL(b) : ""), "image/webp", 0.9);
+      } catch { ok(""); }
+    };
+    img.src = url;
+  });
+}
+export function useRitagliata(url: string, chiave: string) {
+  const [r, setR] = useState("");
+  useEffect(() => {
+    setR("");
+    if (!url || url.startsWith("blob:")) return;
+    let attivo = true;
+    let p = ritagli.get(chiave);
+    if (!p) { p = ritaglia(url); ritagli.set(chiave, p); }
+    p.then((u) => { if (attivo) setR(u); });
+    return () => { attivo = false; };
+  }, [url, chiave]);
+  return r;
 }
 
 // Anteprima grande di una foto piccola, accanto al punto in cui si trova (mouse o pennino; non col dito, che tocca e basta)

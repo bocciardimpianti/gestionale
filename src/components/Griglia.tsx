@@ -220,9 +220,10 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
     setQuanti(60);
   }, [visibili, onVisibili]);
 
-  // Tablet con colonna foto: righe più alte per le foto ingrandite del 30% (stessa altezza in styles.css)
-  const fotoGrandi = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse) and (min-width: 700px)").matches && colonne.some((c) => c.tipo === "miniatura");
-  const ALTEZZA_RIGA = fotoGrandi ? 27 : 21;
+  // Elenchi con la colonna foto: righe più alte per foto più grandi (più ancora su tablet; stesse altezze in styles.css)
+  const tabletFoto = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse) and (min-width: 700px)").matches;
+  const fotoGrandi = colonne.some((c) => c.tipo === "miniatura");
+  const ALTEZZA_RIGA = fotoGrandi ? (tabletFoto ? 35 : 27) : 21;
   const primo = Math.max(0, Math.floor(finestra.alto / ALTEZZA_RIGA) - 20);
   const ultimo = Math.min(visibili.length, primo + Math.ceil(finestra.altezza / ALTEZZA_RIGA) + 40);
 
@@ -376,8 +377,7 @@ export default function Griglia({ colonne: tutteColonne, righe, selezionata, onS
   });
 
   // Tablet: la colonna delle foto è più larga del 30% (foto più grandi, vedi styles.css)
-  const tablet = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse) and (min-width: 700px)").matches;
-  const larghezza = (c: Colonna) => (tablet && c.tipo === "miniatura" ? Math.round(c.larghezza * 1.3) : c.larghezza);
+  const larghezza = (c: Colonna) => (c.tipo === "miniatura" ? Math.round(c.larghezza * (tabletFoto ? 1.7 : 1.3)) : c.larghezza);
   const larghezze = (
     <colgroup>
       <col style={{ width: larghezzaPrima }} />

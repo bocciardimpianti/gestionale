@@ -964,8 +964,8 @@ input, select, button { border-radius: 6px; }
   .menu-riga-titolo { padding: 10px 4px; font-weight: 700; color: var(--petrolio); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .menu-riga button { min-height: 52px; border: 0; border-top: 1px solid #e6ecec; border-radius: 0; background: none; font-size: 16px; color: var(--testo); text-align: center; }
   .menu-riga button.pericolo { color: var(--errore); font-weight: 700; }
-  .riga-telefono-foto { flex: none; width: 56px; height: 56px; border-radius: 8px; background: #e7eeef; color: var(--tenue); display: grid; place-items: center; overflow: hidden; }
-  .riga-telefono-foto .miniatura { width: 56px; height: 56px; object-fit: cover; }
+  .riga-telefono-foto { flex: none; width: 73px; height: 73px; border-radius: 8px; background: #e7eeef; color: var(--tenue); display: grid; place-items: center; overflow: hidden; }
+  .riga-telefono-foto .miniatura { width: 73px; height: 73px; object-fit: cover; }
   .riga-telefono-testi { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .riga-telefono-alta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .riga-telefono-alta b:first-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15.5px; }
@@ -1094,8 +1094,8 @@ input, select, button { border-radius: 6px; }
   .opzioni-materiali .btn { min-height: 38px; padding: 0 10px; }
   .finestra-materiali .risultati { flex: 1; min-height: 0; height: auto; max-height: none; overflow-y: auto; }
   .materiali-telefono button { width: 100%; display: flex; gap: 10px; align-items: center; text-align: left; min-height: 62px; padding: 8px 2px; border: 0; border-bottom: 1px solid #e6ecec; border-radius: 0; background: none; color: inherit; }
-  .materiali-telefono .riga-telefono-foto { width: 46px; height: 46px; }
-  .materiali-telefono .riga-telefono-foto .miniatura { width: 46px; height: 46px; }
+  .materiali-telefono .riga-telefono-foto { width: 60px; height: 60px; }
+  .materiali-telefono .riga-telefono-foto .miniatura { width: 60px; height: 60px; }
   .materiali-telefono b { font-size: 15px; }
   .caricamento-materiali { flex: none; margin: 8px 0; font-weight: 600; }
   .finestra-materiali .finestra-piede .ok { flex-basis: 100% !important; order: -1; font-size: 13px; }
@@ -1284,8 +1284,8 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .proposte-assistente > button:hover { background: #f3effd; }
 .testi-proposta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .testi-proposta > span { font-size: 12px; color: #5f5878; }
-.proposte-assistente .riga-telefono-foto { flex: none; width: 46px; height: 46px; border-radius: 8px; background: #e7eeef; display: grid; place-items: center; overflow: hidden; }
-.proposte-assistente .riga-telefono-foto .miniatura { width: 46px; height: 46px; object-fit: cover; }
+.proposte-assistente .riga-telefono-foto { flex: none; width: 60px; height: 60px; border-radius: 8px; background: #e7eeef; display: grid; place-items: center; overflow: hidden; }
+.proposte-assistente .riga-telefono-foto .miniatura { width: 60px; height: 60px; object-fit: cover; }
 @media (max-height: 500px) and (pointer: coarse) { .finestra-materiali.scorso .riga-assistente { display: none; } }
 /* Telefono: nelle schede dei record collegati (es. Storico) ogni riga ha la sua etichetta */
 @media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
@@ -1350,8 +1350,8 @@ body:has(.finestra-materiali) .comando-voce, body:has(.ricerca-telefono) .comand
 .descrizione-con-foto > :last-child { flex: 1; min-width: 0; }
 .foto-riga { flex: none; width: 32px; height: 32px; border-radius: 6px; background: #e7eeef; overflow: hidden; display: grid; place-items: center; }
 .foto-riga .miniatura { width: 32px; height: 32px; object-fit: cover; }
-.finestra-da-ddt .riga-telefono-foto, .consiglio .riga-telefono-foto { flex: none; width: 44px; height: 44px; border-radius: 8px; background: #e7eeef; overflow: hidden; display: grid; place-items: center; }
-.finestra-da-ddt .riga-telefono-foto .miniatura, .consiglio .riga-telefono-foto .miniatura { width: 44px; height: 44px; object-fit: cover; }
+.finestra-da-ddt .riga-telefono-foto, .consiglio .riga-telefono-foto { flex: none; width: 57px; height: 57px; border-radius: 8px; background: #e7eeef; overflow: hidden; display: grid; place-items: center; }
+.finestra-da-ddt .riga-telefono-foto .miniatura, .consiglio .riga-telefono-foto .miniatura { width: 57px; height: 57px; object-fit: cover; }
 
 /* =====================================================================
    Menu laterale moderno: Vai a… (Ctrl+K), Nuovo rapportino, contatori, menu riducibile a icone
@@ -2456,13 +2456,22 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .tabella-righe tr.riga-modificata td { background: #fff7d6; }
 .tag-modificata { display: inline-block; font-size: 11px; font-weight: 700; color: #8a5a00; background: #ffe7a3; border-radius: 10px; padding: 1px 7px; margin-right: 6px; }
 /* Tablet: foto più grandi (+30%) nelle tabelle (elenchi e righe dei documenti) */
+/* Foto più grandi (+30%; su tablet +30% ancora): le miniature sono già senza bordi bianchi */
+.griglia-dati table.foto-grandi tbody td { height: 27px; }
+.griglia-dati .cella-miniatura .miniatura { height: 25px; width: 47px; }
+.tabella-righe .foto-cella { width: 52px; }
+.tabella-righe .foto-riga, .tabella-righe .foto-riga .miniatura, .foto-riga, .foto-riga .miniatura { width: 42px; height: 42px; }
+.cerca-materiale .cella-miniatura { width: 66px; }
+.cerca-materiale .cella-miniatura .miniatura { width: 60px; height: 44px; }
 @media (pointer: coarse) and (min-width: 700px) {
-  .griglia-dati table.foto-grandi tbody td { height: 27px; }
-  .griglia-dati .cella-miniatura .miniatura { height: 25px; width: 47px; }
-  .tabella-righe .foto-cella { width: 52px; }
-  .tabella-righe .foto-riga, .tabella-righe .foto-riga .miniatura { width: 42px; height: 42px; }
-  .foto-riga, .foto-riga .miniatura { width: 42px; height: 42px; }
+  .griglia-dati table.foto-grandi tbody td { height: 35px; }
+  .griglia-dati .cella-miniatura .miniatura { height: 33px; width: 61px; }
+  .tabella-righe .foto-cella { width: 64px; }
+  .tabella-righe .foto-riga, .tabella-righe .foto-riga .miniatura, .foto-riga, .foto-riga .miniatura { width: 55px; height: 55px; }
+  .cerca-materiale .cella-miniatura { width: 84px; }
+  .cerca-materiale .cella-miniatura .miniatura { width: 78px; height: 57px; }
 }
+
 /* Progetti e preventivi arrivati per e-mail: testo e mail completa */
 .mail-btn { display: inline-flex; align-items: center; gap: 4px; }
 .btn.grigio.mail-btn.attivo { background: #123b45; color: #fff; border-color: #123b45; }
