@@ -1882,9 +1882,9 @@ span.filtro-marca { cursor: default; }
 .ricerca input { width: 100%; }
 /* Tablet e schermi medi: la ricerca va su una riga sua a tutta larghezza (titolo e pulsanti sopra) */
 @media (min-width: 761px) and (max-width: 1280px) {
-  .pagina-archivio .testata { flex-wrap: wrap; row-gap: 8px; }
-  .pagina-archivio .testata .ricerca { order: 3; flex: 1 0 100%; max-width: none; margin-left: 0; height: 36px; }
-  .pagina-archivio .testata .pulsanti { margin-left: auto; }
+  .pagina-archivio .testata, .pagina-conti .testata, .pagina-progetti .testata { flex-wrap: wrap; row-gap: 8px; }
+  .pagina-archivio .testata .ricerca, .pagina-conti .testata .ricerca, .pagina-progetti .testata .ricerca { order: 3; flex: 1 0 100%; max-width: none; margin-left: 0; height: 36px; }
+  .pagina-archivio .testata .pulsanti, .pagina-conti .testata .pulsanti, .pagina-progetti .testata .pulsanti { margin-left: auto; }
 }
 /* Conti Clienti */
 .riepilogo-conti { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 14px; }
@@ -1948,7 +1948,7 @@ tr.oltre .barra-soglia span { background: #e5484d; }
   .riepilogo-conti .carta-conto:last-child { grid-column: 1 / -1; }
   .carta-conto { padding: 9px 11px; }
   .carta-conto b { font-size: 20px; }
-  .pagina-conti .testata .pulsanti { display: none; }
+  .pagina-conti .testata .pulsanti, .pagina-progetti .testata .pulsanti { display: none; }
 }
 /* Foto matricola dell'unità esterna */
 .avviso-matricola { background: #fff3d6 !important; border-color: #f0c46b !important; color: #6b4a00; }
@@ -2518,3 +2518,34 @@ b .descr-materiale, .riga-telefono-alta b .descr-materiale { font-weight: 500; }
 .si-mat.spento .si-mat-nome { color: var(--tenue); text-decoration: line-through; background: #f6f6f6; }
 .si-mat .link:disabled { opacity: .3; }
 .finestra-chiedi { width: min(460px, 100%); }
+/* Conti clienti: nome e "oltre la soglia" sempre sulla stessa riga */
+.nome-conto { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.nome-conto b { min-width: 0; max-width: 270px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nome-conto .bollino-oltre { flex: none; margin-left: 0; white-space: nowrap; }
+/* Riepilogo dei conti: le quattro carte sulla stessa riga anche su tablet */
+.riepilogo-conti { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.dia-pulsanti { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.progetti-smistare .ep-file { padding-left: 4px; padding-right: 4px; }
+@media (min-width: 761px) and (max-width: 1200px) {
+  .nome-conto b { max-width: 165px; }
+  .nome-conto .bollino-oltre { font-size: 10.5px; padding: 1px 6px; }
+}
+.solo-stretto { display: none; }
+@media (min-width: 761px) and (max-width: 1200px) {
+  .solo-largo { display: none; }
+  .solo-stretto { display: inline; }
+  .nome-conto b { max-width: 130px; }
+  .tabella-conti .barra-soglia { width: 95px; }
+  .tabella-conti .soglia-propria { display: none; }
+  .tabella-conti .campo-soglia input { border-color: var(--bordo); }
+  .tabella-conti .importo-conto b { font-size: 14px; }
+}
+@media (min-width: 761px) and (max-width: 1200px) {
+  .tabella-conti td.importo-conto { width: 120px; min-width: 0; }
+  .tabella-conti .gia-conteggiato { white-space: normal; max-width: 115px; }
+}
+@media (min-width: 761px) and (max-width: 1200px) {
+  /* Il nome si accorcia solo quanto serve: di più se accanto c'è "oltre la soglia" */
+  .nome-conto b { max-width: 235px; }
+  .nome-conto:has(.bollino-oltre) b { max-width: 130px; }
+}

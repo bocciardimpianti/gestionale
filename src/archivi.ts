@@ -413,7 +413,7 @@ export const ARCHIVI: Record<string, Archivio> = {
     quandoCambia: (d, chiave) => (chiave === "codice_sdi" ? { codice_sdi: String(d.codice_sdi ?? "").toUpperCase().replace(/\s+/g, "") } : null),
     colonne: [
       { chiave: "nome", titolo: "Nome Cliente", excel: "Nome Cliente", larghezza: 345 },
-      { chiave: "codice_fiscale", titolo: "CODICE FISCALE", excel: "CODICE FISCALE", larghezza: 121 },
+      { chiave: "codice_fiscale", titolo: "Codice fiscale", excel: "CODICE FISCALE", larghezza: 121 },
       { chiave: "email", titolo: "E-Mail", excel: "E-Mail", larghezza: 130 },
       { chiave: "indirizzo_fatturazione", titolo: "Indirizzo Fatturazione", excel: "Indirizzo Fatturazione", larghezza: 248 },
       { chiave: "nome_contatto", titolo: "Nome contatto", excel: "Nome contatto", larghezza: 95 },
@@ -434,7 +434,7 @@ export const ARCHIVI: Record<string, Archivio> = {
       { chiave: "cellulare", etichetta: "Cellulare", tipo: "telefono", larghezza: 1 },
       { chiave: "piva", etichetta: "P.IVA", larghezza: 2, finisciRiga: true },
       { chiave: "note", etichetta: "Note", tipo: "area", larghezza: 4 },
-      { chiave: "codice_fiscale", etichetta: "CODICE FISCALE", larghezza: 2 },
+      { chiave: "codice_fiscale", etichetta: "Codice fiscale", larghezza: 2 },
       { chiave: "tipologia_pagamento", etichetta: "Tipologia Pagamento", tipo: "scelta", opzioniDa: "tipologie_pagamento", titoloOpzioni: "Tipologie Pagamento", larghezza: 2 },
       // Codice destinatario per la fatturazione elettronica (7 caratteri; 0000000 per i privati)
       { chiave: "codice_sdi", etichetta: "Codice SDI", larghezza: 1, segnaposto: "es. M5UXCR1" },

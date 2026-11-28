@@ -300,14 +300,15 @@ export default function ContiClienti() {
 
       {visibili.length > 0 && (
         <table className="griglia tabella-conti">
-          <thead><tr><th /><th>Cliente</th><th className="destra">Rapportini</th><th>Dal</th><th className="destra">Da riscuotere</th><th className="destra" title="Giorni passati da quando hai segnato conteggiati i rapportini (il più vecchio ancora da pagare)">Giorni dal conto</th><th className="destra">Prev. non approvati</th><th>Soglia</th></tr></thead>
+          <thead><tr><th /><th>Cliente</th><th className="destra"><span className="solo-largo">Rapportini</span><span className="solo-stretto" title="Rapportini">Rapp.</span></th><th>Dal</th><th className="destra">Da riscuotere</th><th className="destra" title="Giorni passati da quando hai segnato conteggiati i rapportini (il più vecchio ancora da pagare)">Giorni dal conto</th><th className="destra">Prev. non approvati</th><th>Soglia</th></tr></thead>
           <tbody>
             {visibili.map((c) => (
               <Fragment key={c.cliente_id}>
                 <tr className={`${c.oltre ? "oltre" : ""}${aperto === c.cliente_id ? " aperto" : ""}`} onClick={() => apri(c)}>
                   <td className="freccia">{aperto === c.cliente_id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
                   <td>
-                    <b>{c.cliente}</b>{c.oltre && <span className="bollino-oltre"><AlertTriangle size={13} /> oltre la soglia</span>}
+                    {/* Nome e avviso sempre sulla stessa riga (il nome lungo si accorcia con "…", intero passandoci sopra) */}
+                    <div className="nome-conto"><b title={c.cliente}>{c.cliente}</b>{c.oltre && <span className="bollino-oltre"><AlertTriangle size={13} /> oltre la soglia</span>}</div>
                     {c.telefono && <div className="piccolo">{c.telefono}</div>}
                   </td>
                   <td className="destra">{c.rapporti}</td>
@@ -325,7 +326,7 @@ export default function ContiClienti() {
                         <input inputMode="decimal" defaultValue={c.soglia_personale ? String(c.soglia).replace(".", ",") : ""} placeholder={String(c.soglia).replace(".", ",")}
                           title="Vuoto = soglia generale" aria-label={`Soglia di ${c.cliente}`}
                           onBlur={(e) => cambiaSoglia(c, e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} /> €
-                        {c.soglia_personale && <span className="piccolo"> propria</span>}
+                        {c.soglia_personale && <span className="piccolo soglia-propria"> propria</span>}
                       </span>
                     ) : <>{euro(c.soglia)}</>}
                   </td>

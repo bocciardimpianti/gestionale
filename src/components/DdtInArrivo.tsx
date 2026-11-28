@@ -104,9 +104,11 @@ export default function DdtInArrivo({ onFinito, puoImportare, onCorreggi }: {
         <span className="piccolo">{aperti.length ? `${aperti.length} da sistemare` : "tutto importato"} · {righe.filter((x) => x.stato === "importato").length} importati negli ultimi 7 giorni</span>
         <span style={{ flex: 1 }} />
         {righe.length > aperti.length && <button type="button" className="link" onClick={() => setTutti(!tutti)}>{tutti ? "Solo da sistemare" : "Mostra tutti"}</button>}
-        {puoImportare && <button type="button" className="btn grigio piccolo-btn" disabled={inCorso} onClick={recupera}
-          title="Rilegge i PDF dei DDT importati negli ultimi 7 giorni e aggiunge alle righe codice e descrizione scritti dal fornitore">Recupera codici fornitore</button>}
-        {puoImportare && <button type="button" className="btn grigio piccolo-btn" disabled={inCorso} onClick={controllaAdesso}><RefreshCw size={14} /> Controlla adesso</button>}
+        {puoImportare && <span className="dia-pulsanti">
+          <button type="button" className="btn grigio piccolo-btn" disabled={inCorso} onClick={recupera}
+            title="Rilegge i PDF dei DDT importati negli ultimi 7 giorni e aggiunge alle righe codice e descrizione scritti dal fornitore">Recupera codici fornitore</button>
+          <button type="button" className="btn grigio piccolo-btn" disabled={inCorso} onClick={controllaAdesso}><RefreshCw size={14} /> Controlla adesso</button>
+        </span>}
       </div>
       {passo && <p className="piccolo">⏳ {passo}</p>}
       {stato && <p className={stato.startsWith("Errore") || stato.startsWith("Cartella") ? "errore" : "piccolo"}>{stato}</p>}

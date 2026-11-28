@@ -86,21 +86,26 @@ export default function ProgettiDaSmistare({ puoModificare }: { puoModificare: b
       </div>
       {stato && <p className={/non è aggiornata|non leggibile|non raggiungibile|Errore/.test(stato) ? "errore" : "piccolo"}>{stato}</p>}
       {aperto && daFare.map((x) => (
-        <div key={x.id} className="ps-riga">
-          <span className="dia-testi">
-            <button type="button" className="link pc-nome" onClick={() => apriProgetto(x)}>{iconaCategoria(x.categoria)} {x.nome_file}</button>
-            <span className="piccolo">{x.cartella ? `Drive: ${x.cartella} · ` : ""}{x.stato === "errore" ? "Errore: " : ""}{x.motivo}</span>
-          </span>
-          <MailProgetto mail={x.mail} />
-          {puoModificare && <>
-            <span className="ps-cliente"><Autocompleta id={`ps-${x.id}`} valore={scelte[x.id]?.cliente ?? ""} opzioni={clienti.map((c) => c.nome)} placeholder="Cliente…"
-              onCambia={(t) => setScelte((s) => ({ ...s, [x.id]: { categoria: s[x.id]?.categoria ?? x.categoria ?? "", cliente: t } }))} /></span>
-            <select value={scelte[x.id]?.categoria ?? x.categoria ?? ""} onChange={(e) => setScelte((s) => ({ ...s, [x.id]: { cliente: s[x.id]?.cliente ?? "", categoria: e.target.value } }))}>
-              {NOMI_CATEGORIE.map((n) => <option key={n} value={n}>{iconaCategoria(n)} {n}</option>)}
-            </select>
-            <button type="button" className="btn blu piccolo-btn" onClick={() => assegna(x)}>Assegna</button>
-            <button type="button" className="btn grigio piccolo-btn" onClick={() => scarta(x)}>Scarta</button>
-          </>}
+        <div key={x.id} className="ep-file senza-cliente">
+          <div className="ep-riga1">
+            <span className="ep-nome">
+              <button type="button" className="link pc-nome" onClick={() => apriProgetto(x)}>{iconaCategoria(x.categoria)} {x.nome_file}</button>
+              <span className="piccolo">{x.cartella ? `Drive: ${x.cartella} · ` : ""}{x.stato === "errore" ? "Errore: " : ""}{x.motivo}</span>
+            </span>
+            <span className="ep-cliente nessuno">senza cliente</span>
+          </div>
+          <div className="ep-riga2">
+            <MailProgetto mail={x.mail} />
+            {puoModificare && <>
+              <span className="ep-assegna"><Autocompleta id={`ps-${x.id}`} valore={scelte[x.id]?.cliente ?? ""} opzioni={clienti.map((c) => c.nome)} placeholder="Scegli il cliente…"
+                onCambia={(t) => setScelte((s) => ({ ...s, [x.id]: { categoria: s[x.id]?.categoria ?? x.categoria ?? "", cliente: t } }))} />
+                <button type="button" className="btn blu piccolo-btn" onClick={() => assegna(x)}>Assegna</button></span>
+              <select value={scelte[x.id]?.categoria ?? x.categoria ?? ""} title="Cartella" onChange={(e) => setScelte((s) => ({ ...s, [x.id]: { cliente: s[x.id]?.cliente ?? "", categoria: e.target.value } }))}>
+                {NOMI_CATEGORIE.map((n) => <option key={n} value={n}>{iconaCategoria(n)} {n}</option>)}
+              </select>
+              <button type="button" className="btn grigio piccolo-btn" onClick={() => scarta(x)}>Scarta</button>
+            </>}
+          </div>
         </div>
       ))}
     </div>
